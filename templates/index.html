@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AItheway - Services d'Intelligence Artificielle</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css">
+    <style>
+        /* Animation du texte d'accroche */
+        .typing-box {
+            font-size: 2.5rem;
+            font-weight: bold;
+            text-align: center;
+            margin-bottom: 2rem;
+            min-height: 50px;
+            white-space: nowrap;
+            overflow: hidden;
+            border-right: 3px solid;
+            animation: blink-caret 0.75s step-end infinite;
+            background: linear-gradient(to right, #4f46e5, #22d3ee);
+            -webkit-background-clip: text;
+            color: transparent;
+        }
+
+        @keyframes blink-caret {
+            50% {
+                border-color: transparent;
+            }
+        }
+
+        /* Style pour les cartes de service */
+        .service-card {
+            border-radius: 1rem;
+            overflow: hidden;
+            box-shadow: 0 10px 15px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            text-align: center;
+        }
+
+        .service-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 20px 25px rgba(0, 0, 0, 0.15);
+        }
+
+        .service-card img {
+            width: 100%;
+            height: 200px;
+            object-fit: cover;
+        }
+
+        .service-card .content {
+            padding: 1.5rem;
+        }
+
+        .btn-primary {
+            background-color: #4f46e5;
+            color: white;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.5rem;
+            transition: background-color 0.3s;
+        }
+
+        .btn-primary:hover {
+            background-color: #3b82f6;
+        }
+
+        /* Arrière-plan dynamique avec variation de couleur */
+        body {
+            background: linear-gradient(270deg, #e0f7fa, #80deea, #26c6da, #00acc1, #0097a7);
+            background-size: 1000% 1000%;
+            animation: backgroundShift 15s ease infinite;
+        }
+
+        @keyframes backgroundShift {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+    </style>
+</head>
+<body class="text-gray-900">
+
+    <!-- En-tête avec texte dynamique -->
+    <header class="py-16 text-center">
+        <h1 class="typing-box">Découvrez les Possibilités de l'Intelligence Artificielle</h1>
+        <p class="text-lg text-gray-700">Transformez votre vision en réalité avec nos services IA de pointe.</p>
+        <a href="#services" class="btn-primary mt-6 inline-block">Découvrir Nos Services</a>
+    </header>
+
+    <!-- Section des services -->
+    <section id="services" class="container mx-auto px-4 py-16 grid grid-cols-1 md:grid-cols-2 gap-8">
+        <!-- Carte Générer une Image -->
+        <div class="service-card bg-white">
+            <img src="{{ url_for('static', filename='images/generate_image.jpg') }}" alt="Générer une Image">
+            <div class="content">
+                <h2 class="text-xl font-semibold text-gray-800 mb-2">Générer une Image</h2>
+                <p class="text-gray-600 mb-4">Créez des images uniques avec notre technologie IA de génération d'images. Laissez libre cours à votre imagination et obtenez des résultats instantanés.</p>
+                <a href="{{ url_for('generate_image') }}" class="btn-primary inline-block">En Savoir Plus</a>
+            </div>
+        </div>
+
+        <!-- Carte Améliorer la Qualité de l'Image -->
+        <div class="service-card bg-white">
+            <img src="{{ url_for('static', filename='images/enhance_image.jpg') }}" alt="Améliorer la Qualité de l'Image">
+            <div class="content">
+                <h2 class="text-xl font-semibold text-gray-800 mb-2">Améliorer la Qualité</h2>
+                <p class="text-gray-600 mb-4">Améliorez la qualité de vos photos en quelques clics. Notre IA permet d'obtenir des images plus nettes et plus détaillées rapidement.</p>
+                <a href="{{ url_for('upload_enhance') }}" class="btn-primary inline-block">En Savoir Plus</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="bg-gray-800 py-8 text-center text-white">
+        <p>&copy; 2024 AItheway. Tous droits réservés.</p>
+    </footer>
+
+    <!-- Animation du texte dynamique -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const typingBox = document.querySelector('.typing-box');
+            const phrases = [
+                "Générer des Images",
+                "Améliorer la Qualité",
+                "Découvrir de Nouvelles Possibilités",
+                "Repousser les Limites de l'IA"
+            ];
+            let currentPhraseIndex = 0;
+            let currentCharIndex = 0;
+            let isDeleting = false;
+
+            function type() {
+                const currentPhrase = phrases[currentPhraseIndex];
+                const baseSpeed = isDeleting ? 50 : 150;
+                const speed = isDeleting || currentCharIndex > currentPhrase.length * 0.7 ? baseSpeed * 0.7 : baseSpeed;
+
+                if (isDeleting) {
+                    typingBox.textContent = currentPhrase.substring(0, currentCharIndex--);
+                    if (currentCharIndex < 0) {
+                        isDeleting = false;
+                        currentPhraseIndex = (currentPhraseIndex + 1) % phrases.length;
+                    }
+                } else {
+                    typingBox.textContent = currentPhrase.substring(0, currentCharIndex++);
+                    if (currentCharIndex === currentPhrase.length) {
+                        setTimeout(() => isDeleting = true, 1000);
+                    }
+                }
+                setTimeout(type, speed);
+            }
+
+            type();
+        });
+    </script>
+</body>
+</html>

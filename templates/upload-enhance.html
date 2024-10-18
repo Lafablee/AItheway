@@ -1,0 +1,365 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Améliorer la Qualité d'une Image</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            user-select: none;
+        }
+        h1 {
+            text-align: center;
+            margin-top: 40px;
+            color: #333;
+        }
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 40px;
+            background-color: white;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            border-radius: 12px;
+            margin-top: 50px;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 12px;
+            font-size: 18px;
+            font-weight: bold;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+            margin-top: 1px;
+            transition: all 0.3s ease;
+        }
+        .comparison-container {
+            position: relative;
+            width: 100%;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        .image, .enhanced-image {
+            width: 100%;
+            height: auto;
+        }
+        .enhanced-image {
+            position: absolute;
+            top: 0;
+            left: 0;
+            clip-path: inset(0 100% 0 0);
+        }
+        .range-slider {
+            width: 100%;
+            margin-top: 15px;
+            -webkit-appearance: none;
+            background-color: #ddd;
+            height: 6px;
+            border-radius: 5px;
+            outline: none;
+        }
+        .vertical-bar {
+            position: absolute;
+            top: 0;
+            width: 4px;
+            height: 96%;
+            background-color: white;
+            pointer-events: none;
+            box-shadow: 0 0 5px rgba(0, 0, 0, 0.2);
+        }
+        .label {
+            position: absolute;
+            top: 10px;
+            padding: 5px 10px;
+            background-color: rgba(0, 0, 0, 0.7);
+            color: white;
+            border-radius: 12px;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .loading-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            color: #fff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease-in-out;
+        }
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+            animation: fadeSinusoidal 3s infinite;
+        }
+        .error-message {
+            color: #a94442;
+            background-color: #f2dede;
+            border: 1px solid #ebccd1;
+            padding: 10px;
+            margin-top: 20px;
+            border-radius: 5px;
+            display: none;
+        }
+        .download-section {
+            margin-top: 20px;
+            display: block;              //originalnone
+            position: relative;
+        }
+        .btn-success {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #007bff;
+            border: none;
+            color: white;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+        .btn-success:hover {
+            background-color: #00BFFF;
+        }
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background-color: #00BFFF;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+            z-index: 1000;
+        }
+        .dropdown-menu.show {
+            display: block;
+        }
+        .dropdown-item {
+            color: white;
+            padding: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: background-color 0.3s ease;
+        }
+        .dropdown-item:hover {
+            background-color: #1E90FF;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="mt-5">Améliorer la Qualité d'une Image</h1>
+        <div class="custom-file mt-3" id="file-container">
+            <input type="file" id="file" name="file" class="custom-file-input" accept="image/png, image/jpeg, image/jpg, image/gif" required style="display: none;">
+            <button class="btn btn-primary" id="enhance-button">Sélectionner une image à améliorer</button>
+        </div>
+
+        <div id="error-message" class="error-message">
+            Format de fichier non pris en charge. Veuillez importer un fichier en PNG, JPEG, JPG, ou GIF.
+        </div>
+
+        <div id="image-chat-container">
+            <!-- Tous les nouveaux comparateurs d'images seront ajoutés ici -->
+        </div>
+
+        <!-- Section de téléchargement avec choix du format -->
+       <!-- voir chat pour réinitialisr -->
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('file');
+        const enhanceButton = document.getElementById('enhance-button');
+        const errorMessage = document.getElementById('error-message');
+        const imageChatContainer = document.getElementById('image-chat-container');
+        const downloadButton = document.getElementById('download-button');
+        const formatDropdown = document.getElementById('format-dropdown');
+        let enhancedImageUrl = '';
+
+        function addImageComparison(originalSrc, enhancedSrc) {
+            const comparisonContainer = document.createElement('div');
+            comparisonContainer.classList.add('comparison-container');
+
+            const rangeSlider = document.createElement('input');
+            rangeSlider.classList.add('range-slider');
+            rangeSlider.type = 'range';
+            rangeSlider.min = '0';
+            rangeSlider.max = '100';
+            rangeSlider.value = '50';
+
+            const verticalBar = document.createElement('div');
+            verticalBar.classList.add('vertical-bar');
+            verticalBar.style.left = '50%';
+
+            const labelAvant = document.createElement('div');
+            labelAvant.classList.add('label');
+            labelAvant.innerText = 'after';
+            labelAvant.style.left = 'calc(50% - 55px)';
+
+            const labelApres = document.createElement('div');
+            labelApres.classList.add('label');
+            labelApres.innerText = 'before';
+            labelApres.style.left = 'calc(50% + 5px)';
+
+            const originalImage = document.createElement('img');
+            originalImage.src = originalSrc;
+            originalImage.classList.add('image');
+
+            const enhancedImage = document.createElement('img');
+            enhancedImage.src = enhancedSrc;
+            enhancedImage.classList.add('enhanced-image');
+
+
+            const loadingOverlay = document.createElement('div');
+            loadingOverlay.classList.add('loading-overlay');
+            loadingOverlay.innerText = 'Analyse en cours...';
+
+            comparisonContainer.appendChild(originalImage);
+            comparisonContainer.appendChild(enhancedImage);
+            comparisonContainer.appendChild(verticalBar);
+            comparisonContainer.appendChild(labelAvant);
+            comparisonContainer.appendChild(labelApres);
+            comparisonContainer.appendChild(rangeSlider);
+            comparisonContainer.appendChild(loadingOverlay);
+            //comparisonContainer.appendChild(downloadSection);
+
+            const downloadSection = createDownloadSection(enhancedImage);
+            loadingOverlay.appendChild(downloadSection)
+
+
+            imageChatContainer.prepend(comparisonContainer);
+
+            rangeSlider.addEventListener('input', () => {
+                const value = rangeSlider.value;
+                enhancedImage.style.clipPath = `inset(0 ${100 - value}% 0 0)`;
+                verticalBar.style.left = `${value}%`;
+                labelAvant.style.left = `calc(${value}% - 55px)`;
+                labelApres.style.left = `calc(${value}% + 5px)`;
+            });
+
+            return loadingOverlay;
+        }
+        function createDownloadSection(enhancedImage) {
+            const downloadSection = document.createElement('div');
+            downloadSection.classList.add('download-section');
+            const downloadButton = document.createElement('button');
+            downloadButton.classList.add('btn', 'btn-success');
+            downloadButton.textContent = 'Télécharger l\'image';
+            const formatDropdown = document.createElement('div');
+            formatDropdown.classList.add('dropdown-menu');
+
+            ['png', 'jpg', 'jpeg', 'gif'].forEach(format => {
+                const formatItem = document.createElement('div');
+                formatItem.classList.add('dropdown-item');
+                formatItem.setAttribute('data-format', format);
+                formatItem.textContent = format.toUpperCase();
+                formatItem.addEventListener('click', () => {
+                    downloadImage(enhancedImage.src, format);
+                    formatDropdown.classList.remove('show');
+                });
+                 formatDropdown.appendChild(formatItem);
+            });
+
+             // Affichage du menu de formats
+            downloadButton.addEventListener('click', () => {
+             console.log('Bouton télécharger cliqué, formatDropdown affiché :', formatDropdown.classList.toggle('show'));
+            });
+
+            downloadSection.appendChild(downloadButton);
+            downloadSection.appendChild(formatDropdown);
+
+            return downloadSection;
+        }
+
+        enhanceButton.addEventListener('click', () => {
+            fileInput.click();
+        });
+
+        fileInput.addEventListener('change', async () => {
+            const file = fileInput.files[0];
+            const acceptedFormats = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+
+            if (!acceptedFormats.includes(file.type)) {
+                errorMessage.style.display = 'block';
+                return;
+            }
+
+            errorMessage.style.display = 'none';
+            const originalSrc = URL.createObjectURL(file);
+            const loadingOverlay = addImageComparison(originalSrc, originalSrc);
+            loadingOverlay.classList.add('active');
+
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/upload-enhance', {
+                    method: 'POST',
+                    body: formData
+                });
+                const result = await response.json();
+
+                loadingOverlay.classList.remove('active');
+                if (result.image_url) {
+                    const enhancedImage = loadingOverlay.parentNode.querySelector('.enhanced-image');
+
+                    enhancedImage.src = result.image_url;
+
+                    const downloadSection = createDownloadSection(enhancedImage);
+                    loadingOverlay.parentNode.appendChild(downloadSection);
+                    console.log("Bloc de téléchargement ajouté.");
+
+                    enhanceButton.textContent = 'Améliorer une nouvelle image';
+                } else {
+                    alert(`Erreur : ${result.error}`);
+                }
+            } catch (error) {
+                alert('Erreur : Impossible de contacter le serveur.');
+                loadingOverlay.classList.remove('active');
+            }
+        });
+
+        downloadButton.addEventListener('click', () => {
+            formatDropdown.classList.toggle('show');
+        });
+
+        formatDropdown.addEventListener('click', (event) => {
+            if (event.target.classList.contains('dropdown-item')) {
+                const format = event.target.getAttribute('data-format');
+                downloadImage(enhancedImageUrl, format);
+                formatDropdown.classList.remove('show');
+            }
+        });
+
+        function downloadImage(url, format) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = url;
+
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+
+                canvas.toBlob((blob) => {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `image-améliorée.${format}`;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }, `image/${format}`);
+            };
+        }
+    </script>
+</body>
+</html>

@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générer une Image</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            background-color: #f0f2f5;
+            display: flex;
+        }
+        .container {
+            max-width: 600px;
+            padding: 40px;
+            background-color: white;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin: 50px auto;
+            flex: 1;
+            display: none;
+        }
+        .container.active {
+            display: block;
+        }
+        .sidebar {
+            width: 150px;
+            padding: 20px;
+            background-color: #ffffff;
+            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin-left: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+            height: 100vh;
+            overflow-y: auto;
+        }
+        .sidebar img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .sidebar .new-image {
+            font-size: 24px;
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background-color: #007bff;
+            color: #ffffff;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+        .form-group input {
+            font-size: 16px;
+            padding: 10px;
+            border: 2px solid #007bff;
+            border-radius: 8px;
+            width: 100%;
+        }
+        .form-group input:disabled {
+            background-color: #f0f2f5;
+            color: #6b7280;
+        }
+        .btn-primary {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .btn-primary:hover {
+            background-color: #0056b3;
+        }
+        .spinner-border {
+            width: 2rem;
+            height: 2rem;
+            color: #333;
+            margin-top: 20px;
+            display: none;
+        }
+        #generated-image img {
+            max-width: 100%;
+            height: auto;
+            margin-top: 20px;
+        }
+        .download-section {
+            margin-top: 20px;
+            display: none;
+            position: relative;
+        }
+        .btn-download {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+        .btn-download:hover {
+            background-color: #0056b3;
+        }
+        .dropdown-menu {
+            display: none;
+            position: absolute;
+            top: 100%;
+            left: 0;
+            width: 100%;
+            background-color: #f8f9fa;
+            border-radius: 6px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            z-index: 1000;
+        }
+        .dropdown-menu.show {
+            display: block;
+        }
+        .dropdown-item {
+            color: #333;
+            padding: 8px;
+            cursor: pointer;
+            text-align: center;
+        }
+        .dropdown-item:hover {
+            background-color: #e2e6ea;
+        }
+    </style>
+</head>
+<body>
+    <div class="container active" id="image-generation-container">
+        <h1>Générer une Image</h1>
+        <form id="generate-image-form">
+            <div class="form-group">
+                <input type="text" id="prompt" placeholder="Entrez une description" required>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <span id="generate-text">Générer l'image</span>
+                <div class="spinner-border" id="spinner" role="status"></div>
+            </button>
+        </form>
+        <div id="generated-image" class="mt-5"></div>
+        <div class="download-section" id="download-section">
+            <button id="download-button" class="btn-download">Télécharger l'image</button>
+            <div class="dropdown-menu" id="format-dropdown">
+                <div class="dropdown-item" data-format="png">PNG</div>
+                <div class="dropdown-item" data-format="jpg">JPG</div>
+                <div class="dropdown-item" data-format="jpeg">JPEG</div>
+                <div class="dropdown-item" data-format="gif">GIF</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="sidebar" id="sidebar">
+        <div class="new-image" onclick="createNewInstance()">+</div>
+    </div>
+
+    <script>
+        let generatedImageUrl = '';
+        const instances = [];
+
+        document.getElementById('generate-image-form').addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const promptInput = document.getElementById('prompt');
+            const spinner = document.getElementById('spinner');
+            const generateText = document.getElementById('generate-text');
+            const downloadSection = document.getElementById('download-section');
+            const imageDiv = document.getElementById('generated-image');
+
+            promptInput.disabled = true;
+            spinner.style.display = 'inline-block';
+            generateText.style.display = 'none';
+            downloadSection.style.display = 'none';
+
+            try {
+                const response = await fetch('/generate_image', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: `prompt=${encodeURIComponent(promptInput.value)}`
+                });
+
+                const result = await response.json();
+                if (result.image_url) {
+                    generatedImageUrl = result.image_url;
+                    imageDiv.innerHTML = `<img src="${generatedImageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
+                    downloadSection.style.display = 'block';
+
+                    saveInstance(promptInput.value, generatedImageUrl);
+                    addImageToSidebar(generatedImageUrl, instances.length - 1);
+
+                    generateText.textContent = 'Générer une nouvelle image';
+                } else {
+                    imageDiv.innerHTML = `<p class="text-danger mt-3">Erreur : ${result.error}</p>`;
+                }
+            } catch (error) {
+                imageDiv.innerHTML = `<p class="text-danger mt-3">Erreur : Impossible de contacter le serveur.</p>`;
+            } finally {
+                spinner.style.display = 'none';
+                generateText.style.display = 'inline';
+                promptInput.disabled = false;
+            }
+        });
+
+        function saveInstance(prompt, imageUrl) {
+            instances.push({ prompt, imageUrl });
+        }
+
+        function addImageToSidebar(url, index) {
+            const sidebar = document.getElementById('sidebar');
+            const thumbnail = document.createElement('img');
+            thumbnail.src = url;
+            thumbnail.onclick = () => displayInstance(index);
+            sidebar.insertBefore(thumbnail, sidebar.querySelector('.new-image').nextSibling);
+        }
+
+        function displayInstance(index) {
+            const { prompt, imageUrl } = instances[index];
+            const promptInput = document.getElementById('prompt');
+            const imageDiv = document.getElementById('generated-image');
+            const downloadSection = document.getElementById('download-section');
+
+            promptInput.value = prompt;
+            promptInput.disabled = true;
+            imageDiv.innerHTML = `<img src="${imageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
+            downloadSection.style.display = 'block';
+            generatedImageUrl = imageUrl;
+
+            document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+        }
+
+        function createNewInstance() {
+            document.getElementById('prompt').value = '';
+            document.getElementById('prompt').disabled = false;
+            document.getElementById('generated-image').innerHTML = '';
+            document.getElementById('download-section').style.display = 'none';
+            document.getElementById('generate-text').textContent = 'Générer l\'image';
+        }
+
+        document.getElementById('download-button').addEventListener('click', () => {
+            document.getElementById('format-dropdown').classList.toggle('show');
+        });
+
+        document.getElementById('format-dropdown').addEventListener('click', (event) => {
+            if (event.target.classList.contains('dropdown-item')) {
+                const format = event.target.getAttribute('data-format');
+                downloadImage(generatedImageUrl, format);
+                document.getElementById('format-dropdown').classList.remove('show');
+            }
+        });
+
+        function downloadImage(url, format) {
+            const img = new Image();
+            img.crossOrigin = 'anonymous';
+            img.src = url;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = img.width;
+                canvas.height = img.height;
+                ctx.drawImage(img, 0, 0);
+                canvas.toBlob((blob) => {
+                    const link = document.createElement('a');
+                    link.href = URL.createObjectURL(blob);
+                    link.download = `image-generee.${format}`;
+                    link.click();
+                    URL.revokeObjectURL(link.href);
+                }, `image/${format}`);
+            };
+        }
+    </script>
+</body>
+</html>
