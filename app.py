@@ -6,6 +6,13 @@ from io import BytesIO
 from PIL import Image
 from werkzeug.utils import secure_filename
 import requests
+import jwt
+from jwt import InvalidTokenError
+
+from functools import wraps
+
+SECRET_KEY = 'RwsjOzopOySjJwiZftGP15TbjvHYLiskumgmp+FIoD0='
+
 
 load_dotenv(dotenv_path='.env')
 
@@ -21,6 +28,28 @@ app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
 
 deep_ai_api_key = os.getenv('DEEPAI_API_KEY')
+
+def verify_jwt(token):
+    try:
+        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        return decoded  # retourne le payload décodé du token si valide
+    except InvalidTokenError:
+        return None
+def jwt_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        # Récupérer le token depuis les en-têtes de la requête
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'Authorization header is missing'}), 401
+        # Vérifier le format du token dans le header
+        token = auth_header.split(" ")[1] if " " in auth_header else auth_header
+        decoded_token = verify_jwt(token)
+        if not decoded_token:
+            return jsonify({'error': 'Token is invalid'}), 401
+        # Ajouter les informations décodées dans les kwargs pour les utiliser dans la route
+        return f(*args, **kwargs)
+    return decorated_function
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -38,6 +67,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/generate_image', methods=['GET', 'POST'])
+@jwt_required
 def generate_image():
     if request.method == 'POST':
         prompt = request.form['prompt']
@@ -96,6 +126,7 @@ def download_image():
     return jsonify({'error': 'Image not found'}), 404
 
 @app.route('/upload-enhance', methods=['GET', 'POST'])
+@jwt_required
 def upload_enhance():
     if request.method == 'GET':
         return render_template('upload-enhance.html')

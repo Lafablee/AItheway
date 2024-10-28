@@ -10,6 +10,7 @@ python = "^3.11"
 flask = "2.3.3"
 openai = "^1.51.1"
 python-dotenv = "1.0.0"
+pyjwt = "^2.9.0"
 
 
 [build-system]
