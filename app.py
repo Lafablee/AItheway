@@ -32,23 +32,8 @@ def verify_jwt(token):
     try:
         decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
         return decoded  # retourne le payload décodé du token si valide
-    except InvalidTokenError:
+    except jwt.InvalidTokenError:
         return None
-def jwt_required(f):
-    @wraps(f)
-    def decorated_function(*args, **kwargs):
-        # Récupérer le token depuis les en-têtes de la requête
-        auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'error': 'Authorization header is missing'}), 401
-        # Vérifier le format du token dans le header
-        token = auth_header.split(" ")[1] if " " in auth_header else auth_header
-        decoded_token = verify_jwt(token)
-        if not decoded_token:
-            return jsonify({'error': 'Token is invalid'}), 401
-        # Ajouter les informations décodées dans les kwargs pour les utiliser dans la route
-        return f(*args, **kwargs)
-    return decorated_function
 
 def token_required(f):
     @wraps(f)
@@ -61,12 +46,10 @@ def token_required(f):
         try:
             decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
             kwargs['decoded_token'] = decoded_token
-        except InvalidTokenError:
+        except jwt.InvalidTokenError:
             return jsonify({'error': 'Token is invalid'}), 401
         return f(*args, **kwargs)
-
     return decorated_function
-
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
@@ -85,9 +68,17 @@ def index():
 
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
-def generate_image():
+def generate_image(*args, **kwargs):
+    # Accéder à decoded_token en le récupérant depuis kwargs
+    decoded_token = kwargs.get("decoded_token")
+    if request.method == 'GET':
+        return jsonify({"message": "Access Ok."})
+
     if request.method == 'POST':
-        prompt = request.form['prompt']
+        prompt = request.form.get['prompt']
+
+        if not prompt:
+            return jsonify({"message": "create what inspires you !"})
         app.logger.info(f"Received prompt: {prompt}")
 
         try:
@@ -143,8 +134,9 @@ def download_image():
     return jsonify({'error': 'Image not found'}), 404
 
 @app.route('/upload-enhance', methods=['GET', 'POST'])
-@jwt_required
-def upload_enhance():
+@token_required
+def upload_enhance(*args, **kwargs):
+    decoded_token = kwargs.get("decoded_token")
     if request.method == 'GET':
         return render_template('upload-enhance.html')
 
