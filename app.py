@@ -84,7 +84,7 @@ def index():
     return render_template('index.html')
 
 @app.route('/generate_image', methods=['GET', 'POST'])
-@jwt_required
+@token_required
 def generate_image():
     if request.method == 'POST':
         prompt = request.form['prompt']
