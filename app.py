@@ -8,7 +8,6 @@ from werkzeug.utils import secure_filename
 import requests
 import jwt
 from jwt import InvalidTokenError
-
 from functools import wraps
 
 SECRET_KEY = 'RwsjOzopOySjJwiZftGP15TbjvHYLiskumgmp+FIoD0='
@@ -50,6 +49,24 @@ def jwt_required(f):
         # Ajouter les informations décodées dans les kwargs pour les utiliser dans la route
         return f(*args, **kwargs)
     return decorated_function
+
+def token_required(f):
+    @wraps(f)
+    def decorated_function(*args, **kwargs):
+        auth_header = request.headers.get('Authorization')
+        if not auth_header:
+            return jsonify({'error': 'Authorization header is missing'}), 401
+        token = auth_header.split(" ")[1] if " " in auth_header else auth_header
+
+        try:
+            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            kwargs['decoded_token'] = decoded_token
+        except InvalidTokenError:
+            return jsonify({'error': 'Token is invalid'}), 401
+        return f(*args, **kwargs)
+
+    return decorated_function
+
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
