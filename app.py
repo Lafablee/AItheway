@@ -64,7 +64,7 @@ def check_client_permission(client_id, action):
     )
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT is_allowed FROM permisions WHERE client_id = %s AND action = %s
+        SELECT is_allowed FROM permissions WHERE client_id = %s AND action = %s
     """, (client_id, action))
     result = cursor.fetchone()
     cursor.close()
@@ -75,7 +75,8 @@ def check_client_permission(client_id, action):
 def verify_jwt_token(token):
     try:
         decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        return decoded_token  # retourne le payload décodé du token si valide
+        wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
+        return wp_user_id  # Retourne uniquement wp_user_id si le token est valide
     except jwt.InvalidTokenError:
         return None
 
@@ -87,11 +88,11 @@ def token_required(f):
             abort(401, description="Token missing or invalid")
 
         token = auth_header.split(" ")[1]
-        user_data = verify_jwt_token(token)
-        if not user_data:
+        wp_user_id = verify_jwt_token(token)
+        if not wp_user_id:
             abort(403, description="Token is invalid")
 
-        return f(user_data, *args, **kwargs)
+        return f(wp_user_id, *args, **kwargs)
     return decorated_function
 
 def allowed_file(filename):
