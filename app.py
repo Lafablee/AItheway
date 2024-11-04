@@ -1,7 +1,7 @@
 import os
 import openai
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, jsonify, url_for, send_file
+from flask import Flask, render_template, request, jsonify, url_for, send_file, abort
 from io import BytesIO
 from PIL import Image
 from werkzeug.utils import secure_filename
@@ -9,14 +9,15 @@ import requests
 import jwt
 from jwt import InvalidTokenError
 from functools import wraps
+import psycopg2
 
-SECRET_KEY = 'RwsjOzopOySjJwiZftGP15TbjvHYLiskumgmp+FIoD0='
+
 
 
 load_dotenv(dotenv_path='.env')
 
 openai.api_key = os.getenv("openai.api_key")
-
+SECRET_KEY = os.getenv('SECRET_KEY')
 
 app = Flask(__name__)
 
@@ -28,10 +29,53 @@ app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
 
 deep_ai_api_key = os.getenv('DEEPAI_API_KEY')
 
-def verify_jwt(token):
+
+def get_client_by_wp_user_id(wp_user_id):
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+    )
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT id, email, subscription_level, status FROM clients WHERE wp_user_id = %s
+    """, (wp_user_id,))
+    client = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    if client:
+        return{
+            "id": client[0],
+            "email": client[1],
+            "subscription_level": client[2],
+            "status": client[3]
+        }
+    else:
+        return None
+
+def check_client_permission(client_id, action):
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+    )
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT is_allowed FROM permisions WHERE client_id = %s AND action = %s
+    """, (client_id, action))
+    result = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    return result is not None and result[0]
+
+def verify_jwt_token(token):
     try:
-        decoded = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        return decoded  # retourne le payload décodé du token si valide
+        decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+        return decoded_token  # retourne le payload décodé du token si valide
     except jwt.InvalidTokenError:
         return None
 
@@ -39,16 +83,15 @@ def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         auth_header = request.headers.get('Authorization')
-        if not auth_header:
-            return jsonify({'error': 'Authorization header is missing'}), 401
-        token = auth_header.split(" ")[1] if " " in auth_header else auth_header
+        if not auth_header or not auth_header.startswith("Bearer "):
+            abort(401, description="Token missing or invalid")
 
-        try:
-            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-            kwargs['decoded_token'] = decoded_token
-        except jwt.InvalidTokenError:
-            return jsonify({'error': 'Token is invalid'}), 401
-        return f(*args, **kwargs)
+        token = auth_header.split(" ")[1]
+        user_data = verify_jwt_token(token)
+        if not user_data:
+            abort(403, description="Token is invalid")
+
+        return f(user_data, *args, **kwargs)
     return decorated_function
 
 def allowed_file(filename):
@@ -68,14 +111,22 @@ def index():
 
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
-def generate_image(*args, **kwargs):
-    # Accéder à decoded_token en le récupérant depuis kwargs
-    decoded_token = kwargs.get("decoded_token")
+def generate_image(decoded_token):
+    client = None
+    # Récupérer l'ID utilisateur depuis le token décodé
+    wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
+    if not client:
+        return jsonify({"error": "Client non trouvé"}), 404
+    if not check_client_permission(client["id"], "generate_image"):
+        return jsonify({"error": "Permission refusée pour générer une image"}), 403
+
+
+    # Vérifie si le client a la permission d'accéder à cette fonctionnalité
     if request.method == 'GET':
-        return jsonify({"message": "Access Ok."})
+        return render_template('generate-image.html')
 
     if request.method == 'POST':
-        prompt = request.form.get['prompt']
+        prompt = request.form.get('prompt')
 
         if not prompt:
             return jsonify({"message": "create what inspires you !"})
@@ -135,8 +186,21 @@ def download_image():
 
 @app.route('/upload-enhance', methods=['GET', 'POST'])
 @token_required
-def upload_enhance(*args, **kwargs):
-    decoded_token = kwargs.get("decoded_token")
+def upload_enhance(decoded_token):
+    client = None
+    # Récupérer l'ID utilisateur depuis le token décodé
+    wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
+
+    # Vérifie si le client existe et a la permission d'utiliser cette route
+    client = get_client_by_wp_user_id(wp_user_id)
+    if not client:
+        app.logger.error("client unsolved !")
+        return jsonify({"error": "Client non trouvé"}), 404
+
+    if not check_client_permission(client["id"], "upload_enhance"):
+        app.logger.error("Permission refusée pour l'amélioration d'image")
+        return jsonify({"error": "Permission refusée pour l'upload et l'amélioration d'image"}), 403
+
     if request.method == 'GET':
         return render_template('upload-enhance.html')
 
@@ -197,4 +261,4 @@ def download_enhanced_image():
     return jsonify({'error': 'Enhanced image not found'}), 404
 
 if __name__ == '__main__':
-    app.run(debug=True, host='127.0.0.1', port=5000)
+    app.run(debug=True, host='127.0.0.1', port=5432)

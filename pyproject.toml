@@ -11,6 +11,7 @@ flask = "2.3.3"
 openai = "^1.51.1"
 python-dotenv = "1.0.0"
 pyjwt = "^2.9.0"
+psycopg2-binary = "^2.9.10"
 
 
 [build-system]
