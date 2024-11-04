@@ -74,9 +74,9 @@ def check_client_permission(client_id, action):
 
 def verify_jwt_token(token):
     try:
+        # Décodage du token, s'assurant que le résultat est un dictionnaire
         decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-        wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
-        return wp_user_id  # Retourne uniquement wp_user_id si le token est valide
+        return decoded_token  # Retourne le dictionnaire JSON décodé ENTIER !
     except jwt.InvalidTokenError:
         return None
 
@@ -88,9 +88,14 @@ def token_required(f):
             abort(401, description="Token missing or invalid")
 
         token = auth_header.split(" ")[1]
-        wp_user_id = verify_jwt_token(token)
-        if not wp_user_id:
+        decoded_token = verify_jwt_token(token)
+        if not decoded_token:
             abort(403, description="Token is invalid")
+
+        # Extraction de wp_user_id depuis le token décodé
+        wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
+        if not wp_user_id:
+            abort(403, description="invalid wp_user_id")
 
         return f(wp_user_id, *args, **kwargs)
     return decorated_function
@@ -112,10 +117,9 @@ def index():
 
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
-def generate_image(decoded_token):
-    client = None
+def generate_image(wp_user_id):
+    client = get_client_by_wp_user_id(wp_user_id)
     # Récupérer l'ID utilisateur depuis le token décodé
-    wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
     if not client:
         return jsonify({"error": "Client non trouvé"}), 404
     if not check_client_permission(client["id"], "generate_image"):
@@ -187,17 +191,14 @@ def download_image():
 
 @app.route('/upload-enhance', methods=['GET', 'POST'])
 @token_required
-def upload_enhance(decoded_token):
-    client = None
-    # Récupérer l'ID utilisateur depuis le token décodé
-    wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
-
-    # Vérifie si le client existe et a la permission d'utiliser cette route
+def upload_enhance(wp_user_id):
     client = get_client_by_wp_user_id(wp_user_id)
-    if not client:
-        app.logger.error("client unsolved !")
-        return jsonify({"error": "Client non trouvé"}), 404
+    # vérifie si le client existe dans la base de données
 
+    if not client:
+        app.logger.error("client non trouvé !")
+        return jsonify({"error": "Client non trouvé"}), 404
+    # Vérifie si le client existe et a la permission d'utiliser cette route
     if not check_client_permission(client["id"], "upload_enhance"):
         app.logger.error("Permission refusée pour l'amélioration d'image")
         return jsonify({"error": "Permission refusée pour l'upload et l'amélioration d'image"}), 403
