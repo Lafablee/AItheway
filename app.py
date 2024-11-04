@@ -175,7 +175,7 @@ def validate_image_format(img_format):
 def index():
     return render_template('index.html')
 
-@app.route('/api/sync-membership', methods=['POST'])
+@app.route('/sync-membership', methods=['POST'])
 @token_required
 def sync_membership(wp_user_id):
     auth_header = request.headers.get('Authorization')
