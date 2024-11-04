@@ -18,6 +18,7 @@ load_dotenv(dotenv_path='.env')
 
 openai.api_key = os.getenv("openai.api_key")
 SECRET_KEY = os.getenv('SECRET_KEY')
+FIXED_TOKEN = os.getenv('FIXED_TOKEN')
 
 app = Flask(__name__)
 
@@ -44,16 +45,29 @@ def get_client_by_wp_user_id(wp_user_id):
     client = cursor.fetchone()
     cursor.close()
     conn.close()
+    return {
+        "id": client[0],
+        "email": client[1],
+        "subscription_level": client[2],
+        "status": client[3],
+    } if client else None
 
-    if client:
-        return{
-            "id": client[0],
-            "email": client[1],
-            "subscription_level": client[2],
-            "status": client[3]
-        }
-    else:
-        return None
+def add_permission(client_id, action):
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+    )
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO permissions (client_id, action, is_allowed)
+        VALUES (%s, %s, TRUE)
+        ON CONFLICT (client_id, action) DO NOTHING
+    """, (client_id, action))
+    conn.commit()
+    cursor.close()
+    conn.close()
 
 def check_client_permission(client_id, action):
     conn = psycopg2.connect(
@@ -100,6 +114,52 @@ def token_required(f):
         return f(wp_user_id, *args, **kwargs)
     return decorated_function
 
+def add_client(wp_user_id, email, subscription_level, status):
+    conn = psycopg2.connect(...)
+    cursor = conn.cursor()
+    cursor.execute("""
+        INSERT INTO clients (wp_user_id, email, subscription_level, status)
+        VALUES (%s, %s, %s, %s) RETURNING id
+    """, (wp_user_id, email, subscription_level, status))
+    client_id = cursor.fetchone()[0]
+    conn.commit()
+    cursor.close()
+    conn.close()
+    return client_id
+
+def update_client_subscription(client_id, subscription_level, status):
+    conn = psycopg2.connect(...)
+    cursor = conn.cursor()
+    cursor.execute("""
+        UPDATE clients SET subscription_level = %s, status = %s WHERE id = %s
+    """, (subscription_level, status, client_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def assign_permissions(client_id, subscription_level):
+    permissions = {
+        "basic": ["view_content"],
+        "premium": ["view_content", "generate_image", "upload_enhance"],
+        "pro": ["view_content", "generate_image", "upload_enhance", "access_special_features"]
+    }
+
+    # Attribue les permissions définies pour le niveau d'abonnement
+    for action in permissions.get(subscription_level, []):
+        add_permission(client_id, action)
+
+def revoke_permissions(client_id):
+    conn = psycopg2.connect(...)
+    cursor = conn.cursor()
+    cursor.execute("""
+        DELETE FROM permissions WHERE client_id = %s
+    """, (client_id,))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
@@ -114,6 +174,37 @@ def validate_image_format(img_format):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/api/sync-membership', methods=['POST'])
+@token_required
+def sync_membership(wp_user_id):
+    auth_header = request.headers.get('Authorization')
+    if auth_header != f'Bearer {FIXED_TOKEN}':
+        return jsonify({"error": "Unauthorized"}), 401
+
+
+    data = request.get_json()
+    wp_user_id = data.get('wp_user_id')
+    email = data.get('email')
+    subscription_level = data.get('subscription_level')
+    status = data.get('status')
+
+    # Vérifie si le client existe
+    client = get_client_by_wp_user_id(wp_user_id)
+    if not client:
+        # Si le client n'existe pas, ajoute-le avec les permissions de base
+        client_id = add_client(wp_user_id, email, subscription_level, status)
+    else:
+        # Met à jour les informations d'abonnement
+        update_client_subscription(client["id"], subscription_level, status)
+        client_id = client["id"]
+
+    # Attribue les permissions en fonction du niveau d'abonnement
+    if status == 'active':
+        assign_permissions(client_id, subscription_level)
+    else:
+        revoke_permissions(client_id)
+    return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
 
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
