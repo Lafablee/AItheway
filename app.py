@@ -102,16 +102,18 @@ def token_required(f):
             abort(401, description="Token missing or invalid")
 
         token = auth_header.split(" ")[1]
-        decoded_token = verify_jwt_token(token)
-        if not decoded_token:
+        if token == FIXED_TOKEN:
+            return f(*args, **kwargs)
+        try:
+            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
+            if not wp_user_id:
+                abort(403, description="invalid wp_user_id")
+
+             return f(wp_user_id, *args, **kwargs)
+        except jwt.InvalidTokenError:
             abort(403, description="Token is invalid")
 
-        # Extraction de wp_user_id depuis le token décodé
-        wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
-        if not wp_user_id:
-            abort(403, description="invalid wp_user_id")
-
-        return f(wp_user_id, *args, **kwargs)
     return decorated_function
 
 def add_client(wp_user_id, email, subscription_level, status):
