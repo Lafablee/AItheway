@@ -186,7 +186,7 @@ def sync_membership(wp_user_id):
         if auth_header != f'Bearer {FIXED_TOKEN}':
             return jsonify({"error": "Unauthorized"}), 401
 
-    return jsonify({"message": "arrivé jusqu'ici"}), 200
+
     data = request.get_json()
     wp_user_id = data.get('wp_user_id')
     email = data.get('email')
