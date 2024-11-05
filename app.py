@@ -117,7 +117,12 @@ def token_required(f):
     return decorated_function
 
 def add_client(wp_user_id, email, subscription_level, status):
-    conn = psycopg2.connect(...)
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+    )
     cursor = conn.cursor()
     cursor.execute("""
         INSERT INTO clients (wp_user_id, email, subscription_level, status)
