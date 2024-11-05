@@ -130,7 +130,12 @@ def add_client(wp_user_id, email, subscription_level, status):
     return client_id
 
 def update_client_subscription(client_id, subscription_level, status):
-    conn = psycopg2.connect(...)
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+    )
     cursor = conn.cursor()
     cursor.execute("""
         UPDATE clients SET subscription_level = %s, status = %s WHERE id = %s
@@ -151,7 +156,12 @@ def assign_permissions(client_id, subscription_level):
         add_permission(client_id, action)
 
 def revoke_permissions(client_id):
-    conn = psycopg2.connect(...)
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+    )
     cursor = conn.cursor()
     cursor.execute("""
         DELETE FROM permissions WHERE client_id = %s
