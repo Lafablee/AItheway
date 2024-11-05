@@ -103,14 +103,14 @@ def token_required(f):
 
         token = auth_header.split(" ")[1]
         if token == FIXED_TOKEN:
-            return f(*args, **kwargs)
+            return f(None, *args, **kwargs)
         try:
             decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
             wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
             if not wp_user_id:
-                abort(403, description="invalid wp_user_id")
+             abort(403, description="invalid wp_user_id")
 
-             return f(wp_user_id, *args, **kwargs)
+            return f(wp_user_id, *args, **kwargs)
         except jwt.InvalidTokenError:
             abort(403, description="Token is invalid")
 
@@ -180,9 +180,11 @@ def index():
 @app.route('/sync-membership', methods=['POST'])
 @token_required
 def sync_membership(wp_user_id):
-    auth_header = request.headers.get('Authorization')
-    if auth_header != f'Bearer {FIXED_TOKEN}':
-        return jsonify({"error": "Unauthorized"}), 401
+    #Si le token est fixe, `wp_user_id` sera `None`
+    if wp_user_id is None:
+        auth_header = request.headers.get('Authorization')
+        if auth_header != f'Bearer {FIXED_TOKEN}':
+            return jsonify({"error": "Unauthorized"}), 401
 
     return jsonify({"message": "arrivé jusqu'ici"}), 200
     data = request.get_json()
