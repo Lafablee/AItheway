@@ -10,6 +10,7 @@ import jwt
 from jwt import InvalidTokenError
 from functools import wraps
 import psycopg2
+from datetime import datetime, timedelta
 
 
 
@@ -117,6 +118,11 @@ def token_required(f):
     return decorated_function
 
 def add_client(wp_user_id, email, subscription_level, status):
+    start_date = datetime.now()
+    expiry_date = None
+    if status == 'cancelled':
+        expiry_date = start_date + timedelta(minutes=5)
+
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
@@ -125,9 +131,9 @@ def add_client(wp_user_id, email, subscription_level, status):
     )
     cursor = conn.cursor()
     cursor.execute("""
-        INSERT INTO clients (wp_user_id, email, subscription_level, status)
-        VALUES (%s, %s, %s, %s) RETURNING id
-    """, (wp_user_id, email, subscription_level, status))
+        INSERT INTO clients (wp_user_id, email, subscription_level, status, start_date, expiry_date)
+        VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
+    """, (wp_user_id, email, subscription_level, status, start_date, expiry_date))
     client_id = cursor.fetchone()[0]
     conn.commit()
     cursor.close()
@@ -142,23 +148,38 @@ def update_client_subscription(client_id, subscription_level, status):
         host=os.getenv("DB_HOST"),
     )
     cursor = conn.cursor()
+    # Récupère la date de début actuelle
+    cursor.execute("SELECT start_date FROM clients WHERE id = %s", (client_id,))
+    start_date = cursor.fetchone()[0]
+
+    expiry_date = None
+    if status == 'cancelled' and start_date:
+        expiry_date = start_date + timedelta(minutes=5)
+
     cursor.execute("""
-        UPDATE clients SET subscription_level = %s, status = %s WHERE id = %s
-    """, (subscription_level, status, client_id))
+        UPDATE clients SET subscription_level = %s, status = %s, expiry_date = %s WHERE id = %s
+    """, (subscription_level, status, expiry_date, client_id))
     conn.commit()
     cursor.close()
     conn.close()
 
 def assign_permissions(client_id, subscription_level):
+    subscription_mapping = {
+        "FREE Test PLAN": "basic",
+        "premium_plan": "premium",
+        "pro_plan": "pro"
+    }
+    mapped_level = subscription_mapping.get(subscription_level, subscription_level)
+
     permissions = {
         "basic": ["view_content"],
         "premium": ["view_content", "generate_image", "upload_enhance"],
         "pro": ["view_content", "generate_image", "upload_enhance", "access_special_features"]
     }
-
-    # Attribue les permissions définies pour le niveau d'abonnement
-    for action in permissions.get(subscription_level, []):
+    for action in permissions.get(mapped_level, []):
         add_permission(client_id, action)
+        app.logger.info(f"Permission '{action}' assigned to client ID {client_id}")
+
 
 def revoke_permissions(client_id):
     conn = psycopg2.connect(
@@ -168,14 +189,19 @@ def revoke_permissions(client_id):
         host=os.getenv("DB_HOST"),
     )
     cursor = conn.cursor()
+    # Vérifie les clients annulés dont l'expiry_date est dépassée
     cursor.execute("""
-        DELETE FROM permissions WHERE client_id = %s
-    """, (client_id,))
+        SELECT id FROM clients WHERE status = 'cancelled' AND expiry_date <= %s
+    """, (datetime.now(),))
+    clients_to_revoke = cursor.fetchall()
+
+    for client_id in clients_to_revoke:
+        revoke_permissions(client_id[0])
+        app.logger.info(f"Permissions revoked for client ID {client_id[0]} due to expired subscription.")
+
     conn.commit()
     cursor.close()
     conn.close()
-
-
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
