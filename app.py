@@ -119,9 +119,7 @@ def token_required(f):
 
 def add_client(wp_user_id, email, subscription_level, status):
     start_date = datetime.now()
-    expiry_date = None
-    if status == 'cancelled':
-        expiry_date = start_date + timedelta(minutes=5)
+    expiry_date = start_date + timedelta(minutes=5)
 
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
@@ -149,16 +147,25 @@ def update_client_subscription(client_id, subscription_level, status):
     )
     cursor = conn.cursor()
     # Récupère la date de début actuelle
-    cursor.execute("SELECT start_date FROM clients WHERE id = %s", (client_id,))
-    start_date = cursor.fetchone()[0]
+    cursor.execute("SELECT expiry_date FROM clients WHERE id = %s", (client_id,))
+    current_expiry_date = cursor.fetchone()[0]
 
-    expiry_date = None
-    if status == 'cancelled' and start_date:
-        expiry_date = start_date + timedelta(minutes=5)
+    if status == 'active':
+        # Prolonge la date d'expiration pour un renouvellement
+        if current_expiry_date is None or current_expiry_date < datetime.now():
+            new_expiry_date = datetime.now() + timedelta(days=30)
+        else:
+            new_expiry_date = current_expiry_date + timedelta(days=30)
 
-    cursor.execute("""
-        UPDATE clients SET subscription_level = %s, status = %s, expiry_date = %s WHERE id = %s
-    """, (subscription_level, status, expiry_date, client_id))
+        cursor.execute("""
+            UPDATE clients SET subscription_level = %s, status = %s, expiry_date = %s WHERE id = %s
+        """, (subscription_level, status, new_expiry_date, client_id))
+
+    elif status == 'cancelled':
+        # Mets à jour le statut sans changer expiry_date
+        cursor.execute("""
+            UPDATE clients SET subscription_level = %s, status = %s WHERE id = %s
+        """, (subscription_level, status, client_id))
     conn.commit()
     cursor.close()
     conn.close()
@@ -181,7 +188,7 @@ def assign_permissions(client_id, subscription_level):
         app.logger.info(f"Permission '{action}' assigned to client ID {client_id}")
 
 
-def revoke_permissions(client_id):
+def check_and_revoke_permissions():
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
@@ -196,9 +203,23 @@ def revoke_permissions(client_id):
     clients_to_revoke = cursor.fetchall()
 
     for client_id in clients_to_revoke:
-        revoke_permissions(client_id[0])
+        # Appelle la fonction pour révoquer les permissions pour chaque client expiré
+        revoke_client_permissions(client_id[0])
         app.logger.info(f"Permissions revoked for client ID {client_id[0]} due to expired subscription.")
 
+    conn.commit()
+    cursor.close()
+    conn.close()
+
+def revoke_client_permissions(client_id):
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+    )
+    cursor = conn.cursor()
+    cursor.execute("DELETE FROM permissions WHERE client_id = %s", (client_id,))
     conn.commit()
     cursor.close()
     conn.close()
@@ -248,7 +269,7 @@ def sync_membership(wp_user_id):
     if status == 'active':
         assign_permissions(client_id, subscription_level)
     else:
-        revoke_permissions(client_id)
+        revoke_client_permissions(client_id)
     return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
 
 @app.route('/generate_image', methods=['GET', 'POST'])
