@@ -153,9 +153,9 @@ def update_client_subscription(client_id, subscription_level, status):
     if status == 'active':
         # Prolonge la date d'expiration pour un renouvellement
         if current_expiry_date is None or current_expiry_date < datetime.now():
-            new_expiry_date = datetime.now() + timedelta(days=30)
+            new_expiry_date = datetime.now() + timedelta(minutes=5)
         else:
-            new_expiry_date = current_expiry_date + timedelta(days=30)
+            new_expiry_date = current_expiry_date + timedelta(minutes=5)
 
         cursor.execute("""
             UPDATE clients SET subscription_level = %s, status = %s, expiry_date = %s WHERE id = %s
