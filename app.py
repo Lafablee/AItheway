@@ -119,7 +119,7 @@ def token_required(f):
 
 def add_client(wp_user_id, email, subscription_level, status):
     start_date = datetime.now()
-    expiry_date = start_date + timedelta(minutes=5)
+    expiry_date = start_date + timedelta(days=1)
 
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
@@ -153,9 +153,9 @@ def update_client_subscription(client_id, subscription_level, status):
     if status == 'active':
         # Prolonge la date d'expiration pour un renouvellement
         if current_expiry_date is None or current_expiry_date < datetime.now():
-            new_expiry_date = datetime.now() + timedelta(minutes=5)
+            new_expiry_date = datetime.now() + timedelta(days=1)
         else:
-            new_expiry_date = current_expiry_date + timedelta(minutes=5)
+            new_expiry_date = current_expiry_date + timedelta(days=1)
 
         cursor.execute("""
             UPDATE clients SET subscription_level = %s, status = %s, expiry_date = %s WHERE id = %s
