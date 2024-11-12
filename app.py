@@ -1,7 +1,7 @@
 import os
 import openai
 from dotenv import load_dotenv
-from flask import Flask, render_template, request, jsonify, url_for, send_file, abort
+from flask import Flask, render_template, request, jsonify, url_for, send_file, abort, redirect
 from io import BytesIO
 from PIL import Image
 from werkzeug.utils import secure_filename
@@ -20,7 +20,7 @@ load_dotenv(dotenv_path='.env')
 openai.api_key = os.getenv("openai.api_key")
 SECRET_KEY = os.getenv('SECRET_KEY')
 FIXED_TOKEN = os.getenv('FIXED_TOKEN')
-
+LOGIN_URL = "https://aitheway.com/login/"
 app = Flask(__name__)
 
 # Configuration des fichiers uploadés
@@ -106,22 +106,27 @@ def verify_jwt_token(token):
 def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        auth_header = request.headers.get('Authorization')
-        if not auth_header or not auth_header.startswith("Bearer "):
-            abort(401, description="Token missing or invalid")
+        token = request.args.get('token')
+        if not token:
+            auth_header = request.headers.get('Authorization')
+            if auth_header and auth_header.startswith("Bearer "):
+                token = auth_header.split(" ")[1]
 
-        token = auth_header.split(" ")[1]
-        if token == FIXED_TOKEN:
-            return f(None, *args, **kwargs)
-        try:
-            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-            wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
-            if not wp_user_id:
-             abort(403, description="invalid wp_user_id")
+            if not token:
+                return redirect(LOGIN_URL)
 
-            return f(wp_user_id, *args, **kwargs)
-        except jwt.InvalidTokenError:
-            abort(403, description="Token is invalid")
+            if token == FIXED_TOKEN:
+                return f(None, *args, **kwargs)
+            try:
+                decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+                wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
+                if not wp_user_id:
+                    return redirect(LOGIN_URL)
+
+                return f(wp_user_id, *args, **kwargs)
+            except jwt.InvalidTokenError:
+                abort(403, description="Token is invalid")
+                #Next Step : mise en place redirection template error html
 
     return decorated_function
 
@@ -298,7 +303,7 @@ def sync_membership(wp_user_id):
     email = data.get('email')
     subscription_level = data.get('subscription_level')
     status = data.get('status')
-    expiry_date = datetime.strptime(data.get('expiry_date'), '%Y-%m-%d')
+    expiry_date = datetime.strptime(data.get('expiry_date'), '%Y-%m-%d %H:%M:%S')
 
     # Vérifie si le client existe
     client = get_client_by_wp_user_id(wp_user_id)
