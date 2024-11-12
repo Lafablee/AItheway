@@ -41,7 +41,7 @@ def get_client_by_wp_user_id(wp_user_id):
     )
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT id, email, subscription_level, status FROM clients WHERE wp_user_id = %s
+        SELECT id, email, subscription_level, status, expiry_date FROM clients WHERE wp_user_id = %s
     """, (wp_user_id,))
     client = cursor.fetchone()
     cursor.close()
@@ -51,6 +51,7 @@ def get_client_by_wp_user_id(wp_user_id):
         "email": client[1],
         "subscription_level": client[2],
         "status": client[3],
+        "expiry_date": client[4],
     } if client else None
 
 def add_permission(client_id, action):
@@ -64,7 +65,6 @@ def add_permission(client_id, action):
     cursor.execute("""
         INSERT INTO permissions (client_id, action, is_allowed)
         VALUES (%s, %s, TRUE)
-        ON CONFLICT (client_id, action) DO NOTHING
     """, (client_id, action))
     conn.commit()
     cursor.close()
@@ -79,13 +79,21 @@ def check_client_permission(client_id, action):
     )
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT is_allowed FROM permissions WHERE client_id = %s AND action = %s
+        SELECT p.is_allowed, c.expiry_date, c.status
+        FROM permissions AS p
+        JOIN clients AS c ON p.client_id = c.id
+        WHERE p.client_id = %s AND p.action = %s
     """, (client_id, action))
     result = cursor.fetchone()
     cursor.close()
     conn.close()
 
-    return result is not None and result[0]
+    if result:
+        is_allowed, expiry_date, status = result
+        now = datetime.now()
+        if is_allowed and ((status == 'active' and now <= expiry_date) or (status == 'cancelled' and now <= expiry_date)):
+            return True
+        return False
 
 def verify_jwt_token(token):
     try:
@@ -131,14 +139,14 @@ def add_client(wp_user_id, email, subscription_level, status):
     cursor.execute("""
         INSERT INTO clients (wp_user_id, email, subscription_level, status, start_date, expiry_date)
         VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
-    """, (wp_user_id, email, subscription_level, status, start_date, expiry_date))
+    """, (wp_user_id, email, subscription_level, status, datetime.now(), expiry_date))
     client_id = cursor.fetchone()[0]
     conn.commit()
     cursor.close()
     conn.close()
     return client_id
 
-def update_client_subscription(client_id, subscription_level, status):
+def update_client_subscription(client_id, subscription_level, status, expiry_date):
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
@@ -147,25 +155,9 @@ def update_client_subscription(client_id, subscription_level, status):
     )
     cursor = conn.cursor()
     # Récupère la date de début actuelle
-    cursor.execute("SELECT expiry_date FROM clients WHERE id = %s", (client_id,))
-    current_expiry_date = cursor.fetchone()[0]
-
-    if status == 'active':
-        # Prolonge la date d'expiration pour un renouvellement
-        if current_expiry_date is None or current_expiry_date < datetime.now():
-            new_expiry_date = datetime.now() + timedelta(days=1)
-        else:
-            new_expiry_date = current_expiry_date + timedelta(days=1)
-
-        cursor.execute("""
-            UPDATE clients SET subscription_level = %s, status = %s, expiry_date = %s WHERE id = %s
-        """, (subscription_level, status, new_expiry_date, client_id))
-
-    elif status == 'cancelled':
-        # Mets à jour le statut sans changer expiry_date
-        cursor.execute("""
-            UPDATE clients SET subscription_level = %s, status = %s WHERE id = %s
-        """, (subscription_level, status, client_id))
+    cursor.execute("""
+        UPDATE clients SET subscription_level = = %s, status = %s, expiry_date = %s WHERE id = %s
+    """, (subscription_level, status, expiry_date, client_id))
     conn.commit()
     cursor.close()
     conn.close()
@@ -183,10 +175,26 @@ def assign_permissions(client_id, subscription_level):
         "premium": ["view_content", "generate_image", "upload_enhance"],
         "pro": ["view_content", "generate_image", "upload_enhance", "access_special_features"]
     }
-    for action in permissions.get(mapped_level, []):
+
+    # Récupère les permissions actuelles en base de données
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+    )
+    cursor = conn.cursor()
+    cursor.execute("SELECT action FROM permissions WHERE client_id = %s", (client_id,))
+    current_permissions = {row[0] for row in cursor.fetchall()}
+    # Permissions à attribuer en fonction du niveau d'abonnement
+    required_permissions = set(permissions.get(mapped_level, []))
+
+    # Ajoute uniquement les permissions manquantes
+    for action in permissions - current_permissions:
         add_permission(client_id, action)
         app.logger.info(f"Permission '{action}' assigned to client ID {client_id}")
-
+    cursor.close()
+    conn.close()
 
 def check_and_revoke_permissions():
     conn = psycopg2.connect(
@@ -224,6 +232,41 @@ def revoke_client_permissions(client_id):
     cursor.close()
     conn.close()
 
+def update_client_expiry(client_id, days=1):
+    """
+        Met à jour la date d'expiration pour un abonnement en ajoutant 'days' jours
+        si le statut est encore actif.
+    """
+    conn = psycopg2.connect(
+        dbname=os.getenv("DB_NAME"),
+        user=os.getenv("DB_USER"),
+        password=os.getenv("DB_PASSWORD"),
+        host=os.getenv("DB_HOST"),
+    )
+    cursor = conn.cursor()
+
+    # Récupère la date d'expiration actuelle
+    cursor.execute("SELECT expiry_date FROM clients WHERE id = %s", (client_id,))
+    result = cursor.fetchone()[0]
+    current_expiry_date, status = result if result else (None, None)[0]
+
+    if status != 'active':
+        # Si le statut n'est pas actif, ne prolonge pas l'abonnement
+        app.logger.info(f"Client ID {client_id} n'est pas actif, pas de mise à jour de la date d'expiration.")
+        cursor.close()
+        conn.close()
+        return
+
+    # prolonge l'abonnement si le client est actif
+    new_expiry_date = (current_expiry_date if current_expiry_date and current_expiry_date > datetime.now() else datetime.now()) + timedelta(days=days)
+
+    cursor.execute("""
+        UPDATE clients SET expiry_date = %s WHERE id = %s
+    """, (new_expiry_date, client_id))
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
@@ -233,6 +276,8 @@ def validate_image_format(img_format):
         return False, f"Unsupported format: {img_format}"
     if img_format == 'JPG':
         img_format = 'JPEG'
+        #img_format = 'PDF'
+        #img_format = 'webp'
     return True, img_format
 
 @app.route('/')
@@ -248,28 +293,32 @@ def sync_membership(wp_user_id):
         if auth_header != f'Bearer {FIXED_TOKEN}':
             return jsonify({"error": "Unauthorized"}), 401
 
-
     data = request.get_json()
     wp_user_id = data.get('wp_user_id')
     email = data.get('email')
     subscription_level = data.get('subscription_level')
     status = data.get('status')
+    expiry_date = datetime.strptime(data.get('expiry_date'), '%Y-%m-%d')
 
     # Vérifie si le client existe
     client = get_client_by_wp_user_id(wp_user_id)
     if not client:
         # Si le client n'existe pas, ajoute-le avec les permissions de base
-        client_id = add_client(wp_user_id, email, subscription_level, status)
+        client_id = add_client(wp_user_id, email, subscription_level, status, expiry_date)
     else:
-        # Met à jour les informations d'abonnement
-        update_client_subscription(client["id"], subscription_level, status)
         client_id = client["id"]
+        # Met à jour uniquement si le statut d'abonement change
+        if client["subscription_level"] != subscription_level or client["status"] != status or client["expiry_date"] != expiry_date:
+            update_client_subscription(client_id, subscription_level, status, expiry_date)
 
-    # Attribue les permissions en fonction du niveau d'abonnement
-    if status == 'active':
-        assign_permissions(client_id, subscription_level)
-    else:
-        revoke_client_permissions(client_id)
+        # Attribue les permissions en fonction du niveau d'abonnement
+        if status == 'active':
+            assign_permissions(client_id, subscription_level)
+        elif status == 'cancelled' and datetime.now() <= expiry_date:
+            app.logger.info(f"User {wp_user_id} retains access until expiration date.")
+        else:
+            app.logger.info(f"No changes for user {wp_user_id}.")
+
     return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
 
 @app.route('/generate_image', methods=['GET', 'POST'])
