@@ -123,7 +123,12 @@ def token_required(f):
                 if not wp_user_id:
                     return redirect(LOGIN_URL)
 
+                client = get_client_by_wp_user_id(wp_user_id)
+                if not client:
+                    return redirect(LOGIN_URL)
+
                 return f(wp_user_id, *args, **kwargs)
+
             except jwt.InvalidTokenError:
                 abort(403, description="Token is invalid")
                 #Next Step : mise en place redirection template error html
@@ -161,7 +166,7 @@ def update_client_subscription(client_id, subscription_level, status, expiry_dat
     cursor = conn.cursor()
     # Récupère la date de début actuelle
     cursor.execute("""
-        UPDATE clients SET subscription_level = = %s, status = %s, expiry_date = %s WHERE id = %s
+        UPDATE clients SET subscription_level = %s, status = %s, expiry_date = %s WHERE id = %s
     """, (subscription_level, status, expiry_date, client_id))
     conn.commit()
     cursor.close()
@@ -303,7 +308,11 @@ def sync_membership(wp_user_id):
     email = data.get('email')
     subscription_level = data.get('subscription_level')
     status = data.get('status')
-    expiry_date = datetime.strptime(data.get('expiry_date'), '%Y-%m-%d %H:%M:%S')
+
+    try:
+        expiry_date = datetime.strptime(data.get('expiry_date'), '%Y-%m-%d %H:%M:%S')
+    except ValueError:
+        return jsonify({"error": "Invalid date format"}), 400
 
     # Vérifie si le client existe
     client = get_client_by_wp_user_id(wp_user_id)
@@ -335,7 +344,6 @@ def generate_image(wp_user_id):
         return jsonify({"error": "Client non trouvé"}), 404
     if not check_client_permission(client["id"], "generate_image"):
         return jsonify({"error": "Permission refusée pour générer une image"}), 403
-
 
     # Vérifie si le client a la permission d'accéder à cette fonctionnalité
     if request.method == 'GET':
