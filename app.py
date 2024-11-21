@@ -338,25 +338,30 @@ def sync_membership(wp_user_id):
 
     return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
 
+
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
 def generate_image(wp_user_id):
     client = get_client_by_wp_user_id(wp_user_id)
-    # Récupérer l'ID utilisateur depuis le token décodé
-    if not client:
-        return jsonify({"error": "Client non trouvé"}), 404
-    if not check_client_permission(client["id"], "generate_image"):
-        return jsonify({"error": "Permission refusée pour générer une image"}), 403
 
-    # Vérifie si le client a la permission d'accéder à cette fonctionnalité
+    # Early validation checks
+    if not client:
+        return jsonify({"error": "Client not found"}), 404
+
+    if not check_client_permission(client["id"], "generate_image"):
+        return jsonify({"error": "Permission denied to generate image"}), 403
+
+    # GET request handling
     if request.method == 'GET':
         return render_template('generate-image.html')
 
+    # POST request handling
     if request.method == 'POST':
         prompt = request.form.get('prompt')
 
         if not prompt:
-            return jsonify({"message": "create what inspires you !"})
+            return jsonify({"message": "Create what inspires you!"}), 400
+
         app.logger.info(f"Received prompt: {prompt}")
 
         try:
@@ -369,7 +374,7 @@ def generate_image(wp_user_id):
             image_url = response.data[0].url
             app.logger.info(f"Generated image URL: {image_url}")
 
-            # Télécharger l'image depuis l'URL retournée par OpenAI
+            # Image download and save
             image_response = requests.get(image_url)
             if image_response.status_code == 200:
                 img = Image.open(BytesIO(image_response.content))
@@ -382,15 +387,15 @@ def generate_image(wp_user_id):
                 app.logger.error(f"Failed to download image from URL: {image_url}")
                 return jsonify({'error': 'Failed to download image'}), 500
 
-
         except openai.OpenAIError as e:
             error_message = str(e)
             if "billing_hard_limit_reached" in error_message:
                 error_message = "Your billing limit has been reached. Please check your OpenAI account."
             app.logger.error(f"Error generating image: {error_message}")
-            return jsonify({'error': error_message})
+            return jsonify({'error': error_message}), 500
 
-    return render_template('generate-image.html')
+    # Fallback response if no other return triggered
+    return jsonify({"error": "Unexpected error in image generation"}), 500
 
 @app.route('/download-image', methods=['POST'])
 def download_image():
