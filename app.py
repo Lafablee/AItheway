@@ -342,60 +342,59 @@ def sync_membership(wp_user_id):
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
 def generate_image(wp_user_id):
-    client = get_client_by_wp_user_id(wp_user_id)
+    try:
+        client = get_client_by_wp_user_id(wp_user_id)
 
-    # Early validation checks
-    if not client:
-        return jsonify({"error": "Client not found"}), 404
+        # Initial checks
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
 
-    if not check_client_permission(client["id"], "generate_image"):
-        return jsonify({"error": "Permission denied to generate image"}), 403
+        if not check_client_permission(client["id"], "generate_image"):
+            return jsonify({"error": "Permission denied"}), 403
 
-    # GET request handling
-    if request.method == 'GET':
-        return render_template('generate-image.html')
+        # GET request - show form
+        if request.method == 'GET':
+            return render_template('generate-image.html')
 
-    # POST request handling
-    if request.method == 'POST':
-        prompt = request.form.get('prompt')
+        # POST request - generate image
+        if request.method == 'POST':
+            prompt = request.form.get('prompt')
 
-        if not prompt:
-            return jsonify({"message": "Create what inspires you!"}), 400
+            if not prompt:
+                return jsonify({"message": "Create what inspires you!"}), 400
 
-        app.logger.info(f"Received prompt: {prompt}")
+            try:
+                response = openai.images.generate(
+                    model="dall-e-3",
+                    prompt=prompt,
+                    n=1,
+                    size="1024x1024"
+                )
 
-        try:
-            response = openai.images.generate(
-                model="dall-e-3",
-                prompt=prompt,
-                n=1,
-                size="1024x1024"
-            )
-            image_url = response.data[0].url
-            app.logger.info(f"Generated image URL: {image_url}")
+                image_url = response.data[0].url
+                image_response = requests.get(image_url)
 
-            # Image download and save
-            image_response = requests.get(image_url)
-            if image_response.status_code == 200:
-                img = Image.open(BytesIO(image_response.content))
-                filename = secure_filename(f"{prompt}.png")
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                img.save(file_path, "PNG")
-                app.logger.info(f"Image saved at {file_path}")
-                return jsonify({'image_url': url_for('static', filename=f'uploads/{filename}')})
-            else:
-                app.logger.error(f"Failed to download image from URL: {image_url}")
-                return jsonify({'error': 'Failed to download image'}), 500
+                if image_response.status_code == 200:
+                    img = Image.open(BytesIO(image_response.content))
+                    filename = secure_filename(f"{prompt}.png")
+                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                    img.save(file_path, "PNG")
+                    return jsonify({'image_url': url_for('static', filename=f'uploads/{filename}')})
+                else:
+                    return jsonify({'error': 'Failed to download image'}), 500
 
-        except openai.OpenAIError as e:
-            error_message = str(e)
-            if "billing_hard_limit_reached" in error_message:
-                error_message = "Your billing limit has been reached. Please check your OpenAI account."
-            app.logger.error(f"Error generating image: {error_message}")
-            return jsonify({'error': error_message}), 500
+            except openai.OpenAIError as e:
+                error_message = str(e)
+                if "billing_hard_limit_reached" in error_message:
+                    error_message = "Billing limit reached. Please check your OpenAI account."
+                return jsonify({'error': error_message}), 500
 
-    # Fallback response if no other return triggered
-    return jsonify({"error": "Unexpected error in image generation"}), 500
+        # If somehow we get here without returning
+        return jsonify({"error": "Invalid request method"}), 400
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error in generate_image: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/download-image', methods=['POST'])
 def download_image():
