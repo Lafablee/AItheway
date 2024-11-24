@@ -106,9 +106,9 @@ def verify_jwt_token(token):
 def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-        token = request.args.get('token')
+        token = request.args.get('token')  # Retrieve token from URL query parameter
         if not token:
-            auth_header = request.headers.get('Authorization')
+            auth_header = request.headers.get('Authorization')  # Fallback to Authorization header
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header.split(" ")[1]
 
@@ -172,21 +172,30 @@ def update_client_subscription(client_id, subscription_level, status, expiration
     cursor.close()
     conn.close()
 
+
 def assign_permissions(client_id, subscription_level):
+    # Define subscription mapping with WordPress ID
     subscription_mapping = {
-        "FREE Test PLAN": "basic",
+        28974: "basic",  # WordPress Free Test Plan ID
+        "FREE Test PLAN": "basic",  # Keep existing mapping for backward compatibility
         "premium_plan": "premium",
         "pro_plan": "pro"
     }
+
+    # Convert subscription_level to int if it's numeric
+    if isinstance(subscription_level, str) and subscription_level.isdigit():
+        subscription_level = int(subscription_level)
+
+    # Map the subscription level to our internal levels
     mapped_level = subscription_mapping.get(subscription_level, subscription_level)
+    app.logger.info(f"Mapping subscription {subscription_level} to {mapped_level}")
 
     permissions = {
-        "basic": ["view_content"],
+        "basic": ["view_content", "generate_image"],
         "premium": ["view_content", "generate_image", "upload_enhance"],
         "pro": ["view_content", "generate_image", "upload_enhance", "access_special_features"]
     }
 
-    # Récupère les permissions actuelles en base de données
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
@@ -196,16 +205,15 @@ def assign_permissions(client_id, subscription_level):
     cursor = conn.cursor()
     cursor.execute("SELECT action FROM permissions WHERE client_id = %s", (client_id,))
     current_permissions = {row[0] for row in cursor.fetchall()}
-    # Permissions à attribuer en fonction du niveau d'abonnement
+
     required_permissions = set(permissions.get(mapped_level, []))
 
-    # Ajoute uniquement les permissions manquantes
-    for action in permissions - current_permissions:
+    for action in required_permissions - current_permissions:
         add_permission(client_id, action)
         app.logger.info(f"Permission '{action}' assigned to client ID {client_id}")
+
     cursor.close()
     conn.close()
-
 def check_and_revoke_permissions():
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
@@ -308,6 +316,8 @@ def sync_membership(wp_user_id):
     email = data.get('email')
     subscription_level = data.get('subscription_level')
     status = data.get('status')
+
+    app.logger.info(f"Received subscription sync: Level={subscription_level}, Status={status}")
 
     if 'expiration_date' not in data or not data['expiration_date']:
         return jsonify({"error": "Missing 'expiration_date' in request data"}), 400
