@@ -107,7 +107,7 @@ def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         token = request.args.get('token')  # Retrieve token from URL query parameter
-        app.logger.debug("Checking token from URL parameters")
+        app.logger.error('token' + " Checking token from URL parameters")
 
         if not token:
             app.logger.error("No token found in request")
