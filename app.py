@@ -362,6 +362,8 @@ def sync_membership(wp_user_id):
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
 def generate_image(wp_user_id):
+    app.logger.error("*********wp")
+    app.logger.error(wp_user_id)
     try:
         client = get_client_by_wp_user_id(wp_user_id)
 
