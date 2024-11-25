@@ -106,6 +106,11 @@ def verify_jwt_token(token):
 def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+
+        app.logger.debug(f"Args:{args}")
+        app.logger.debug("*******")
+        app.logger.debug(f"kwargs:{kwargs}")
+
         token = request.args.get('token')  # Retrieve token from URL query parameter
         app.logger.error(token + " Checking token from URL parameters")
 
