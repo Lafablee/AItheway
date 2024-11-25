@@ -107,7 +107,10 @@ def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
         token = request.args.get('token')  # Retrieve token from URL query parameter
+        app.logger.debug("Checking token from URL parameters")
+
         if not token:
+            app.logger.error("No token found in request")
             auth_header = request.headers.get('Authorization')  # Fallback to Authorization header
             if auth_header and auth_header.startswith("Bearer "):
                 token = auth_header.split(" ")[1]
@@ -120,6 +123,7 @@ def token_required(f):
             try:
                 decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
                 wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
+                app.logger.info(f"Token decoded successfully for user {wp_user_id}")
                 if not wp_user_id:
                     return redirect(LOGIN_URL)
 
@@ -130,6 +134,7 @@ def token_required(f):
                 return f(wp_user_id, *args, **kwargs)
 
             except jwt.InvalidTokenError:
+                app.logger.error(f"Invalid token: ")
                 abort(403, description="Token is invalid")
                 #Next Step : mise en place redirection template error html
 
@@ -350,16 +355,18 @@ def sync_membership(wp_user_id):
 
 
 @app.route('/generate_image', methods=['GET', 'POST'])
-@token_required
+#@token_required
 def generate_image(wp_user_id):
     try:
         client = get_client_by_wp_user_id(wp_user_id)
 
         # Initial checks
         if not client:
+            app.logger.debug(f"User {wp_user_id} tried to connect.")
             return jsonify({"error": "Client not found"}), 404
 
         if not check_client_permission(client["id"], "generate_image"):
+            app.logger.debug(f"User {wp_user_id} permission denied for genreate an image .")
             return jsonify({"error": "Permission denied"}), 403
 
         # GET request - show form
@@ -404,7 +411,7 @@ def generate_image(wp_user_id):
 
     except Exception as e:
         app.logger.error(f"Unexpected error in generate_image: {str(e)}")
-        return jsonify({"error": "Internal server error"}), 500
+        return jsonify({"error": "Internal server error"})
 
 @app.route('/download-image', methods=['POST'])
 def download_image():
