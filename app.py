@@ -107,9 +107,9 @@ def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
 
-        app.logger.error(f"Args:{args}")
+        app.logger.error(f"Args:{len(args)}")
         app.logger.error("*******")
-        app.logger.error(f"kwargs:{kwargs}")
+        app.logger.error(f"kwargs:{len(kwargs)}")
 
         token = request.args.get('token')  # Retrieve token from URL query parameter
         app.logger.error(" Checking token from URL parameters")
