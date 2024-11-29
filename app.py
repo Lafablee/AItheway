@@ -106,10 +106,10 @@ def verify_jwt_token(token):
 def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
-
-        app.logger.error(f"Args:{len(args)}")
-        app.logger.error("*******")
-        app.logger.error(f"kwargs:{len(kwargs)}")
+        app.logger.error("=== Token Extraction Debug ===")
+        app.logger.error(f"Full URL received: {request.url}")
+        app.logger.error(f"URL Path: {request.path}")
+        app.logger.error(f"Query Parameters: {request.args}")
 
         token = request.args.get('token')  # Retrieve token from URL query parameter
         app.logger.error(" Checking token from URL parameters")
@@ -118,9 +118,12 @@ def token_required(f):
             app.logger.error("No token found in request")
             auth_header = request.headers.get('Authorization')  # Fallback to Authorization header
             if auth_header and auth_header.startswith("Bearer "):
+                app.logger.error(f"Authorization header: {auth_header}")
                 token = auth_header.split(" ")[1]
+                app.logger.error(f"Token extracted from header: {token}")
 
             if not token:
+                app.logger.error("No token found in either URL or headers")
                 return redirect(LOGIN_URL)
 
             if token == FIXED_TOKEN:
@@ -130,6 +133,7 @@ def token_required(f):
                 wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
                 app.logger.info(f"Token decoded successfully for user {wp_user_id}")
                 if not wp_user_id:
+                    app.logger.error("No wp_user_id found in token --redirection--")
                     return redirect(LOGIN_URL)
 
                 client = get_client_by_wp_user_id(wp_user_id)
@@ -138,8 +142,8 @@ def token_required(f):
 
                 return f(wp_user_id, *args, **kwargs)
 
-            except jwt.InvalidTokenError:
-                app.logger.error(f"Invalid token: ")
+            except jwt.InvalidTokenError as e:
+                app.logger.error(f"Token decode error:{str(e)} ")
                 abort(403, description="Token is invalid")
                 #Next Step : mise en place redirection template error html
 
@@ -362,10 +366,14 @@ def sync_membership(wp_user_id):
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
 def generate_image(wp_user_id):
-    app.logger.error("*********wp")
-    app.logger.error(wp_user_id)
+    app.logger.error("=== Token Debug ===")
+    app.logger.error(f"Raw URL: {request.url}")
+    app.logger.error(f"Query params: {request.args}")
+    app.logger.error(f"Token from URL: {request.args.get('token')}")
+    app.logger.error(f"WP User ID: {wp_user_id}")
     try:
         client = get_client_by_wp_user_id(wp_user_id)
+        app.logger.info(f"Client lookup result: {client}")
 
         # Initial checks
         if not client:
@@ -375,6 +383,8 @@ def generate_image(wp_user_id):
         if not check_client_permission(client["id"], "generate_image"):
             app.logger.debug(f"User {wp_user_id} permission denied for genreate an image .")
             return jsonify({"error": "Permission denied"}), 403
+
+        app.logger.info(f"Method: {request.method}")
 
         # GET request - show form
         if request.method == 'GET':
