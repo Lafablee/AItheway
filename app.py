@@ -113,6 +113,7 @@ def token_required(f):
 
         token = request.args.get('token')  # Retrieve token from URL query parameter
         app.logger.error(" Checking token from URL parameters")
+        app.logger.error(f"Token extracted: {token[:20]}...")
 
         if not token:
             app.logger.error("No token found in request")
@@ -130,22 +131,30 @@ def token_required(f):
                 return f(None, *args, **kwargs)
             try:
                 decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+                app.logger.error(f"Token decoded successfully: {decoded_token}")
                 wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
-                app.logger.info(f"Token decoded successfully for user {wp_user_id}")
+                app.logger.error(f"WP User ID extracted: {wp_user_id}")
                 if not wp_user_id:
                     app.logger.error("No wp_user_id found in token --redirection--")
                     return redirect(LOGIN_URL)
 
                 client = get_client_by_wp_user_id(wp_user_id)
+                app.logger.error(f"Client lookup result: {client}")
                 if not client:
                     return redirect(LOGIN_URL)
 
                 return f(wp_user_id, *args, **kwargs)
 
+            except jwt.ExpiredSignatureError:
+                app.logger.error("Token has expired")
+                return redirect(LOGIN_URL)
             except jwt.InvalidTokenError as e:
                 app.logger.error(f"Token decode error:{str(e)} ")
                 abort(403, description="Token is invalid")
                 #Next Step : mise en place redirection template error html
+            except Exception as e:
+                app.logger.error(f"Unexpected error: {str(e)}")
+                return abort(500, description="Internal server error")
 
     return decorated_function
 
@@ -393,7 +402,6 @@ def generate_image(wp_user_id):
         # POST request - generate image
         if request.method == 'POST':
             prompt = request.form.get('prompt')
-
             if not prompt:
                 return jsonify({"message": "Create what inspires you!"}), 400
 
@@ -428,7 +436,7 @@ def generate_image(wp_user_id):
 
     except Exception as e:
         app.logger.error(f"Unexpected error in generate_image: {str(e)}")
-        return jsonify({"error": "Internal server error"})
+        return jsonify({"error": "Internal server error"}), 500
 
 @app.route('/download-image', methods=['POST'])
 def download_image():
