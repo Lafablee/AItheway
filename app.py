@@ -106,6 +106,10 @@ def verify_jwt_token(token):
 def token_required(f):
     @wraps(f)
     def decorated_function(*args, **kwargs):
+        app.logger.error("=== Decorator Start ===")
+        app.logger.error(f"Function being decorated: {f.__name__}")
+        app.logger.error(f"Args: {args}")
+        app.logger.error(f"Kwargs: {kwargs}")
         app.logger.error("=== Token Extraction Debug ===")
         app.logger.error(f"Full URL received: {request.url}")
         app.logger.error(f"URL Path: {request.path}")
@@ -375,6 +379,8 @@ def sync_membership(wp_user_id):
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
 def generate_image(wp_user_id):
+    print("Function called")  # Basic print to verify function entry
+    app.logger.error("Function entered")
     app.logger.error("=== Token Debug ===")
     app.logger.error(f"Raw URL: {request.url}")
     app.logger.error(f"Query params: {request.args}")
