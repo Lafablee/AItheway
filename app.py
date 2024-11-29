@@ -127,38 +127,38 @@ def token_required(f):
                 token = auth_header.split(" ")[1]
                 app.logger.error(f"Token extracted from header: {token}")
 
-            if not token:
-                app.logger.error("No token found in either URL or headers")
+        if not token:
+            app.logger.error("No token found in either URL or headers")
+            return redirect(LOGIN_URL)
+
+        if token == FIXED_TOKEN:
+            return f(None)
+        try:
+            decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
+            app.logger.error(f"Token decoded successfully: {decoded_token}")
+            wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
+            app.logger.error(f"WP User ID extracted: {wp_user_id}")
+            if not wp_user_id:
+                app.logger.error("No wp_user_id found in token --redirection--")
                 return redirect(LOGIN_URL)
 
-            if token == FIXED_TOKEN:
-                return f(None, *args, **kwargs)
-            try:
-                decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
-                app.logger.error(f"Token decoded successfully: {decoded_token}")
-                wp_user_id = decoded_token.get("data", {}).get("user", {}).get("id")
-                app.logger.error(f"WP User ID extracted: {wp_user_id}")
-                if not wp_user_id:
-                    app.logger.error("No wp_user_id found in token --redirection--")
-                    return redirect(LOGIN_URL)
-
-                client = get_client_by_wp_user_id(wp_user_id)
-                app.logger.error(f"Client lookup result: {client}")
-                if not client:
-                    return redirect(LOGIN_URL)
-
-                return f(wp_user_id, *args, **kwargs)
-
-            except jwt.ExpiredSignatureError:
-                app.logger.error("Token has expired")
+            client = get_client_by_wp_user_id(wp_user_id)
+            app.logger.error(f"Client lookup result: {client}")
+            if not client:
                 return redirect(LOGIN_URL)
-            except jwt.InvalidTokenError as e:
-                app.logger.error(f"Token decode error:{str(e)} ")
-                abort(403, description="Token is invalid")
-                #Next Step : mise en place redirection template error html
-            except Exception as e:
-                app.logger.error(f"Unexpected error: {str(e)}")
-                return abort(500, description="Internal server error")
+
+            return f(wp_user_id)
+
+        except jwt.ExpiredSignatureError:
+            app.logger.error("Token has expired")
+            return redirect(LOGIN_URL)
+        except jwt.InvalidTokenError as e:
+            app.logger.error(f"Token decode error:{str(e)} ")
+            abort(403, description="Token is invalid")
+            #Next Step : mise en place redirection template error html
+        except Exception as e:
+            app.logger.error(f"Unexpected error: {str(e)}")
+            return abort(500, description="Internal server error")
 
     return decorated_function
 
