@@ -380,13 +380,18 @@ def generate_image(wp_user_id):
     app.logger.error(f"Query params: {request.args}")
     app.logger.error(f"Token from URL: {request.args.get('token')}")
     app.logger.error(f"WP User ID: {wp_user_id}")
+    app.logger.error("=== Generate Image Function Start ===")
+    app.logger.error(f"wp_user_id received: {wp_user_id}, type: {type(wp_user_id)}")
+    app.logger.error(f"Request method: {request.method}")
+    app.logger.error(f"Request args: {request.args}")
     try:
+        app.logger.error("Attempting to get client...")
         client = get_client_by_wp_user_id(wp_user_id)
         app.logger.info(f"Client lookup result: {client}")
 
         # Initial checks
         if not client:
-            app.logger.debug(f"User {wp_user_id} tried to connect.")
+            app.logger.error("Client not found!")
             return jsonify({"error": "Client not found"}), 404
 
         if not check_client_permission(client["id"], "generate_image"):
@@ -397,6 +402,7 @@ def generate_image(wp_user_id):
 
         # GET request - show form
         if request.method == 'GET':
+            app.logger.error("Returning template...")
             return render_template('generate-image.html')
 
         # POST request - generate image
