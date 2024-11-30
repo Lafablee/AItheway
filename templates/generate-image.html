@@ -176,13 +176,17 @@
             const downloadSection = document.getElementById('download-section');
             const imageDiv = document.getElementById('generated-image');
 
+            // Get the token from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
             promptInput.disabled = true;
             spinner.style.display = 'inline-block';
             generateText.style.display = 'none';
             downloadSection.style.display = 'none';
 
             try {
-                const response = await fetch('/generate_image', {
+                const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
                     body: `prompt=${encodeURIComponent(promptInput.value)}`
@@ -203,6 +207,7 @@
                 }
             } catch (error) {
                 imageDiv.innerHTML = `<p class="text-danger mt-3">Erreur : Impossible de contacter le serveur.</p>`;
+                console.error('Error:', error); // Added for debugging
             } finally {
                 spinner.style.display = 'none';
                 generateText.style.display = 'inline';

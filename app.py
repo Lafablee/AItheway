@@ -369,6 +369,8 @@ def sync_membership(wp_user_id):
         return jsonify({"error": f"Missing required fields: {missing_fields}"}), 400
 
     try:
+        # Convert wp_user_id to integer
+        data['wp_user_id'] = int(data['wp_user_id'])
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d %H:%M:%S')
         expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d %H:%M:%S')
 
@@ -404,7 +406,7 @@ def sync_membership(wp_user_id):
         if data['status'] == 'active':
             app.logger.error(f"Assigning permissions for client_id: {client_id}")
             assign_permissions(client_id, data['subscription_level'])
-        else:
+        elif data['status'] in ['canceled', 'expired']:
             app.logger.error(f"Revoking permissions for client_id: {client_id}")
             revoke_client_permissions(client_id)
 
