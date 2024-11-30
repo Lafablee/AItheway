@@ -129,7 +129,7 @@ def token_required(f):
 
         token = request.args.get('token')  # Retrieve token from URL query parameter
         app.logger.error(" Checking token from URL parameters")
-        app.logger.error(f"Token extracted: {token[:20]}...")
+        app.logger.error(f"Token extracted: {token}")
 
         if not token:
             app.logger.error("No token found in request")
@@ -360,41 +360,61 @@ def sync_membership(wp_user_id):
             return jsonify({"error": "Unauthorized"}), 401
 
     data = request.get_json()
-    wp_user_id = data.get('wp_user_id')
-    email = data.get('email')
-    subscription_level = data.get('subscription_level')
-    status = data.get('status')
+    app.logger.error(f"Received subscription sync data: {data}")
 
-    app.logger.info(f"Received subscription sync: Level={subscription_level}, Status={status}")
-
-    if 'expiration_date' not in data or not data['expiration_date']:
-        return jsonify({"error": "Missing 'expiration_date' in request data"}), 400
+    required_fields = ['wp_user_id', 'email', 'subscription_level', 'status', 'start_date', 'expiration_date']
+    if not all(field in data for field in required_fields):
+        missing_fields = [field for field in required_fields if field not in data]
+        app.logger.error(f"Missing required fields: {missing_fields}")
+        return jsonify({"error": f"Missing required fields: {missing_fields}"}), 400
 
     try:
+        start_date = datetime.strptime(data['start_date'], '%Y-%m-%d %H:%M:%S')
         expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d %H:%M:%S')
-    except ValueError:
-        return jsonify({"error": "Invalid date format"}), 400
 
-    # Vérifie si le client existe
-    client = get_client_by_wp_user_id(wp_user_id)
-    if not client:
-        # Si le client n'existe pas, ajoute-le avec les permissions de base
-        client_id = add_client(wp_user_id, email, subscription_level, status, expiration_date)
-    else:
-        client_id = client["id"]
-        # Met à jour uniquement si le statut d'abonement change
-        if client["subscription_level"] != subscription_level or client["status"] != status or client["expiration_date"] != expiration_date:
-            update_client_subscription(client_id, subscription_level, status, expiration_date)
+        # Check if expiration date has passed
+        if expiration_date < datetime.now():
+            data['status'] = 'expired'
+            app.logger.info(f"Subscription marked as expired due to past expiration date")
 
-        # Attribue les permissions en fonction du niveau d'abonnement
-        if status == 'active':
-            assign_permissions(client_id, subscription_level)
-        elif status == 'cancelled' and datetime.now() <= expiration_date:
-            app.logger.info(f"User {wp_user_id} retains access until expiration date.")
+        # Vérifie si le client existe
+        client = get_client_by_wp_user_id(wp_user_id)
+        if not client:
+            # Si le client n'existe pas, ajoute-le avec les permissions de base
+            app.logger.info(f"Adding new client with wp_user_id: {wp_user_id}")
+            client_id = add_client(
+                wp_user_id=data['wp_user_id'],
+                email=data['email'],
+                subscription_level=data['subscription_level'],
+                status=data['status'],
+                expiration_date=expiration_date,
+            )
         else:
-            app.logger.info(f"No changes for user {wp_user_id}.")
+            client_id = client["id"]
+            # Met à jour uniquement si le statut d'abonement change
+            app.logger.error(f"Updating existing client with id: {client_id}")
+            update_client_subscription(
+                client_id=client_id,
+                subscription_level=data['subscription_level'],
+                status=data['status'],
+                expiration_date=data['expiration_date'],
+            )
 
-    return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
+            # Attribue les permissions en fonction du niveau d'abonnement
+        if data['status'] == 'active':
+            app.logger.error(f"Assigning permissions for client_id: {client_id}")
+            assign_permissions(client_id, data['subscription_level'])
+        else:
+            app.logger.error(f"Revoking permissions for client_id: {client_id}")
+            revoke_client_permissions(client_id)
+
+        return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
+    except ValueError as e:
+        app.logger.error(f"Date parsing error: {str(e)}")
+        return jsonify({"error": "Invalid date format. Use YYYY-MM-DD HH:MM:SS"}), 400
+    except Exception as e:
+        app.logger.error(f"Unexpected error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/generate_image', methods=['GET', 'POST'])
