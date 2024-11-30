@@ -33,6 +33,7 @@ deep_ai_api_key = os.getenv('DEEPAI_API_KEY')
 
 
 def get_client_by_wp_user_id(wp_user_id):
+    app.logger.error(f"Attempting to get client with wp_user_id: {wp_user_id}")
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
@@ -40,21 +41,28 @@ def get_client_by_wp_user_id(wp_user_id):
         host=os.getenv("DB_HOST"),
     )
     cursor = conn.cursor()
+    app.logger.error(f"Executing client lookup query for wp_user_id: {wp_user_id}")
     cursor.execute("""
         SELECT id, email, subscription_level, status, expiration_date FROM clients WHERE wp_user_id = %s
     """, (wp_user_id,))
     client = cursor.fetchone()
     cursor.close()
     conn.close()
-    return {
-        "id": client[0],
-        "email": client[1],
-        "subscription_level": client[2],
-        "status": client[3],
-        "expiration_date": client[4],
-    } if client else None
+    if client:
+        result = {
+            "id": client[0],
+            "email": client[1],
+            "subscription_level": client[2],
+            "status": client[3],
+            "expiration_date": client[4],
+        }
+        app.logger.error(f"Found client data: {result}")
+        return result
+    app.logger.error("No client found in Client table")
+    return None
 
 def add_permission(client_id, action):
+    app.logger.error(f"Adding permission - Client ID: {client_id}, Action: {action}")
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
@@ -69,8 +77,10 @@ def add_permission(client_id, action):
     conn.commit()
     cursor.close()
     conn.close()
+    app.logger.error("Permission added successfully")
 
 def check_client_permission(client_id, action):
+    app.logger.error(f"Checking permission for client {client_id}, action: {action}")
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
@@ -92,7 +102,9 @@ def check_client_permission(client_id, action):
         is_allowed, expiration_date, status = result
         now = datetime.now()
         if is_allowed and ((status == 'active' and now <= expiration_date) or (status == 'cancelled' and now <= expiration_date)):
+            app.logger.error(f"Permission check results - Is Allowed: {is_allowed}, Status: {status}, Valid: {result}")
             return True
+        app.logger.error("No permission record found")
         return False
 
 def verify_jwt_token(token):
@@ -163,6 +175,7 @@ def token_required(f):
     return decorated_function
 
 def add_client(wp_user_id, email, subscription_level, status, expiration_date):
+    app.logger.error(f"Adding new client - WP User ID: {wp_user_id}, Email: {email}, Level: {subscription_level}")
     start_date = datetime.now()
     expiration_date = start_date + timedelta(days=1)
 
@@ -173,6 +186,7 @@ def add_client(wp_user_id, email, subscription_level, status, expiration_date):
         host=os.getenv("DB_HOST"),
     )
     cursor = conn.cursor()
+    app.logger.error("Executing client insert query")
     cursor.execute("""
         INSERT INTO clients (wp_user_id, email, subscription_level, status, start_date, expiration_date)
         VALUES (%s, %s, %s, %s, %s, %s) RETURNING id
@@ -181,9 +195,11 @@ def add_client(wp_user_id, email, subscription_level, status, expiration_date):
     conn.commit()
     cursor.close()
     conn.close()
+    app.logger.error(f"Successfully added client with ID: {client_id}")
     return client_id
 
 def update_client_subscription(client_id, subscription_level, status, expiration_date):
+    app.logger.error(f"Updating subscription - Client ID: {client_id}, Level: {subscription_level}, Status: {status}")
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
@@ -195,9 +211,11 @@ def update_client_subscription(client_id, subscription_level, status, expiration
     cursor.execute("""
         UPDATE clients SET subscription_level = %s, status = %s, expiration_date = %s WHERE id = %s
     """, (subscription_level, status, expiration_date, client_id))
+    rows_affected = cursor.rowcount
     conn.commit()
     cursor.close()
     conn.close()
+    app.logger.error(f"Subscription updated. Rows affected: {rows_affected}")
 
 
 def assign_permissions(client_id, subscription_level):
@@ -265,6 +283,7 @@ def check_and_revoke_permissions():
     conn.close()
 
 def revoke_client_permissions(client_id):
+    app.logger.error(f"Revoking all permissions for client ID: {client_id}")
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
         user=os.getenv("DB_USER"),
@@ -273,9 +292,11 @@ def revoke_client_permissions(client_id):
     )
     cursor = conn.cursor()
     cursor.execute("DELETE FROM permissions WHERE client_id = %s", (client_id,))
+    rows_deleted = cursor.rowcount
     conn.commit()
     cursor.close()
     conn.close()
+    app.logger.error(f"Permissions revoked. Total permissions deleted: {rows_deleted}")
 
 def update_client_expiry(client_id, days=1):
     """
