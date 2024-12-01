@@ -352,9 +352,9 @@ def index():
 
 @app.route('/sync-membership', methods=['POST'])
 @token_required
-def sync_membership(wp_user_id):
+def sync_membership(wp_user_id_from_token):
     #Si le token est fixe, `wp_user_id` sera `None`
-    if wp_user_id is None:
+    if wp_user_id_from_token is None:
         auth_header = request.headers.get('Authorization')
         if auth_header != f'Bearer {FIXED_TOKEN}':
             return jsonify({"error": "Unauthorized"}), 401
@@ -370,7 +370,7 @@ def sync_membership(wp_user_id):
 
     try:
         # Convert wp_user_id to integer
-        data['wp_user_id'] = int(data['wp_user_id'])
+        wp_user_id = int(data['wp_user_id'])
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d %H:%M:%S')
         expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d %H:%M:%S')
 
@@ -381,11 +381,13 @@ def sync_membership(wp_user_id):
 
         # Vérifie si le client existe
         client = get_client_by_wp_user_id(wp_user_id)
+        app.logger.error(f"Looking up client with wp_user_id: {wp_user_id}")
+
         if not client:
             # Si le client n'existe pas, ajoute-le avec les permissions de base
             app.logger.info(f"Adding new client with wp_user_id: {wp_user_id}")
             client_id = add_client(
-                wp_user_id=data['wp_user_id'],
+                wp_user_id=wp_user_id,
                 email=data['email'],
                 subscription_level=data['subscription_level'],
                 status=data['status'],
@@ -394,20 +396,24 @@ def sync_membership(wp_user_id):
         else:
             client_id = client["id"]
             # Met à jour uniquement si le statut d'abonement change
-            app.logger.error(f"Updating existing client with id: {client_id}")
+            app.logger.error(f"Updating existing client with id: {client_id} with status: {data['status']}")
             update_client_subscription(
                 client_id=client_id,
                 subscription_level=data['subscription_level'],
                 status=data['status'],
-                expiration_date=data['expiration_date'],
+                expiration_date=expiration_date,
             )
 
             # Attribue les permissions en fonction du niveau d'abonnement
         if data['status'] == 'active':
+            app.logger.info(f"Revoking old permissions for client_id: {client_id}")
+            revoke_client_permissions(client_id)
+
             app.logger.error(f"Assigning permissions for client_id: {client_id}")
             assign_permissions(client_id, data['subscription_level'])
-        elif data['status'] in ['canceled', 'expired']:
-            app.logger.error(f"Revoking permissions for client_id: {client_id}")
+
+        elif data['status'] in ['canceled', 'abandoned', 'expired']:
+            app.logger.error(f"Revoking permissions for client_id: {client_id} due to status: {data['status']}")
             revoke_client_permissions(client_id)
 
         return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
