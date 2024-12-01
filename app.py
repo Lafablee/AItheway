@@ -10,7 +10,7 @@ import jwt
 from jwt import InvalidTokenError
 from functools import wraps
 import psycopg2
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 
 
@@ -100,7 +100,16 @@ def check_client_permission(client_id, action):
 
     if result:
         is_allowed, expiration_date, status = result
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
+        # Add debug logs for timezone investigation
+        app.logger.error(f"""
+        Timezone Debug:
+        Current server time (now): {now}
+        Expiration date from DB: {expiration_date}
+        Expiration tzinfo: {expiration_date.tzinfo if expiration_date else 'None'}
+        Status: {status}
+        Is allowed: {is_allowed}
+        """)
         if is_allowed and ((status == 'active' and now <= expiration_date) or (status == 'canceled' and now <= expiration_date)):
             app.logger.error(f"Permission check results - Is Allowed: {is_allowed}, Status: {status}, Valid: {result}")
             return True
@@ -350,6 +359,26 @@ def validate_image_format(img_format):
 def index():
     return render_template('index.html')
 
+
+@app.route('/test/time', methods=['GET'])
+def test_time():
+    from datetime import datetime, timezone
+
+    # Get various time representations
+    naive_now = datetime.now()
+    utc_now = datetime.now(timezone.utc)
+    server_time = datetime.utcnow()  # deprecated but showing for comparison
+
+    return jsonify({
+        "naive_datetime": str(naive_now),
+        "utc_datetime": str(utc_now),
+        "server_time": str(server_time),
+        "timezone_info": {
+            "naive_tzinfo": str(naive_now.tzinfo),
+            "utc_tzinfo": str(utc_now.tzinfo),
+            "server_tzinfo": str(server_time.tzinfo)
+        }
+    })
 @app.route('/sync-membership', methods=['POST'])
 @token_required
 def sync_membership(wp_user_id_from_token):
