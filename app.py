@@ -101,7 +101,7 @@ def check_client_permission(client_id, action):
     if result:
         is_allowed, expiration_date, status = result
         now = datetime.now()
-        if is_allowed and ((status == 'active' and now <= expiration_date) or (status == 'cancelled' and now <= expiration_date)):
+        if is_allowed and ((status == 'active' and now <= expiration_date) or (status == 'canceled' and now <= expiration_date)):
             app.logger.error(f"Permission check results - Is Allowed: {is_allowed}, Status: {status}, Valid: {result}")
             return True
         app.logger.error("No permission record found")
@@ -269,7 +269,7 @@ def check_and_revoke_permissions():
     cursor = conn.cursor()
     # Vérifie les clients annulés dont l'expiration_date est dépassée
     cursor.execute("""
-        SELECT id FROM clients WHERE status = 'cancelled' AND expiration_date <= %s
+        SELECT id FROM clients WHERE status = 'canceled' AND expiration_date <= %s
     """, (datetime.now(),))
     clients_to_revoke = cursor.fetchall()
 
