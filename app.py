@@ -376,7 +376,10 @@ def sync_membership(wp_user_id_from_token):
 
         # Check if expiration date has passed
         if expiration_date < datetime.now():
-            data['status'] = 'expired'
+            if data['status'] == 'canceled':
+                data['status'] = 'abandoned'
+            else:
+                data['status'] = 'expired'
             app.logger.info(f"Subscription marked as expired due to past expiration date")
 
         # Vérifie si le client existe
@@ -412,7 +415,7 @@ def sync_membership(wp_user_id_from_token):
             app.logger.error(f"Assigning permissions for client_id: {client_id}")
             assign_permissions(client_id, data['subscription_level'])
 
-        elif data['status'] in ['canceled', 'abandoned', 'expired']:
+        elif data['status'] in ['abandoned', 'expired']:
             app.logger.error(f"Revoking permissions for client_id: {client_id} due to status: {data['status']}")
             revoke_client_permissions(client_id)
 
