@@ -245,7 +245,7 @@ def assign_permissions(client_id, subscription_level):
     app.logger.info(f"Mapping subscription {subscription_level} to {mapped_level}")
 
     permissions = {
-        "basic": ["view_content", "generate_image"],
+        "basic": ["view_content", "generate_image", "upload_enhance"],
         "premium": ["view_content", "generate_image", "upload_enhance"],
         "pro": ["view_content", "generate_image", "upload_enhance", "access_special_features"]
     }
@@ -533,45 +533,65 @@ def download_image():
 @app.route('/upload-enhance', methods=['GET', 'POST'])
 @token_required
 def upload_enhance(wp_user_id):
+    app.logger.error("Function entered")
+    app.logger.error("=== Token Debug ===")
+    app.logger.error(f"Raw URL: {request.url}")
+    app.logger.error(f"Query params: {request.args}")
+    app.logger.error(f"Token from URL: {request.args.get('token')}")
+    app.logger.error(f"WP User ID: {wp_user_id}")
+    app.logger.error("=== Upload Enhance Function Start ===")
+    app.logger.error(f"wp_user_id received: {wp_user_id}, type: {type(wp_user_id)}")
+    app.logger.error(f"Request method: {request.method}")
+    app.logger.error(f"Request args: {request.args}")
     client = get_client_by_wp_user_id(wp_user_id)
     # vérifie si le client existe dans la base de données
+    try:
+        app.logger.error("Attempting to get client...")
+        client = get_client_by_wp_user_id(wp_user_id)
+        app.logger.info(f"Client lookup result: {client}")
 
-    if not client:
-        app.logger.error("client non trouvé !")
-        return jsonify({"error": "Client non trouvé"}), 404
-    # Vérifie si le client existe et a la permission d'utiliser cette route
-    if not check_client_permission(client["id"], "upload_enhance"):
-        app.logger.error("Permission refusée pour l'amélioration d'image")
-        return jsonify({"error": "Permission refusée pour l'upload et l'amélioration d'image"}), 403
+        if not client:
+            app.logger.error("client non trouvé !")
+            return jsonify({"error": "Client non trouvé"}), 404
+        # Vérifie si le client existe et a la permission d'utiliser cette route
+        if not check_client_permission(client["id"], "upload_enhance"):
+            app.logger.error("Permission refusée pour l'amélioration d'image")
+            return jsonify({"error": "Permission refusée pour l'upload et l'amélioration d'image"}), 403
 
-    if request.method == 'GET':
-        return render_template('upload-enhance.html')
+        if request.method == 'GET':
+            app.logger.error("Returning template...")
+            return render_template('upload-enhance.html')
 
-    if request.method == 'POST':
-        if 'file' not in request.files:
-            app.logger.error("No file part in the request")
-            return jsonify({'error': 'No file part in the request'}), 400
+        if request.method == 'POST':
+            if 'file' not in request.files:
+                app.logger.error("No file part in the request")
+                return jsonify({'error': 'No file part in the request'}), 400
 
-        file = request.files['file']
-        if file.filename == '':
-            app.logger.error("No selected file")
-            return jsonify({'error': 'No selected file'}), 400
+            file = request.files['file']
+            if file.filename == '':
+                app.logger.error("No selected file")
+                return jsonify({'error': 'No selected file'}), 400
 
-        if file and allowed_file(file.filename):
-            filename = secure_filename(file.filename)
-            file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-            file.save(file_path)
-            app.logger.info(f"File saved to {file_path}")
+            if file and allowed_file(file.filename):
+                filename = secure_filename(file.filename)
+                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
+                file.save(file_path)
+                app.logger.info(f"File saved to {file_path}")
 
-            enhanced_image_url = enhance_image_quality(file_path)
-            if enhanced_image_url:
-                app.logger.info(f"Enhanced image URL: {enhanced_image_url}")
-                return jsonify({'image_url': enhanced_image_url})
-            else:
-                app.logger.error("Failed to enhance image")
-                return jsonify({'error': 'Failed to enhance image'}), 500
+                enhanced_image_url = enhance_image_quality(file_path)
+                if enhanced_image_url:
+                    app.logger.info(f"Enhanced image URL: {enhanced_image_url}")
+                    return jsonify({'image_url': enhanced_image_url})
+                else:
+                    app.logger.error("Failed to enhance image")
+                    return jsonify({'error': 'Failed to enhance image'}), 500
 
-        return jsonify({'error': 'Invalid file'}), 400
+            return jsonify({'error': 'Invalid file'}), 400
+        return jsonify({"error": "Invalid request method"}), 400
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error in /upload_enhance: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
 
 def enhance_image_quality(file_path):
     with open(file_path, 'rb') as image_file:
