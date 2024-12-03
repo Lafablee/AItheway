@@ -578,13 +578,17 @@ def upload_enhance(wp_user_id):
                 file.save(file_path)
                 app.logger.info(f"File saved to {file_path}")
 
+                if not os.path.exists(file_path):
+                    app.logger.error("File was not saved successfully")
+                    return jsonify({'error': 'File upload failed'}), 500
+
                 enhanced_image_url = enhance_image_quality(file_path)
                 if enhanced_image_url:
                     app.logger.info(f"Enhanced image URL: {enhanced_image_url}")
                     return jsonify({'image_url': enhanced_image_url})
                 else:
                     app.logger.error("Failed to enhance image")
-                    return jsonify({'error': 'Failed to enhance image'}), 500
+                    return jsonify({'error': 'Failed to enhance image, please retry later'}), 500
 
             return jsonify({'error': 'Invalid file'}), 400
         return jsonify({"error": "Invalid request method"}), 400
@@ -594,15 +598,38 @@ def upload_enhance(wp_user_id):
         return jsonify({"error": "Internal server error"}), 500
 
 def enhance_image_quality(file_path):
-    with open(file_path, 'rb') as image_file:
-        response = requests.post(
-            'https://api.deepai.org/api/waifu2x',
-            files={'image': image_file},
-            headers={'api-key': deep_ai_api_key}
-        )
-        result = response.json()
-        app.logger.debug(f"Response from DeepAI: {result}")
-        return result.get('output_url', None)
+    try:
+        if not deep_ai_api_key:
+            app.logger.error("DeepAI API key is not set")
+            return None
+
+        with open(file_path, 'rb') as image_file:
+            app.logger.error("Attempting to contact DeepAI API...")
+            response = requests.post(
+                'https://api.deepai.org/api/waifu2x',
+                files={'image': image_file},
+                headers={'api-key': deep_ai_api_key}
+            )
+            app.logger.error(f"DeepAI API Status Code: {response.status_code}")
+            app.logger.error(f"DeepAI API Response Headers: {response.headers}")
+
+            if response.status_code == 200:
+                app.logger.error(f"DeepAI API Error: Status {response.status_code}")
+                app.logger.error(f"Response content: {response.text}")
+                return None
+
+            result = response.json()
+            app.logger.debug(f"Response from DeepAI: {result}")
+            if 'output_url' not in result:
+                app.logger.error(f"No output URL in response: {result}")
+                return None
+            return result.get('output_url')
+    except requests.exceptions.RequestException as e:
+        app.logger.error(f"Network error contacting DeepAI: {str(e)}")
+        return None
+    except Exception as e:
+        app.logger.error(f"Unexpected error contacting DeepAI: {str(e)}")
+        return None
 
 @app.route('/download-enhanced-image', methods=['POST'])
 def download_enhanced_image():
