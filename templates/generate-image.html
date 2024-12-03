@@ -206,6 +206,7 @@
                     imageDiv.innerHTML = `<p class="text-danger mt-3">Erreur : ${result.error}</p>`;
                 }
             } catch (error) {
+                showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
                 imageDiv.innerHTML = `<p class="text-danger mt-3">Erreur : Impossible de contacter le serveur.</p>`;
                 console.error('Error:', error); // Added for debugging
             } finally {
@@ -282,5 +283,6 @@
             };
         }
     </script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
 </html>

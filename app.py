@@ -10,7 +10,8 @@ import jwt
 from jwt import InvalidTokenError
 from functools import wraps
 import psycopg2
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, timedelta
+from urllib.parse import quote
 
 
 
@@ -149,8 +150,12 @@ def token_required(f):
                 app.logger.error(f"Token extracted from header: {token}")
 
         if not token:
-            app.logger.error("No token found in either URL or headers")
-            return redirect(LOGIN_URL)
+            app.logger.error("No token found in either URL or headers-redirection-")
+            return handle_error_response(
+                "Please log in to continue",
+                401,
+                "Authentication Required"
+            )
 
         if token == FIXED_TOKEN:
             return f(None)
@@ -172,10 +177,18 @@ def token_required(f):
 
         except jwt.ExpiredSignatureError:
             app.logger.error("Token has expired")
-            return redirect(LOGIN_URL)
+            return handle_error_response(
+                "Your session has expired. Please log in again.",
+                401,
+                "Session Expired"
+            )
         except jwt.InvalidTokenError as e:
             app.logger.error(f"Token decode error:{str(e)} ")
-            abort(403, description="Token is invalid")
+            return handle_error_response(
+                "Invalid authentication token",
+                403,
+                "Invalid Token"
+            )
             #Next Step : mise en place redirection template error html
         except Exception as e:
             app.logger.error(f"Unexpected error: {str(e)}")
@@ -342,6 +355,21 @@ def update_client_expiry(client_id, days=1):
     cursor.close()
     conn.close()
 
+
+def handle_error_response(message, status_code, title="Error"):
+    """Enhanced error handler with template support"""
+    if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get(
+            'Accept') == 'application/json':
+        return jsonify({
+            "error": "authentication_error",
+            "message": message,
+            "redirect_url": LOGIN_URL
+        }), status_code
+
+    # For regular requests, redirect to error page with parameters
+    error_url = f'/error?title={quote(title)}&message={quote(message)}'
+    return redirect(error_url)
+
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
 
@@ -358,6 +386,22 @@ def validate_image_format(img_format):
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/refresh-token')
+def refresh_token():
+    """Endpoint for handling expired tokens"""
+    return jsonify({
+        "error": "token_expired",
+        "message": "Your session has expired. Please log in again.",
+        "redirect_url": LOGIN_URL
+    }), 401
+
+@app.route('/error')
+def error_page():
+    title = request.args.get('title', 'Error')
+    message = request.args.get('message', 'An error occurred')
+    return render_template('error-message.html', title=title, message=message)
+
 
 @app.route('/sync-membership', methods=['POST'])
 @token_required
