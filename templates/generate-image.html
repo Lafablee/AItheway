@@ -188,11 +188,26 @@
             try {
                 const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'  // This identifies it as an AJAX request
+                    },
                     body: `prompt=${encodeURIComponent(promptInput.value)}`
                 });
 
                 const result = await response.json();
+                // Handle token expiration and other auth errors
+                if(response.status === 401 || response.status === 403){
+                    showErrorOverlay(
+                        response.status === 401 ? 'Session Expirée' : 'Erreur d\'authentification',
+                        result.message || 'Veuillez vous reconnecter.'
+                    );
+                    // Redirect after 3 seconds
+                     setTimeout(() => {
+                         window.location.href = result.redirect_url || LOGIN_URL;
+                     }, 3000);
+                     return;
+                }
                 if (result.image_url) {
                     generatedImageUrl = result.image_url;
                     imageDiv.innerHTML = `<img src="${generatedImageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
@@ -203,11 +218,10 @@
 
                     generateText.textContent = 'Générer une nouvelle image';
                 } else {
-                    imageDiv.innerHTML = `<p class="text-danger mt-3">Erreur : ${result.error}</p>`;
+                    showErrorOverlay('Erreur', result.error || 'Une erreur est survenue');
                 }
             } catch (error) {
                 showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
-                imageDiv.innerHTML = `<p class="text-danger mt-3">Erreur : Impossible de contacter le serveur.</p>`;
                 console.error('Error:', error); // Added for debugging
             } finally {
                 spinner.style.display = 'none';

@@ -300,29 +300,53 @@
             const formData = new FormData();
             formData.append('file', file);
 
+            // Get the token from URL
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
             try {
-                const response = await fetch('/upload-enhance', {
+                const response = await fetch('/upload-enhance?token=${encodeURIComponent(token)}`', {
                     method: 'POST',
+                    headers:{
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
                     body: formData
                 });
-                const result = await response.json();
+                const result = await handleApiResponse(response);  // Use the helper from script.js
+                if (!result) {
+                    loadingOverlay.classList.remove('active');
+                    return;
+                }
+
+                if (response.status === 401){
+                     showErrorOverlay('Session Expirée', 'Votre session a expiré. Veuillez vous reconnecter.', true);
+                     return;
+                }
+                if (response.status === 403) {
+                    showErrorOverlay('Erreur d\'authentification','Access denied.', true);
+                    return;
+                }
 
                 loadingOverlay.classList.remove('active');
+
                 if (result.image_url) {
                     const enhancedImage = loadingOverlay.parentNode.querySelector('.enhanced-image');
 
                     enhancedImage.src = result.image_url;
+                    enhancedImageUrl = result.image_url;
 
                     const downloadSection = createDownloadSection(enhancedImage);
                     loadingOverlay.parentNode.appendChild(downloadSection);
                     console.log("Bloc de téléchargement ajouté.");
 
                     enhanceButton.textContent = 'Améliorer une nouvelle image';
-                } else {
-                    alert(`Erreur : ${result.error}`);
+                } else if (result.error) {
+                    showErrorOverlay('Erreur', result.error || 'Une erreur est survenue lors du traitement de l\'image.');
                 }
             } catch (error) {
-                alert('Erreur : Impossible de contacter le serveur.');
+                console.error('Error:', error);
+                showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
                 loadingOverlay.classList.remove('active');
             }
         });

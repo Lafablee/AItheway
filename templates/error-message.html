@@ -1,34 +1,49 @@
-<div class="error-container flex flex-col items-center justify-center min-h-screen bg-gray-100">
-    <div class="bg-white p-8 rounded-lg shadow-md max-w-md w-full mx-4">
-        <div class="text-center">
-            <!-- Error Icon -->
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
-                <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
-            </div>
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ title }}</title>
+</head>
+<body class="bg-gray-100">
+    <div class="error-container flex flex-col items-center justify-center min-h-screen bg-gray-100">
+        <div class="bg-white p-8 rounded-lg shadow-md max-w-md w-full mx-4">
+            <div class="text-center">
+                <!-- Error Icon -->
+                <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 mb-4">
+                    <svg class="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
 
-            <h2 class="text-2xl font-semibold text-gray-900 mb-2" id="error-title"></h2>
-            <p class="text-gray-600 mb-6" id="error-message"></p>
+                <h2 class="text-2xl font-semibold text-gray-900 mb-2" id="error-title">{{ title }}</h2>
+                <p class="text-gray-600 mb-6" id="error-message">{{ message }}</p>
 
-            <div class="flex justify-center">
-                <button onclick="window.location.href='LOGIN_URL'" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md transition-colors">
-                    Return to Login
-                </button>
+                <div class="flex justify-center">
+                    <button onclick="window.location.href='{{ LOGIN_URL }}'" class="bg-blue-500 hover:bg-blue-600 text-white font-semibold py-2 px-4 rounded-md transition-colors">
+                        Retour à la connexion
+                    </button>
+                </div>
             </div>
         </div>
     </div>
-</div>
 
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Get error details from URL parameters
-    const urlParams = new URLSearchParams(window.location.search);
-    const errorTitle = urlParams.get('title') || 'Session Expired';
-    const errorMessage = urlParams.get('message') || 'Please log in again to continue.';
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const errorTitle = urlParams.get('title') || 'Session Expirée';
+        const errorMessage = urlParams.get('message') || 'Veuillez vous reconnecter pour continuer.';
 
-    // Update the error message elements
-    document.getElementById('error-title').textContent = errorTitle;
-    document.getElementById('error-message').textContent = errorMessage;
-});
-</script>
+        document.getElementById('error-title').textContent = errorTitle;
+        document.getElementById('error-message').textContent = errorMessage;
+
+        // Auto redirect after 3 seconds for session expiration
+        if (errorTitle.toLowerCase().includes('session')) {
+            setTimeout(() => {
+                window.location.href = '{{ LOGIN_URL }}';
+            }, 3000);
+        }
+    });
+    </script>
+</body>
+</html>
