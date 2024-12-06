@@ -1,18 +1,46 @@
+const LOGIN_URL = "https://aitheway.com/login/";
+console.log('script.js loading...')
 // Error handling function with enhanced AJAX support
 function showErrorOverlay(title, message, isAuthError = false) {
-    // Add keyframe animation for spinner
+    console.log('showErrorOverlay called with:', { title, message, isAuthError });
+    // Add keyframe animation for spinner and scaling
     const styleSheet = document.createElement('style');
     styleSheet.textContent = `
+        @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap');
+        
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
         }
-        @keyframes fadeIn {
-         from { opacity: 0; }
-         to { opacity: 1; }
+        @keyframes scaleIn {
+            from { transform: scale(0.95); opacity: 0; }
+            to { transform: scale(1); opacity: 1; }
+        }
+        .error-button {
+            font-family: 'Montserrat', sans-serif;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 25px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 14px;
+            min-width: 160px;
+            transform: translateY(0);
+            transition: all 0.2s ease;
+        }
+        .error-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 2px 8px rgba(0, 123, 255, 0.25);
+            background-color: #0056b3;
         }
     `;
     document.head.appendChild(styleSheet);
+
+    // Helper function to get icon color based on error type
+    const getIconColor = (isAuth) => {
+        return isAuth ? '#FFA500' : '#dc3545';
+    };
 
     // Remove existing overlay if any
     let overlay = document.getElementById('error-overlay');
@@ -35,7 +63,8 @@ function showErrorOverlay(title, message, isAuthError = false) {
         z-index: 9999;
         backdrop-filter: blur(2px);
         padding: 20px;
-        transition: oppacity 0.3s ease;
+        opacity: 0;
+        transition: opacity 0.3s ease;
     `;
 
     const buttonText = isAuthError ? 'Retour à la connexion' : 'Réessayer';
@@ -44,17 +73,17 @@ function showErrorOverlay(title, message, isAuthError = false) {
         'window.location.reload()';
 
     const spinner = `
-       <div style="
-         width: 16px;
-         height: 16px;
-         border: 2px solid #f3f3f3;
-         border-top: 2px solid #007bff;
-         border-radius: 50%;
-         animation: spin 1s linear infinite;
-         display: inline-block;
-         margin-right: 8px;
-         vertical-align: middle;
-       "></div>
+        <div style="
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(0, 123, 255, 0.2);
+            border-top: 2px solid #007bff;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 8px;
+            vertical-align: middle;
+        "></div>
     `;
 
     const redirectMessage = isAuthError ? `
@@ -62,76 +91,77 @@ function showErrorOverlay(title, message, isAuthError = false) {
             margin-top: 15px;
             font-size: 13px;
             color: #666;
-            font-style: oblique;
+            font-style: italic;
         ">
-          ${spinner}
-          Redirection automatique dans <span id="countdown">3</span> secondes...
+            ${spinner}
+            Redirection automatique dans <span id="countdown">3</span> secondes...
         </div>
-    `:'';
+    ` : '';
 
     overlay.innerHTML = `
         <div style="
+            font-family: 'Montserrat', sans-serif;
             background: white;
             padding: 25px;
-            border-radius: 8px;
+            border-radius: 12px;
             box-shadow: 0px 0px 20px rgba(0, 0, 0, 0.2);
-            max-width: 380px;
             width: 100%;
+            max-width: 380px;
             margin: 0 auto;
             text-align: center;
             position: relative;
             top: -10%;
-            animation: fadeIn 0.3s ease forwards;
+            animation: scaleIn 0.3s ease forwards;
         ">
-            <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px; font-weight: 600; ">${title}</h3>
-            <p style="color: #666; margin: 0 0 20px 0; font-size: 14px; line-height: 1.5;">${message}</p>
-            <button onclick="${buttonAction}" style="
-                background-color: #007bff;
-                color: white;
-                border: none;
-                padding: 10px 20px;
-                border-radius: 6px;
-                cursor: pointer;
-                transition: background-color 0.3s ease;
-                font-size: 14px;
-                width: auto;
-                min-width: 160px;
-            ">${buttonText}</button>
+            <div style="
+                margin: 0 auto 15px;
+                padding: 12px;
+                background: ${getIconColor(isAuthError)}1A;
+                border-radius: 50%;
+                width: fit-content;
+            ">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" style="color: ${getIconColor(isAuthError)}">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+            </div>
+            <h3 style="font-family: 'Montserrat', sans-serif; color: #333; margin: 0 0 15px 0; font-size: 18px; font-weight: 600;">${title}</h3>
+            <p style="font-family: 'Montserrat', sans-serif; color: #666; margin: 0 0 20px 0; font-size: 14px; line-height: 1.5;">${message}</p>
+            <button class="error-button" onclick="${buttonAction}">${buttonText}</button>
             ${redirectMessage}
         </div>
     `;
 
     document.body.appendChild(overlay);
 
-     // Add click outside to close for non-auth errors
+    // Add click outside to close for non-auth errors
     if (!isAuthError) {
         overlay.addEventListener('click', function(e) {
-             if (e.target === overlay) {
-                 overlay.style.opacity = '0';
-                 setTimeout(() =>overlay.remove(), 300); // Remove after fade out
-             }
+            if (e.target === overlay) {
+                overlay.style.opacity = '0';
+                setTimeout(() => overlay.remove(), 300);
+            }
         });
     }
+
     // Trigger fade in
-    requestAnimationFrame(() =>{
+    requestAnimationFrame(() => {
         overlay.style.opacity = '1';
     });
 
-    // Auto redirect for auth errors after 3 seconds
+    // Add countdown and redirect for auth errors
     if (isAuthError) {
         let countdown = 3;
         const countdownElement = document.getElementById('countdown');
         const timer = setInterval(() => {
             countdown--;
-            if (countdownElement){
+            if (countdownElement) {
                 countdownElement.textContent = countdown;
             }
-            if (countdown <= 0){
+            if (countdown <= 0) {
                 clearInterval(timer);
                 window.location.href = LOGIN_URL;
             }
-         }, 1000);
-
+        }, 1000);
     }
 }
 
@@ -206,4 +236,5 @@ document.addEventListener('DOMContentLoaded', () => {
 
 // Export the functions for global use
 window.showErrorOverlay = showErrorOverlay;
+console.log('script.js functions exported to window');
 window.handleApiResponse = handleApiResponse;

@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{{ title }}</title>
+    <link href="https://cdn.tailwindcss.com" rel="stylesheet">
+    <script>
+        const LOGIN_URL = "{{ LOGIN_URL }}";
+    </script>
 </head>
 <body class="bg-gray-100">
     <div class="error-container flex flex-col items-center justify-center min-h-screen bg-gray-100">
@@ -24,11 +28,28 @@
                         Retour à la connexion
                     </button>
                 </div>
+                <div class="mt-4 text-sm text-gray-500">
+                    Redirection automatique dans <span id="countdown">3</span> secondes...
+                </div>
             </div>
         </div>
     </div>
 
     <script>
+        let countdown = 3;
+        const countdownElement = document.getElementById('countdown');
+
+        const timer = setInterval(() => {
+            countdown--;
+            if (countdownElement) {
+                countdownElement.textContent = countdown;
+            }
+            if (countdown <= 0) {
+                clearInterval(timer);
+                window.location.href = "{{ LOGIN_URL }}";
+            }
+        }, 1000);
+
     document.addEventListener('DOMContentLoaded', function() {
         const urlParams = new URLSearchParams(window.location.search);
         const errorTitle = urlParams.get('title') || 'Session Expirée';

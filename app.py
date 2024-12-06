@@ -400,7 +400,7 @@ def refresh_token():
 def error_page():
     title = request.args.get('title', 'Error')
     message = request.args.get('message', 'An error occurred')
-    return render_template('error-message.html', title=title, message=message)
+    return render_template('error-message.html', title=title, message=message, LOGIN_URL=LOGIN_URL)
 
 
 @app.route('/sync-membership', methods=['POST'])
@@ -577,6 +577,7 @@ def download_image():
 @app.route('/upload-enhance', methods=['GET', 'POST'])
 @token_required
 def upload_enhance(wp_user_id):
+
     app.logger.error("Function entered")
     app.logger.error("=== Token Debug ===")
     app.logger.error(f"Raw URL: {request.url}")
@@ -587,8 +588,29 @@ def upload_enhance(wp_user_id):
     app.logger.error(f"wp_user_id received: {wp_user_id}, type: {type(wp_user_id)}")
     app.logger.error(f"Request method: {request.method}")
     app.logger.error(f"Request args: {request.args}")
+    app.logger.error(f"Headers: {dict(request.headers)}")
     client = get_client_by_wp_user_id(wp_user_id)
     # vérifie si le client existe dans la base de données
+    #test template error
+    token = request.args.get('token')
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+    app.logger.error(f"Is AJAX request: {is_ajax}")
+    if not token:
+        app.logger.error("Token not found!")
+        if is_ajax:
+            app.logger.error("Returning JSON error response")
+            return jsonify({
+                "error": "authentification error",
+                "message": "Please log in to continue",
+                "redirect_url": LOGIN_URL
+            }), 401
+        else:
+            app.logger.error("Returning page with error flag")
+            return render_template(
+                'upload-enhance.html',
+                show_auth_error=True,
+                LOGIN_URL=LOGIN_URL,
+            )
     try:
         app.logger.error("Attempting to get client...")
         client = get_client_by_wp_user_id(wp_user_id)
