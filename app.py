@@ -674,12 +674,13 @@ def enhance_image_quality(file_path):
             response = requests.post(
                 'https://api.deepai.org/api/waifu2x',
                 files={'image': image_file},
-                headers={'api-key': deep_ai_api_key}
+                headers={'api-key': deep_ai_api_key},
+                timeout=10
             )
             app.logger.error(f"DeepAI API Status Code: {response.status_code}")
             app.logger.error(f"DeepAI API Response Headers: {response.headers}")
 
-            if response.status_code == 200:
+            if response.status_code != 200:
                 app.logger.error(f"DeepAI API Error: Status {response.status_code}")
                 app.logger.error(f"Response content: {response.text}")
                 return None
@@ -690,6 +691,7 @@ def enhance_image_quality(file_path):
                 app.logger.error(f"No output URL in response: {result}")
                 return None
             return result.get('output_url')
+
     except requests.exceptions.RequestException as e:
         app.logger.error(f"Network error contacting DeepAI: {str(e)}")
         return None

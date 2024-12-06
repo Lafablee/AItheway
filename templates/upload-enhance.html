@@ -15,7 +15,6 @@
             overflow-x: hidden;
             user-select: none;
         }
-
         .container {
             max-width: 600px;
             padding: 40px;
@@ -26,94 +25,45 @@
             margin-bottom: 100px;
         }
 
-        .add-button {
-            position: fixed;
-            left: 24px;
-            bottom: 24px;
-            width: 56px;
-            height: 56px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 50%;
-            font-size: 24px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1000;
+        /* Image preview and comparison styles */
+        .image-wrapper {
+            position: relative;
+            width: 100%;
+            margin-bottom: 30px;
+            border-radius: 12px;
+            overflow: hidden;
+            background-color: #f8f9fa;
+            aspect-ratio: 16/9;
+            max-height: 500px;
         }
 
-        .add-button:hover {
-            transform: scale(1.1) rotate(90deg);
-            background-color: #0056b3;
-        }
-
-        .sidebar {
-            position: fixed;
-            right: -200px;
-            top: 0;
-            width: 80px;
-            height: 100vh;
-            background-color: white;
-            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 900;
-            padding: 20px 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            overflow-y: auto;
-        }
-
-        .sidebar.open {
-            transform: translateX(-200px);
-        }
-
-        .sidebar img {
-            width: 50px;
-            height: 50px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin-bottom: 15px;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .sidebar img:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .sidebar img.selected {
-            border: 3px solid #007bff;
-            transform: scale(1.05);
-        }
-
-        .close-sidebar {
+        .preview-container {
             position: absolute;
-            top: 10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 30px;
-            height: 30px;
-            border: none;
-            background: none;
-            color: #666;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            font-size: 24px;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
             display: flex;
-            align-items: center;
             justify-content: center;
+            align-items: center;
+            opacity: 1;
+            transition: opacity 0.3s ease;
         }
 
-        .close-sidebar:hover {
-            color: #333;
-            transform: translateX(-50%) scale(1.1);
+        .preview-container.fading {
+            opacity: 0;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .preview-image.visible {
+            opacity: 1;
         }
 
         .comparison-container {
@@ -150,6 +100,39 @@
             transition: clip-path 0.2s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
+        /* Loading overlay styles */
+        .loading-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.5);
+            backdrop-filter: blur(4px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+
+        .loading-overlay.active {
+            opacity: 1;
+            pointer-events: auto;
+        }
+
+        .loading-spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-radius: 50%;
+            border-top-color: white;
+            animation: spin 1s linear infinite;
+        }
+
+        /* Slider and comparison controls */
         .vertical-divider {
             position: absolute;
             top: 0;
@@ -198,6 +181,7 @@
             transform: translateX(4px);
         }
 
+        /* Comparison labels */
         .comparison-labels {
             position: absolute;
             top: 20px;
@@ -235,76 +219,79 @@
             transform: translateX(0);
         }
 
-        .range-slider {
-            width: 100%;
-            margin-top: 15px;
-            -webkit-appearance: none;
-            height: 6px;
-            border-radius: 3px;
-            background: #ddd;
-            outline: none;
-            transition: all 0.2s ease;
+        /* Sidebar styles */
+        .sidebar {
+            position: fixed;
+            right: -200px;
+            top: 0;
+            width: 80px;
+            height: 100vh;
+            background-color: white;
+            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            z-index: 900;
+            padding: 20px 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
         }
 
-        .range-slider::-webkit-slider-thumb {
-            -webkit-appearance: none;
-            width: 20px;
-            height: 20px;
-            border-radius: 50%;
-            background: #007bff;
+        .sidebar.open {
+            transform: translateX(-200px);
+        }
+
+        .sidebar img {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 15px;
             cursor: pointer;
             transition: all 0.2s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
         }
 
-        .range-slider::-webkit-slider-thumb:hover {
-            transform: scale(1.2);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+        .sidebar img:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
         }
 
-        .download-section {
-            margin-top: 20px;
-            position: relative;
+        .sidebar img.selected {
+            border: 3px solid #007bff;
+            transform: scale(1.05);
         }
 
-        .btn-download {
-            width: 100%;
-            padding: 12px;
+        /* Controls and buttons */
+        .add-button {
+            position: fixed;
+            left: 24px;
+            bottom: 24px;
+            width: 56px;
+            height: 56px;
             background-color: #007bff;
             color: white;
             border: none;
-            border-radius: 8px;
+            border-radius: 50%;
+            font-size: 24px;
             cursor: pointer;
-            font-weight: 500;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        .btn-download:hover {
-            background-color: #0056b3;
-            transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
-        }
-
-        .format-dropdown {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            width: 100%;
-            background-color: white;
-            border-radius: 8px;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
-            margin-top: 8px;
             z-index: 1000;
-            overflow: hidden;
-            transform-origin: top center;
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1),
-                        opacity 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        .format-dropdown.show {
-            display: block;
-            animation: dropdownIn 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        .add-button:hover {
+            transform: scale(1.1) rotate(90deg);
+            background-color: #0056b3;
+        }
+
+        /* Animations */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
         }
 
         @keyframes dropdownIn {
@@ -318,56 +305,7 @@
             }
         }
 
-        .format-option {
-            padding: 12px;
-            text-align: center;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            color: #333;
-            font-weight: 500;
-        }
-
-        .format-option:hover {
-            background-color: #f8f9fa;
-            color: #007bff;
-        }
-
-        .loading-overlay {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.5);
-            backdrop-filter: blur(4px);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            z-index: 2000;
-            opacity: 0;
-            pointer-events: none;
-            transition: opacity 0.3s ease;
-        }
-
-        .loading-overlay.active {
-            opacity: 1;
-            pointer-events: auto;
-        }
-
-        .loading-spinner {
-            width: 50px;
-            height: 50px;
-            border: 4px solid rgba(255, 255, 255, 0.3);
-            border-radius: 50%;
-            border-top-color: white;
-            animation: spin 1s linear infinite;
-        }
-
-        @keyframes spin {
-            0% { transform: rotate(0deg); }
-            100% { transform: rotate(360deg); }
-        }
-
+        /* Responsive styles */
         @media (max-width: 768px) {
             .container {
                 margin: 20px;
@@ -399,7 +337,7 @@
                 width: 32px;
                 height: 32px;
             }
-        }
+}
     </style>
 </head>
 <body>
@@ -422,35 +360,13 @@
 
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script>
-        console.log('Script starting...')
-        document.addEventListener('DOMContentLoaded', function() {
-            console.log('DOMCcontentLoaded event fired')
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-            console.log('Token from URL:', token)
+                // Configuration and initialization
+        const headers = {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Accept': 'application/json'
+        };
 
-            if (!token) {
-                console.log('No token found, attempting to show error overlay');
-                try {
-                    window.showErrorOverlay(
-                        'Authentication Required',
-                        'Please log in to continue',
-                        true
-                    );
-                    console.log('Error overlay function called successfully');
-                } catch (error) {
-                    console.log('Error showing overlay');
-                }
-                return;
-
-            }
-            console.log('Token found:', token);
-
-        });
-
-        console.log('showErrorOverlay exists:', typeof window.showErrorOverlay === 'function');
-        console.log('handleApiResponse exists:', typeof window.handleApiResponse === 'function');
-                // Main script for upload-enhance.html
+        // DOM Elements
         const fileInput = document.getElementById('file-input');
         const addButton = document.getElementById('add-button');
         const sidebar = document.getElementById('sidebar');
@@ -458,40 +374,34 @@
         const imageContainer = document.getElementById('image-container');
         const loadingOverlay = document.getElementById('loading-overlay');
 
+        // State
         let enhancedImages = [];
         let selectedImageId = null;
         let isDragging = false;
-        let startX = 0;
         let sliderValue = 50;
 
-        // Utility function for smooth animation
-        function animate(element, property, target, duration = 300) {
-            const start = parseFloat(getComputedStyle(element)[property]);
-            const startTime = performance.now();
-
-            function update(currentTime) {
-                const elapsed = currentTime - startTime;
-                const progress = Math.min(elapsed / duration, 1);
-
-                // Easing function for smooth animation
-                const easeOutCubic = 1 - Math.pow(1 - progress, 3);
-
-                const current = start + (target - start) * easeOutCubic;
-                element.style[property] = `${current}${property === 'opacity' ? '' : 'px'}`;
-
-                if (progress < 1) {
-                    requestAnimationFrame(update);
-                }
-            }
-
-            requestAnimationFrame(update);
+        // Image Preview Handling
+        async function createImagePreview(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => resolve({
+                        width: img.width,
+                        height: img.height,
+                        src: e.target.result
+                    });
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
         }
 
-        // Handle file input changes
-        fileInput.addEventListener('change', async (event) => {
-            const file = event.target.files[0];
+        // Image Upload and Processing
+        async function handleFileUpload(file) {
             if (!file) return;
 
+            // Validate file format
             const acceptedFormats = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
             if (!acceptedFormats.includes(file.type)) {
                 showErrorOverlay(
@@ -501,27 +411,27 @@
                 return;
             }
 
+            // Show loading state
             loadingOverlay.classList.add('active');
 
             try {
+                // Get token and prepare form data
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token');
-
                 const formData = new FormData();
                 formData.append('file', file);
 
+                // Upload and get enhanced image
                 const response = await fetch(`/upload-enhance?token=${encodeURIComponent(token)}`, {
                     method: 'POST',
                     body: formData,
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest',
-                        'Accept' : 'application/json'
-                    }
+                    headers
                 });
 
                 const result = await handleApiResponse(response);
                 if (!result) return;
 
+                // Create image objects and update UI
                 const imageId = Date.now();
                 const newImage = {
                     id: imageId,
@@ -546,13 +456,15 @@
                 loadingOverlay.classList.remove('active');
                 fileInput.value = '';
             }
-        });
+        }
 
+        // UI Component Creation
         function createImageComparison(image) {
             const container = document.createElement('div');
             container.id = `comparison-${image.id}`;
             container.className = 'comparison-container';
 
+            // Create comparison view HTML
             container.innerHTML = `
                 <img src="${image.original}" class="image" alt="Original">
                 <img src="${image.enhanced}" class="enhanced-image" alt="Enhanced">
@@ -567,18 +479,27 @@
                 <div class="download-section">
                     <button class="btn-download">Télécharger l'image</button>
                     <div class="format-dropdown">
-                        ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format => `
-                            <div class="format-option" data-format="${format.toLowerCase()}">${format}</div>
-                        `).join('')}
+                        ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format =>
+                            `<div class="format-option" data-format="${format.toLowerCase()}">${format}</div>`
+                        ).join('')}
                     </div>
                 </div>
             `;
 
-            // Set up slider interaction
+            setupComparisonInteractions(container, image);
+            imageContainer.insertBefore(container, imageContainer.firstChild);
+            setTimeout(() => container.classList.add('visible'), 50);
+        }
+
+        // Interaction Setup
+        function setupComparisonInteractions(container, image) {
             const slider = container.querySelector('.range-slider');
             const enhancedImg = container.querySelector('.enhanced-image');
             const divider = container.querySelector('.vertical-divider');
+            const downloadButton = container.querySelector('.btn-download');
+            const formatDropdown = container.querySelector('.format-dropdown');
 
+            // Slider functionality
             function updateComparison(value) {
                 enhancedImg.style.clipPath = `inset(0 ${100 - value}% 0 0)`;
                 divider.style.left = `${value}%`;
@@ -587,177 +508,91 @@
 
             slider.addEventListener('input', (e) => updateComparison(e.target.value));
 
-            // Set up download functionality
-            const downloadButton = container.querySelector('.btn-download');
-            const formatDropdown = container.querySelector('.format-dropdown');
+            // Drag functionality
+            function handleDrag(e) {
+                if (!isDragging) return;
+                const rect = container.getBoundingClientRect();
+                const x = (e.clientX || e.touches[0].clientX) - rect.left;
+                const value = Math.min(Math.max((x / rect.width) * 100, 0), 100);
+                slider.value = value;
+                updateComparison(value);
+            }
 
+            container.addEventListener('mousedown', () => isDragging = true);
+            container.addEventListener('touchstart', () => isDragging = true);
+            container.addEventListener('mousemove', handleDrag);
+            container.addEventListener('touchmove', handleDrag);
+            window.addEventListener('mouseup', () => isDragging = false);
+            window.addEventListener('touchend', () => isDragging = false);
+
+            // Download functionality
             downloadButton.addEventListener('click', (e) => {
                 e.stopPropagation();
-                const allDropdowns = document.querySelectorAll('.format-dropdown');
-                allDropdowns.forEach(dropdown => {
-                    if (dropdown !== formatDropdown) {
-                        dropdown.classList.remove('show');
-                    }
+                document.querySelectorAll('.format-dropdown').forEach(dropdown => {
+                    if (dropdown !== formatDropdown) dropdown.classList.remove('show');
                 });
                 formatDropdown.classList.toggle('show');
             });
 
             formatDropdown.addEventListener('click', (e) => {
                 if (e.target.classList.contains('format-option')) {
-                    const format = e.target.dataset.format;
-                    downloadImage(image.enhanced, format);
+                    downloadImage(image.enhanced, e.target.dataset.format);
                     formatDropdown.classList.remove('show');
                 }
             });
-
-            // Add drag functionality for comparison
-            const handleDrag = (e) => {
-                if (!isDragging) return;
-
-                const rect = container.getBoundingClientRect();
-                const x = (e.clientX || e.touches[0].clientX) - rect.left;
-                let value = (x / rect.width) * 100;
-                value = Math.min(Math.max(value, 0), 100);
-
-                slider.value = value;
-                updateComparison(value);
-            };
-
-            container.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                handleDrag(e);
-            });
-
-            container.addEventListener('touchstart', (e) => {
-                isDragging = true;
-                handleDrag(e);
-            });
-
-            window.addEventListener('mousemove', handleDrag);
-            window.addEventListener('touchmove', handleDrag);
-
-            window.addEventListener('mouseup', () => {
-                isDragging = false;
-            });
-
-            window.addEventListener('touchend', () => {
-                isDragging = false;
-            });
-
-            imageContainer.insertBefore(container, imageContainer.firstChild);
-
-            // Trigger entrance animation
-            setTimeout(() => container.classList.add('visible'), 50);
-        }
-
-        function addImageToSidebar(image) {
-            const thumbnail = document.createElement('img');
-            thumbnail.src = image.enhanced;
-            thumbnail.dataset.id = image.id;
-            thumbnail.addEventListener('click', () => selectImage(image.id));
-
-            if (selectedImageId === image.id) {
-                thumbnail.classList.add('selected');
-            }
-
-            sidebar.querySelector('.sidebar-content').appendChild(thumbnail);
-        }
-
-        function selectImage(imageId) {
-            selectedImageId = imageId;
-
-            document.querySelectorAll('.sidebar img').forEach(img => {
-                img.classList.toggle('selected', img.dataset.id == imageId);
-            });
-
-            const selectedElement = document.getElementById(`comparison-${imageId}`);
-            if (selectedElement) {
-                selectedElement.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start'
-                });
-            }
-        }
-
-        async function downloadImage(url, format) {
-            try {
-                const img = new Image();
-                img.crossOrigin = 'anonymous';
-                img.src = url;
-
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = img.width;
-                    canvas.height = img.height;
-                    ctx.drawImage(img, 0, 0);
-
-                    canvas.toBlob((blob) => {
-                        const link = document.createElement('a');
-                        link.href = URL.createObjectURL(blob);
-                        link.download = `image-amelioree.${format}`;
-                        link.click();
-                        URL.revokeObjectURL(link.href);
-                    }, `image/${format}`);
-                };
-
-                img.onerror = () => {
-                    showErrorOverlay(
-                        'Erreur de téléchargement',
-                        'Impossible de télécharger l\'image. Veuillez réessayer.'
-                    );
-                };
-            } catch (error) {
-                showErrorOverlay(
-                    'Erreur',
-                    'Une erreur est survenue lors du téléchargement.'
-                );
-            }
         }
 
         // Event Listeners
+        fileInput.addEventListener('change', (event) => handleFileUpload(event.target.files[0]));
+
         addButton.addEventListener('click', () => {
             fileInput.click();
             sidebar.classList.add('open');
         });
 
-        closeSidebarButton.addEventListener('click', () => {
-            sidebar.classList.remove('open');
-        });
+        closeSidebarButton.addEventListener('click', () => sidebar.classList.remove('open'));
 
-        // Close dropdowns when clicking outside
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.download-section')) {
-                document.querySelectorAll('.format-dropdown').forEach(dropdown => {
-                    dropdown.classList.remove('show');
-                });
+                document.querySelectorAll('.format-dropdown').forEach(dropdown =>
+                    dropdown.classList.remove('show')
+                );
             }
         });
 
-        // Handle keyboard events
         document.addEventListener('keydown', (e) => {
             if (e.key === 'Escape') {
                 sidebar.classList.remove('open');
-                document.querySelectorAll('.format-dropdown').forEach(dropdown => {
-                    dropdown.classList.remove('show');
-                });
+                document.querySelectorAll('.format-dropdown').forEach(dropdown =>
+                    dropdown.classList.remove('show')
+                );
             }
         });
 
-        // Initialize
-        window.addEventListener('load', () => {
+        // Initialize authentication check
+        document.addEventListener('DOMContentLoaded', async function() {
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
 
-            if (!token) {
+            try {
+                const response = await fetch(window.location.href, { headers });
+                if (!response.ok) {
+                    const result = await response.json();
+                    showErrorOverlay(
+                        'Authentication Required',
+                        result.message || 'Please log in to continue',
+                        true
+                    );
+                }
+            } catch (error) {
+                console.error('Authentication check failed:', error);
                 showErrorOverlay(
-                    'Session non valide',
-                    'Veuillez vous connecter pour continuer.',
+                    'Authentication Required',
+                    'Please log in to continue',
                     true
                 );
-                return;
             }
-        });
+});
     </script>
     {% if show_error %}
     <script>
