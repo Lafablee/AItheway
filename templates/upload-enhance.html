@@ -69,17 +69,41 @@
         .comparison-container {
             position: relative;
             width: 100%;
-            margin-bottom: 30px;
+            margin-bottom: 2rem;
             border-radius: 12px;
             overflow: hidden;
+            background-color: #f8f9fa;
             opacity: 0;
-            transform: translateY(20px);
+            cursor: col-resize;
+            user-select: none;
+            transform: translateY(30px);
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         .comparison-container.visible {
             opacity: 1;
+            transform: translateY(0);
+        }
+        .comparison-container.visible .image,
+        .comparison-container.visible .enhanced-image,
+        .comparison-container.visible .slider-handle,
+        .comparison-container.visible .comparison-labels {
+            opacity: 1;
+            transform: translateY(0);
+        }
+        .comparison-container .slider-handle {
+            transform: translate(-50%, -50%) scale(0.8);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.2s; /* Added delay */
+        }
+        .comparison-container.visible .slider-handle {
+            transform: translate(-50%, -50%) scale(1);
+        }
+        .comparison-container .comparison-labels {
+            transform: translateY(-20px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1) 0.3s; /* Added delay */
+        }
+        .comparison-container.visible .comparison-labels {
             transform: translateY(0);
         }
 
@@ -147,21 +171,23 @@
         .slider-handle {
             position: absolute;
             top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%);
-            width: 40px;
-            height: 40px;
+            width: 48px;
+            height: 48px;
             background-color: white;
             border-radius: 50%;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
-            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+            cursor: grab;
             display: flex;
             align-items: center;
             justify-content: center;
             transition: transform 0.2s ease;
+            will-change: transform, left;
         }
 
         .slider-handle:hover {
-            transform: translate(-50%, -50%) scale(1.1);
+            transform: translate(0, -50%) scale(1.1);
         }
 
         .slider-handle::before,
@@ -180,6 +206,10 @@
         .slider-handle::after {
             transform: translateX(4px);
         }
+        .slider-handle:active {
+            cursor: grabbing;
+            transform: translate(0, -50%) scale(0.95);
+        }
 
         /* Comparison labels */
         .comparison-labels {
@@ -188,7 +218,10 @@
             width: 100%;
             pointer-events: none;
             z-index: 10;
+            opacity: 0;
             display: flex;
+            transform: translateY(20px);
+            transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             justify-content: space-between;
             padding: 0 20px;
         }
@@ -432,6 +465,10 @@
         let isDragging = false;
         let sliderValue = 50;
 
+        // Global state for tracking interaction states
+         let isHovering = false;
+         let startX = 0;
+
         // Image Preview Handling
         async function createImagePreview(file) {
             return new Promise((resolve) => {
@@ -450,8 +487,7 @@
         }
         function showErrorOverlay(tittle, message, isAuthError = false) {
             const loadingOverlay = document.getElementById('loading-overlay');
-            overlayDiv.className = 'error-overlay;';
-            overlayDiv.innerHTML = `
+            loadingOverlay.innerHTML = `
                 <div class="error-message text-center">
                     <h4 class="mb-3">${title}</h4>
                     <p class="mb-4">${message}</p>
@@ -462,14 +498,155 @@
                     ` : ''}
                 </div>
             `;
-            loadingOverlay.innerHTML = '';
-            loadingOverlay.appendChild(errorContent);
+
             loadingOverlay.classList.add('active');
 
             if (!isAuthError)
                 setTimeout(() => {
                     loadingOverlay.classList.remove('active');
                 }, 5000);
+        }
+        function setupImageComparison(container) {
+            const slider = container.querySelector('.slider-handle');
+            const enhancedImage = container.querySelector('.enhanced-image');
+            const divider = container.querySelector('.vertical-divider');
+
+            // Hover handling
+            container.addEventListener('mousemove', (e) => {
+                if (!isDragging) {
+                    // Only update on hover if not dragging
+                    const rect = container.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const value = Math.min(Math.max((x / rect.width) * 100, 0), 100);
+
+                    requestAnimationFrame(() => {
+                        updateComparison(value, enhancedImage, divider, true);
+                        // Move slider smoothly to cursor position
+                        slider.style.transform = `translate(0, -50%)`;
+                        slider.style.left = `${value}%`;
+                    });
+                    // Enter/Leave handling
+            container.addEventListener('mouseenter', () => {
+                isHovering = true;
+                slider.style.transition = 'transform 0.3s ease, left 0.3s ease';
+            });
+            container.addEventListener('mouseleave', () => {
+                isHovering = false;
+                if (!isDragging) {
+                    // Reset to center when mouse leaves
+                    requestAnimationFrame(() => {
+                        updateComparison(50, enhancedImage, divider);$
+                        slider.style.left = '50%';
+                    });
+                }
+            });
+            slider.addEventListener('mousedown', (e) => {
+                isDragging = true;
+                slider.style.cursor = 'grabbing';
+                slider.style.transition = 'none'; // Disable transitions while dragging
+                startX = e.clientX;
+                e.preventDefault();
+            });
+
+            container.addEventListener('mousemove', (e) => {
+                if (isDragging) {
+                    const rect = container.getBoundingClientRect();
+                    const x = e.clientX - rect.left;
+                    const value = Math.min(Math.max((x / rect.width) * 100, 0), 100);
+
+                    requestAnimationFrame(() => {
+                        updateComparison(value, enhancedImage, divider, true);
+                        slider.style.left = `${value}%`;
+                    });
+                }
+            });
+            window.addEventListener('mouseup', () => {
+                if (isDragging) {
+                    isDragging = false;
+                    slider.style.cursor = 'grab';
+                    slider.style.transition = 'transform 0.3s ease, left 0.3s ease';
+
+                    if (!isHovering) {
+                        requestAnimationFrame(() => {
+                            updateComparison(50, enhancedImage, divider);
+                            slider.style.left = '50%';
+                        });
+                    }
+                }
+            });
+            container.addEventListener('touchstart', (e) => {
+                isDragging = true;
+                startX = e.touches[0].clientX;
+                e.preventdefault();
+            });
+            container.addEventListener('touchmove', (e) => {
+                if (isDragging) {
+
+                    const rect = container.getBoundingClientRect();
+                    const x = e.touches[0].clientX - rect.left;
+                    const value = Math.min(Math.max((x / rect.width) * 100, 0), 100);
+
+                    requestAnimationFrame(() => {
+                        updateComparison(value, enhancedImage, divider, true);
+                        slider.style.left = `${value}%`;
+                    });
+                }
+            });
+            container.addEventListener('touchend', () => {
+                isDragging = false;
+                    });
+                }
+            });
+        }
+        function updateComparison(value, enhancedImage, divider, skipTransition = false) {
+            if (skipTransition) {
+                enhancedImage.style.transition = 'none';
+                divider.style.transition = 'none';
+            }
+
+            requestAnimationFrame(() => {
+                enhancedImage.style.clipPath = `inset(0 ${100 - value}% 0 0)`;
+                divider.style.left = `${value}%`;
+
+                if (skipTransition) {
+                    requestAnimationFrame(() => {
+                        enhancedImage.style.transition = '';
+                        divider.style.transition = '';
+                    });
+                }
+            });
+        }
+        document.addEventListener('DOMContentLoaded', () => {
+            addFileSizeInfo();
+            const containers = document.querySelectorAll('.comparison-container');
+            containers.forEach(container => {
+                setupImageComparison(container);
+                setupEntranceAnimation(container);
+            });
+        });
+
+        function setupEntranceAnimation(container) {
+            const observer = new IntersectionObserver((entries) => {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        requestAnimationFrame(() => {
+                            container.classList.add('visible');
+                            const elements = container.querySelectorAll('.image, .enhanced-image, .slider-handle, .comparison-labels');
+                            elements.forEach((el, index) => {
+                                setTimeout(() => {
+                                    el.classList.add('visible');
+                                }, index * 100);
+                            });
+                        });
+                        observer.disconnect();
+                    }
+                });
+            }, {
+                threshold: 0.2, // Trigger when 20% of the container is visible
+                root: null,     // Use viewport as root
+                rootMargin: '0px' // No margin
+            });
+            observer.observe(container);
         }
 
         async function handleApiResponse(response) {
