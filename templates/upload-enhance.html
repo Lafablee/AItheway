@@ -373,7 +373,7 @@
         const closeSidebarButton = document.getElementById('close-sidebar');
         const imageContainer = document.getElementById('image-container');
         const loadingOverlay = document.getElementById('loading-overlay');
-
+        const MAX_FILE_SIZE = 20 * 1024 * 1024; // 10 MB in bytes
         // State
         let enhancedImages = [];
         let selectedImageId = null;
@@ -409,6 +409,20 @@
                 size: file.size
             });
 
+            // Check file size before uploading
+            if (file > MAX_FILE_SIZE) {
+                showErrorOverlay(
+                    'Fichier trop volumineux',
+                    'Le fichier ne doit pas dépasser 10 MB'
+                );
+                return;
+            }
+
+            console.log('Files details:', {
+                name: file.name,
+                type: file.type,
+                size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+            });
 
             // Validate file format
             const acceptedFormats = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
@@ -451,9 +465,9 @@
                     console.error('Response not ok:', {
                         status: response.status,
                         statusText: response.statusText,
-                        errortext: response.errorText
+                        errortext: errorText
                     });
-                    throw new Error(`HTTP error! status: ${response.status}`);
+                    throw new Error(`HTTP error! status: ${errorText}`);
                 }
                 const result = await handleApiResponse(response);
                 console.log('Response parsed successfully:', result);
@@ -485,6 +499,15 @@
                 fileInput.value = '';
             }
         }
+
+        function addFileSizeInfo() {
+            const infoText = document.createElement('p');
+            infoText.className = 'text-muted small';
+            infoText.textContent = 'Taille maximum du fichier : 20 MB';
+            document.querySelector('.container').insertBefore(infoText, document.getElementById('image-container'));
+        }
+
+        document.addEventListener('DOMContentLoaded', addFileSizeInfo);
 
         // UI Component Creation
         function createImageComparison(image) {

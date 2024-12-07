@@ -5,6 +5,7 @@ from flask import Flask, render_template, request, jsonify, url_for, send_file, 
 from io import BytesIO
 from PIL import Image
 from werkzeug.utils import secure_filename
+from werkzeug.exceptions import RequestEntityTooLarge
 import requests
 import jwt
 from jwt import InvalidTokenError
@@ -22,6 +23,7 @@ openai.api_key = os.getenv("openai.api_key")
 SECRET_KEY = os.getenv('SECRET_KEY')
 FIXED_TOKEN = os.getenv('FIXED_TOKEN')
 LOGIN_URL = "https://aitheway.com/login/"
+
 app = Flask(__name__)
 
 # Configuration des fichiers uploadés
@@ -29,6 +31,7 @@ UPLOAD_FOLDER = 'static/uploads/'
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
+app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB limit
 
 deep_ai_api_key = os.getenv('DEEPAI_API_KEY')
 
@@ -402,6 +405,12 @@ def error_page():
     message = request.args.get('message', 'An error occurred')
     return render_template('error-message.html', title=title, message=message, LOGIN_URL=LOGIN_URL)
 
+@app.errorhandler(RequestEntityTooLarge)
+def handle_file_too_large(error):
+    return jsonify({
+        'eror': 'File too large',
+        'message': 'Le fichier ne doit pas dépaseer 20 MB'
+    }), 413
 
 @app.route('/sync-membership', methods=['POST'])
 @token_required
@@ -641,6 +650,13 @@ def upload_enhance(wp_user_id):
                 return jsonify({'error': 'No file part in the request'}), 400
 
             file = request.files['file']
+
+            if file and file.content_length > app.config['MAX_CONTENT_LENGTH']:
+                return jsonify({
+                    'error': 'File too large',
+                    'message': 'Le fichier ne doit pas dépasser 20 MB',
+                }), 413
+
             if file.filename == '':
                 app.logger.error("No selected file")
                 return jsonify({'error': 'No selected file'}), 400
