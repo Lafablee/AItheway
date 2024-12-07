@@ -1,4 +1,3 @@
-const LOGIN_URL = "https://aitheway.com/login/";
 console.log('script.js loading...')
 // Error handling function with enhanced AJAX support
 function showErrorOverlay(title, message, isAuthError = false) {

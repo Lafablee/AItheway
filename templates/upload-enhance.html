@@ -262,6 +262,48 @@
             transform: scale(1.05);
         }
 
+        .error-overlay {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+            z-index: 3000;
+            animation: slideIn 0.3s ease;
+        }
+
+        .error-content {
+            background-color: white;
+            padding: 2rem;
+            border-radius: 12px;
+            box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+            text-align: center;
+            max-width: 300px;
+            margin: 0 1rem;
+        }
+
+        .error-content h4 {
+            color: #dc3545;
+            font-weight: 500;
+        }
+
+        .error-content p {
+            color: #6c757d;
+            margin-bottom: 1rem;
+        }
+        .error-content .btn-primary {
+            background-color: #007bff;
+            border: none;
+            padding: 0.5rem 2rem;
+            transition: all 0.3s ease;
+        }
+        .error-content .btn-primary:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0, 123, 255, 0.2);
+        }
         /* Controls and buttons */
         .add-button {
             position: fixed;
@@ -292,6 +334,17 @@
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
+        }
+
+        @keyframes slideIn {
+            from {
+                transform: translateX(100%);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
         }
 
         @keyframes dropdownIn {
@@ -358,7 +411,6 @@
         <div class="loading-spinner"></div>
     </div>
 
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <script>
                 // Configuration and initialization
         const headers = {
@@ -396,6 +448,89 @@
                 reader.readAsDataURL(file);
             });
         }
+        function showErrorOverlay(tittle, message, isAuthError = false) {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            overlayDiv.className = 'error-overlay;';
+            overlayDiv.innerHTML = `
+                <div class="error-message text-center">
+                    <h4 class="mb-3">${title}</h4>
+                    <p class="mb-4">${message}</p>
+                    ${isAuthError ? `
+                        <a href="https://aitheway.com/login/" class="btn btn-primary">
+                            Se connecter
+                        </a>
+                    ` : ''}
+                </div>
+            `;
+            loadingOverlay.innerHTML = '';
+            loadingOverlay.appendChild(errorContent);
+            loadingOverlay.classList.add('active');
+
+            if (!isAuthError)
+                setTimeout(() => {
+                    loadingOverlay.classList.remove('active');
+                }, 5000);
+        }
+
+        async function handleApiResponse(response) {
+            if (!response.ok) {
+                const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+                showErrorOverlay('Erreur', errorData.message || 'Une erreur est survenue');
+                return null;
+            }
+            return response.json();
+        }
+
+        async function downloadImage(url, format) {
+            try {
+                const response = await fetch(url, { headers });
+                if (!response.ok) {
+                    throw new Error('Download failed');
+                }
+                const blob = await response.blob();
+                const downloadUrl = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = downloadUrl;
+                link.download = `image-amelioree.${format}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+                console.error('Download error:', error);
+                showErrorOverlay(
+                    'Erreur de téléchargement',
+                    'Impossible de télécharger l\'image. Veuillez réessayer.'
+                );
+            }
+       }
+
+        function addImageToSidebar(image) {
+            const thumbnail = document.createElement('img');
+            thumbnail.src = image.enhanced;
+            thumbnail.dataset.id = image.id;
+            thumbnail.addEventListener('click', () => selectImage(image.id));
+
+            if (selectedImageId) {
+                thumbnail.classList.add('selected');
+            }
+            sidebar.querySelector('.sidebar-content').appendChild(thumbnail);
+        }
+        function selectImage(imageId) {
+            selectedImageId = imageId;
+
+            document.querySelectorAll('.sidebar img').forEach(img => {
+                img.classList.toggle('selected', img.dataset.id == imageId);
+            });
+
+            const selectedElement = document.getElementById(`comparison-${imageId}`);
+            if (selectedElement) {
+                selectedElement.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start'
+                });
+            }
+        }
 
         // Image Upload and Processing
         async function handleFileUpload(file) {
@@ -410,10 +545,10 @@
             });
 
             // Check file size before uploading
-            if (file > MAX_FILE_SIZE) {
+            if (file.size > MAX_FILE_SIZE) {
                 showErrorOverlay(
                     'Fichier trop volumineux',
-                    'Le fichier ne doit pas dépasser 10 MB'
+                    'Le fichier ne doit pas dépasser 20 MB'
                 );
                 return;
             }
@@ -660,6 +795,6 @@
         });
     </script>
     {% endif %}
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </html>
