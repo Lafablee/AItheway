@@ -624,11 +624,18 @@ def upload_enhance(wp_user_id):
             app.logger.error("Permission refusée pour l'amélioration d'image")
             return jsonify({"error": "Permission refusée pour l'upload et l'amélioration d'image"}), 403
 
+        if request.method == 'OPTIONS':
+            app.logger.error("OPTIONS request received")
+            return '', 204
+
         if request.method == 'GET':
-            app.logger.error("Returning template...")
+            app.logger.error("GET request - Returning template...")
             return render_template('upload-enhance.html')
 
         if request.method == 'POST':
+            app.logger.error("POST request received")
+            app.logger.error(f"Files: {request.files}")
+            app.logger.error(f"Form: {request.form}")
             if 'file' not in request.files:
                 app.logger.error("No file part in the request")
                 return jsonify({'error': 'No file part in the request'}), 400

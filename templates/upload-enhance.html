@@ -439,7 +439,10 @@
                 const response = await fetch(`/upload-enhance?token=${encodeURIComponent(token)}`, {
                     method: 'POST',
                     body: formData,
-                    headers
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Accept': 'application/json'
+                    },
                 });
                 console.log('fetch response received:', response.status);
 
