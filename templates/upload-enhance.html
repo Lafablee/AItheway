@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Améliorer la Qualité d'une Image</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twenty-twenty/1.0.0/css/twentytwenty.css" />
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/css/twentytwenty.css" type="text/css" media="screen" />
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <style>
         body {
@@ -759,35 +759,37 @@
         function createImageComparison(image) {
             const container = document.createElement('div');
             container.id = `comparison-${image.id}`;
-            container.className = 'comparison-container';
+            container.className = 'twentytwenty-container';
 
-            // Nouvelle structure HTML pour Cocoen
             container.innerHTML = `
-                <div class="twentytwenty-container">
-                    <img src="${image.original}" alt="Original">
-                    <img src="${image.enhanced}" alt="Enhanced">
-                </div>
-                <div class="download-section">
-                    <button class="btn-download">Télécharger l'image</button>
-                    <div class="format-dropdown">
-                        ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format =>
-                            `<div class="format-option" data-format="${format.toLowerCase()}">${format}</div>`
-                        ).join('')}
-                    </div>
-                </div>
+                <img src="${image.original}" alt="Original" />
+                <img src="${image.enhanced}" alt="Enhanced" />
             `;
             imageContainer.insertBefore(container, imageContainer.firstChild);
 
-            $(document).ready(function() {
-                $(container.querySelector('.twentytwenty-container')).twentytwenty({
+            const downloadSection = document.createElement('div');
+            downloadSection.className = 'download-section';
+            downloadSection.innerHTML = `
+                <button class="btn-download">Télécharger l'image</button>
+                <div class="format-dropdown">
+                    ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format =>
+                        `<div class="format-option" data-format="${format.toLowerCase()}">${format}</div>`
+                    ).join('')}
+                </div>
+            `;
+            container.after(downloadSection);
+
+            $(window).on('load', function() {
+                $(container).twentytwenty({
                     default_offset_pct: 0.5,
+                    before_label: 'before',
+                    after_label: 'after',
                     no_overlay: false,
-                    before_label: 'Original',
-                    after_label: 'Amélioré',
-                    move_slider_on_hover: true
+                    move_slider_on_hover: true,
+                    move_with_handle_only: false,
+                    click_to_move: true
                 });
             });
-
 
             // Gérer le téléchargement
             const downloadButton = container.querySelector('.btn-download');
@@ -871,10 +873,11 @@
     </script>
 
 </body>
-    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.event.move/2.0.0/jquery.event.move.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twenty-twenty/1.0.0/js/jquery.twentytwenty.js"></script>
+    <script src="https://code.jquery.com/jquery-3.2.1.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.event.move/2.0.1/jquery.event.move.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/js/jquery.twentytwenty.js"></script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+
     {% if show_error %}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
