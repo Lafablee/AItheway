@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Améliorer la Qualité d'une Image</title>
     <link rel="stylesheet" href="https://unpkg.com/cocoen/dist/cocoen.min.css">
-    <script src="https://unpkg.com/cocoen/dist/cocoen.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <style>
@@ -703,7 +702,11 @@
             `;
             imageContainer.insertBefore(container, imageContainer.firstChild);
 
-            new Cocoen(container.querySelector('.cocoen'));
+            if (typeof  Cocoen == 'function') {
+                new Cocoen(container.querySelector('.cocoen'));
+            } else {
+                console.error('Cocoen is not loaded properly');
+            }
 
             // Gérer le téléchargement
             const downloadButton = container.querySelector('.btn-download');
@@ -785,6 +788,10 @@
             }
 });
     </script>
+
+</body>
+    <script src="https://unpkg.com/cocoen/dist/cocoen.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     {% if show_error %}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
@@ -796,6 +803,4 @@
         });
     </script>
     {% endif %}
-</body>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </html>
