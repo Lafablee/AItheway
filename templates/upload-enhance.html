@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Améliorer la Qualité d'une Image</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/css/twentytwenty.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twenty-twenty/1.0.0/css/twentytwenty.css" />
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <style>
@@ -778,13 +778,16 @@
             `;
             imageContainer.insertBefore(container, imageContainer.firstChild);
 
-            $(container.querySelector('.twentytwenty-container')).twentytwenty({
-                default_offset_pct: 0.5,
-                no_overlay: false,
-                before_label: 'Original',
-                after_label: 'Amélioré',
-                move_slider_on_hover: true
+            $(document).ready(function() {
+                $(container.querySelector('.twentytwenty-container')).twentytwenty({
+                    default_offset_pct: 0.5,
+                    no_overlay: false,
+                    before_label: 'Original',
+                    after_label: 'Amélioré',
+                    move_slider_on_hover: true
+                });
             });
+
 
             // Gérer le téléchargement
             const downloadButton = container.querySelector('.btn-download');
@@ -868,9 +871,9 @@
     </script>
 
 </body>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/js/jquery.twentytwenty.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-event-move/2.0.1/jquery.event.move.min.js"></script>
+    <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery.event.move/2.0.0/jquery.event.move.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twenty-twenty/1.0.0/js/jquery.twentytwenty.js"></script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     {% if show_error %}
     <script>
