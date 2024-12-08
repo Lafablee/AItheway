@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Améliorer la Qualité d'une Image</title>
-    <link rel="stylesheet" href="https://unpkg.com/cocoen/dist/cocoen.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/css/twentytwenty.min.css">
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <style>
@@ -153,36 +153,49 @@
             border-top-color: white;
             animation: spin 1s linear infinite;
         }
-        .cocoen {
-            border-radius: 12px;
-            overflow: hidden;
-            background-color: #f8f9fa;
-        }
-        .cocoen-drag {
-            width: 2px;
-            background: white;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-        }
-        .cocoen-drag::before {
-            content: '';
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            width: 48px;
-            height: 48px;
-            background: white;
-            border-radius: 50%;
-            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-        }
-        .slider-handle:hover {
-            transform: translate(0, -50%) scale(1.1);
+
+        .download-section {
+            margin-top: 20px;
+            text-align: center;
         }
 
-        .slider-handle:active {
-            cursor: grabbing;
-            transform: translate(0, -50%) scale(0.95);
+        .btn-download {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s ease;
         }
+
+        .btn-download:hover {
+            background-color: #0056b3;
+            transform: translateY(-2px);
+        }
+
+        .format-dropdown {
+            position: absolute;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            display: none;
+            margin-top: 5px;
+        }
+
+        .format-dropdown.show {
+            display: block;
+        }
+
+        .format-option {
+            padding: 8px 20px;
+            cursor: pointer;
+        }
+
+        .format-option:hover {
+            background-color: #f8f9fa;
+        }
+
 
         /* Comparison labels */
         .comparison-labels {
@@ -336,6 +349,10 @@
             background-color: #0056b3;
         }
 
+        .twentytwenty-container {
+            margin-bottom: 20px;
+        }
+
         /* Animations */
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -416,6 +433,10 @@
     <div class="loading-overlay" id="loading-overlay">
         <div class="loading-spinner"></div>
     </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/js/jquery.twentytwenty.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-event-move/2.0.1/jquery.event.move.min.js"></script>
 
     <script>
                 // Configuration and initialization
@@ -654,7 +675,62 @@
 
                 enhancedImages.unshift(newImage);
                 addImageToSidebar(newImage);
-                createImageComparison(newImage);
+
+                // Create comparison container with TwentyTwenty
+               const comparisonDiv = document.createElement('div');
+               comparisonDiv.className = 'twentytwenty-container';
+               comparisonDiv.id = `comparison-${imageId}`;
+
+               const originalImg = document.createElement('img');
+               originalImg.src = newImage.original;
+
+               const enhancedImg = document.createElement('img');
+               enhancedImg.src = newImage.enhanced;
+
+               comparisonDiv.appendChild(originalImg);
+               comparisonDiv.appendChild(enhancedImg);
+
+               imageContainer.insertBefore(comparisonDiv, imageContainer.firstChild);
+
+               $(comparisonDiv).twentytwenty({
+                   default_offset_pct: 0.5,
+                   no_overlay: false,
+                   before_label: 'Original',
+                   after_label: 'Amélioré',
+                   move_slider_on_hover: true
+               });
+
+               // Add download section
+                const downloadSection = document.createElement('div');
+                downloadSection.className = 'download-section';
+                downloadSection.innerHTML = `
+                         <button class="btn-download">Télécharger l'image</button>
+                    <div class="format-dropdown">
+                        ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format =>
+                            `<div class="format-option" data-format="${format.toLowerCase()}">${format}</div>`
+                        ).join('')}
+                    </div>
+                `;
+
+                comparisonDiv.after(downloadSection);
+
+                // Setup download functionality
+                const downloadButton = downloadSection.querySelector('.btn-download');
+                const formatDropdown = downloadSection.querySelector('.format-dropdown');
+
+                downloadButton.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    formatDropdown.classList.toggle('show');
+                });
+
+                formatDropdown.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('format-option')) {
+                        downloadImage(newImage.enhanced, e.target.dataset.format);
+                        formatDropdown.classList.remove('show');
+                    }
+                });
+
+                // Select the new image
                 selectImage(imageId);
                 sidebar.classList.add('open');
 
@@ -687,7 +763,7 @@
 
             // Nouvelle structure HTML pour Cocoen
             container.innerHTML = `
-                <div class="cocoen">
+                <div class="twentytwenty-container">
                     <img src="${image.original}" alt="Original">
                     <img src="${image.enhanced}" alt="Enhanced">
                 </div>
@@ -702,11 +778,13 @@
             `;
             imageContainer.insertBefore(container, imageContainer.firstChild);
 
-            if (typeof  Cocoen == 'function') {
-                new Cocoen(container.querySelector('.cocoen'));
-            } else {
-                console.error('Cocoen is not loaded properly');
-            }
+            $(container.querySelector('.twentytwenty-container')).twentytwenty({
+                default_offset_pct: 0.5,
+                no_overlay: false,
+                before_label: 'Original',
+                after_label: 'Amélioré',
+                move_slider_on_hover: true
+            });
 
             // Gérer le téléchargement
             const downloadButton = container.querySelector('.btn-download');
@@ -790,7 +868,9 @@
     </script>
 
 </body>
-    <script src="https://unpkg.com/cocoen/dist/cocoen.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/js/jquery.twentytwenty.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-event-move/2.0.1/jquery.event.move.min.js"></script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     {% if show_error %}
     <script>
