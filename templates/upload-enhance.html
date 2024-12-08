@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Améliorer la Qualité d'une Image</title>
+    <link rel="stylesheet" href="https://unpkg.com/cocoen/dist/cocoen.min.css">
+    <script src="https://unpkg.com/cocoen/dist/cocoen.js"></script>
     <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <style>
@@ -72,11 +74,8 @@
             margin-bottom: 2rem;
             border-radius: 12px;
             overflow: hidden;
-            background-color: #f8f9fa;
             opacity: 0;
-            cursor: col-resize;
-            user-select: none;
-            transform: translateY(30px);
+            transform: translateY(20px);
             transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
@@ -155,57 +154,32 @@
             border-top-color: white;
             animation: spin 1s linear infinite;
         }
-
-        /* Slider and comparison controls */
-        .vertical-divider {
-            position: absolute;
-            top: 0;
-            width: 4px;
-            height: 100%;
-            background-color: white;
-            transition: left 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-            pointer-events: none;
-            box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+        .cocoen {
+            border-radius: 12px;
+            overflow: hidden;
+            background-color: #f8f9fa;
         }
-
-        .slider-handle {
+        .cocoen-drag {
+            width: 2px;
+            background: white;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
+        }
+        .cocoen-drag::before {
+            content: '';
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
             width: 48px;
             height: 48px;
-            background-color: white;
+            background: white;
             border-radius: 50%;
             box-shadow: 0 4px 15px rgba(0, 0, 0, 0.15);
-            cursor: grab;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.2s ease;
-            will-change: transform, left;
         }
-
         .slider-handle:hover {
             transform: translate(0, -50%) scale(1.1);
         }
 
-        .slider-handle::before,
-        .slider-handle::after {
-            content: '';
-            position: absolute;
-            width: 2px;
-            height: 16px;
-            background-color: #007bff;
-        }
-
-        .slider-handle::before {
-            transform: translateX(-4px);
-        }
-
-        .slider-handle::after {
-            transform: translateX(4px);
-        }
         .slider-handle:active {
             cursor: grabbing;
             transform: translate(0, -50%) scale(0.95);
@@ -462,12 +436,6 @@
         // State
         let enhancedImages = [];
         let selectedImageId = null;
-        let isDragging = false;
-        let sliderValue = 50;
-
-        // Global state for tracking interaction states
-         let isHovering = false;
-         let startX = 0;
 
         // Image Preview Handling
         async function createImagePreview(file) {
@@ -506,116 +474,7 @@
                     loadingOverlay.classList.remove('active');
                 }, 5000);
         }
-        function setupImageComparison(container) {
-            const slider = container.querySelector('.slider-handle');
-            const enhancedImage = container.querySelector('.enhanced-image');
-            const divider = container.querySelector('.vertical-divider');
 
-            // Hover handling
-            container.addEventListener('mousemove', (e) => {
-                if (!isDragging) {
-                    // Only update on hover if not dragging
-                    const rect = container.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const value = Math.min(Math.max((x / rect.width) * 100, 0), 100);
-
-                    requestAnimationFrame(() => {
-                        updateComparison(value, enhancedImage, divider, true);
-                        // Move slider smoothly to cursor position
-                        slider.style.transform = `translate(0, -50%)`;
-                        slider.style.left = `${value}%`;
-                    });
-                    // Enter/Leave handling
-            container.addEventListener('mouseenter', () => {
-                isHovering = true;
-                slider.style.transition = 'transform 0.3s ease, left 0.3s ease';
-            });
-            container.addEventListener('mouseleave', () => {
-                isHovering = false;
-                if (!isDragging) {
-                    // Reset to center when mouse leaves
-                    requestAnimationFrame(() => {
-                        updateComparison(50, enhancedImage, divider);$
-                        slider.style.left = '50%';
-                    });
-                }
-            });
-            slider.addEventListener('mousedown', (e) => {
-                isDragging = true;
-                slider.style.cursor = 'grabbing';
-                slider.style.transition = 'none'; // Disable transitions while dragging
-                startX = e.clientX;
-                e.preventDefault();
-            });
-
-            container.addEventListener('mousemove', (e) => {
-                if (isDragging) {
-                    const rect = container.getBoundingClientRect();
-                    const x = e.clientX - rect.left;
-                    const value = Math.min(Math.max((x / rect.width) * 100, 0), 100);
-
-                    requestAnimationFrame(() => {
-                        updateComparison(value, enhancedImage, divider, true);
-                        slider.style.left = `${value}%`;
-                    });
-                }
-            });
-            window.addEventListener('mouseup', () => {
-                if (isDragging) {
-                    isDragging = false;
-                    slider.style.cursor = 'grab';
-                    slider.style.transition = 'transform 0.3s ease, left 0.3s ease';
-
-                    if (!isHovering) {
-                        requestAnimationFrame(() => {
-                            updateComparison(50, enhancedImage, divider);
-                            slider.style.left = '50%';
-                        });
-                    }
-                }
-            });
-            container.addEventListener('touchstart', (e) => {
-                isDragging = true;
-                startX = e.touches[0].clientX;
-                e.preventdefault();
-            });
-            container.addEventListener('touchmove', (e) => {
-                if (isDragging) {
-
-                    const rect = container.getBoundingClientRect();
-                    const x = e.touches[0].clientX - rect.left;
-                    const value = Math.min(Math.max((x / rect.width) * 100, 0), 100);
-
-                    requestAnimationFrame(() => {
-                        updateComparison(value, enhancedImage, divider, true);
-                        slider.style.left = `${value}%`;
-                    });
-                }
-            });
-            container.addEventListener('touchend', () => {
-                isDragging = false;
-                    });
-                }
-            });
-        }
-        function updateComparison(value, enhancedImage, divider, skipTransition = false) {
-            if (skipTransition) {
-                enhancedImage.style.transition = 'none';
-                divider.style.transition = 'none';
-            }
-
-            requestAnimationFrame(() => {
-                enhancedImage.style.clipPath = `inset(0 ${100 - value}% 0 0)`;
-                divider.style.left = `${value}%`;
-
-                if (skipTransition) {
-                    requestAnimationFrame(() => {
-                        enhancedImage.style.transition = '';
-                        divider.style.transition = '';
-                    });
-                }
-            });
-        }
         document.addEventListener('DOMContentLoaded', () => {
             addFileSizeInfo();
             const containers = document.querySelectorAll('.comparison-container');
@@ -827,18 +686,12 @@
             container.id = `comparison-${image.id}`;
             container.className = 'comparison-container';
 
-            // Create comparison view HTML
+            // Nouvelle structure HTML pour Cocoen
             container.innerHTML = `
-                <img src="${image.original}" class="image" alt="Original">
-                <img src="${image.enhanced}" class="enhanced-image" alt="Enhanced">
-                <div class="comparison-labels">
-                    <span class="label label-before">Avant</span>
-                    <span class="label label-after">Après</span>
+                <div class="cocoen">
+                    <img src="${image.original}" alt="Original">
+                    <img src="${image.enhanced}" alt="Enhanced">
                 </div>
-                <div class="vertical-divider">
-                    <div class="slider-handle"></div>
-                </div>
-                <input type="range" class="range-slider" min="0" max="100" value="50">
                 <div class="download-section">
                     <button class="btn-download">Télécharger l'image</button>
                     <div class="format-dropdown">
@@ -848,51 +701,20 @@
                     </div>
                 </div>
             `;
-
-            setupComparisonInteractions(container, image);
             imageContainer.insertBefore(container, imageContainer.firstChild);
-            setTimeout(() => container.classList.add('visible'), 50);
-        }
 
-        // Interaction Setup
-        function setupComparisonInteractions(container, image) {
-            const slider = container.querySelector('.range-slider');
-            const enhancedImg = container.querySelector('.enhanced-image');
-            const divider = container.querySelector('.vertical-divider');
+            new Cocoen(container.querySelector('.cocoen'));
+
+            // Gérer le téléchargement
             const downloadButton = container.querySelector('.btn-download');
             const formatDropdown = container.querySelector('.format-dropdown');
 
-            // Slider functionality
-            function updateComparison(value) {
-                enhancedImg.style.clipPath = `inset(0 ${100 - value}% 0 0)`;
-                divider.style.left = `${value}%`;
-                image.sliderValue = value;
-            }
-
-            slider.addEventListener('input', (e) => updateComparison(e.target.value));
-
-            // Drag functionality
-            function handleDrag(e) {
-                if (!isDragging) return;
-                const rect = container.getBoundingClientRect();
-                const x = (e.clientX || e.touches[0].clientX) - rect.left;
-                const value = Math.min(Math.max((x / rect.width) * 100, 0), 100);
-                slider.value = value;
-                updateComparison(value);
-            }
-
-            container.addEventListener('mousedown', () => isDragging = true);
-            container.addEventListener('touchstart', () => isDragging = true);
-            container.addEventListener('mousemove', handleDrag);
-            container.addEventListener('touchmove', handleDrag);
-            window.addEventListener('mouseup', () => isDragging = false);
-            window.addEventListener('touchend', () => isDragging = false);
-
-            // Download functionality
             downloadButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 document.querySelectorAll('.format-dropdown').forEach(dropdown => {
-                    if (dropdown !== formatDropdown) dropdown.classList.remove('show');
+                    if (dropdown !== formatDropdown) {
+                        dropdown.classList.remove('show');
+                    }
                 });
                 formatDropdown.classList.toggle('show');
             });
@@ -903,7 +725,9 @@
                     formatDropdown.classList.remove('show');
                 }
             });
+            setTimeout(() => container.classList.add('visible'), 50);
         }
+
 
         // Event Listeners
         fileInput.addEventListener('change', async (event) => {
