@@ -156,8 +156,10 @@
 
         .download-section {
             position: relative;
-            margin-top: 20px;
+            margin: 30px auto;
             text-align: center;
+            width: 100%;
+            max-width: 200px;
             z-index: 1000;
         }
 
@@ -169,36 +171,44 @@
             border-radius: 5px;
             cursor: pointer;
             transition: all 0.3s ease;
+            width: 100%;
+            font-weight: 500;
         }
 
         .btn-download:hover {
             background-color: #0056b3;
             transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
         }
 
         .format-dropdown {
             position: absolute;
-            top: 100%;
-            left: 0;
+            top: calc(100% + 5px);
+            left: 50%;
+            transform: translateX(-50%);
             background-color: white;
             border-radius: 5px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             display: none;
-            margin-top: 5px;
-            z-index: 9999;
+            min-width: 120px;
+            z-index: 1000;
         }
 
         .format-dropdown.show {
             display: block;
+            animation: dropdownFade 0.2s ease;
         }
 
         .format-option {
-            padding: 8px 20px;
+            padding: 8px 16px;
             cursor: pointer;
+            transition: background-color 0.2s ease;
+            text-align: center;
         }
 
         .format-option:hover {
             background-color: #f8f9fa;
+            color: #007bff;
         }
 
 
@@ -264,16 +274,39 @@
         .sidebar.open {
             transform: translateX(-200px);
         }
+        .close-sidebar {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            border: none;
+            background: #007bff;  /* Couleur principale de votre thème */
+            color: white;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+            font-size: 18px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        .close-sidebar:hover {
+            background: #0056b3;
+            transform: scale(1.1);
+        }
 
         .sidebar img {
-            width: 50px;
-            height: 50px;
+            width: 60px;
+            height: 60px;
             object-fit: cover;
             border-radius: 8px;
-            margin-bottom: 15px;
+            margin: 10px auto;
             cursor: pointer;
             transition: all 0.2s ease;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            display: block;
         }
 
         .sidebar img:hover {
@@ -355,7 +388,10 @@
         }
 
         .twentytwenty-container {
-            margin-bottom: 20px;
+            margin-bottom: 40px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
 
         /* Animations */
@@ -384,6 +420,17 @@
                 opacity: 1;
                 transform: translateY(0);
             }
+        }
+        @keyframes dropdownFade {
+            from {
+                opacity: 0;
+                transform: translateX(-50%) translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateX(-50%) translateY(0);
+            }
+
         }
 
         /* Responsive styles */
@@ -501,7 +548,6 @@
         }
 
         document.addEventListener('DOMContentLoaded', () => {
-            addFileSizeInfo();
             const containers = document.querySelectorAll('.comparison-container');
             containers.forEach(container => {
                 setupImageComparison(container);
@@ -738,13 +784,6 @@
             } finally {
                 fileInput.value = '';
             }
-        }
-
-        function addFileSizeInfo() {
-            const infoText = document.createElement('p');
-            infoText.className = 'text-muted small';
-            infoText.textContent = 'Taille maximum du fichier : 20 MB';
-            document.querySelector('.container').insertBefore(infoText, document.getElementById('image-container'));
         }
 
         // UI Component Creation
