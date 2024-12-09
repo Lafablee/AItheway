@@ -650,6 +650,7 @@ def upload_enhance(wp_user_id):
                 return jsonify({'error': 'No file part in the request'}), 400
 
             file = request.files['file']
+            app.logger.error(f'File received: %s', file.filename)
 
             if file and file.content_length > app.config['MAX_CONTENT_LENGTH']:
                 return jsonify({

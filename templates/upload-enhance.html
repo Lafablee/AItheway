@@ -597,17 +597,25 @@
             console.log('File Dtails:', {
                 name: file.name,
                 type: file.type,
-                size: file.size
+                size: file.size,
+                sizeInMB: (file.size / (1024 * 1024)).toFixed(2) + 'MB'
             });
 
             // Check file size before uploading
             if (file.size > MAX_FILE_SIZE) {
+                console.log('File size exceeds client-side limit:', {
+                    fileSize: file.size,
+                    maxSize: MAX_FILE_SIZE,
+                    fileSizeMB: (file.size / (1024 * 1024)).toFixed(2),
+                    maxSizeMB: (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)
+                });
                 showErrorOverlay(
                     'Fichier trop volumineux',
                     'Le fichier ne doit pas dépasser 20 MB'
                 );
                 return;
             }
+            loadingOverlay.classList.add('active');
 
             console.log('Files details:', {
                 name: file.name,
@@ -639,6 +647,12 @@
                 formData.append('file', file);
                 console.log('FormData created with file');
 
+                console.log('Sending request with:', {
+                    fileSize: file.size,
+                    fileName: file.name,
+                    token: token ? 'Present' : 'Missing'
+                });
+
                 // Upload and get enhanced image
                 console.log('Starting fetch request...')
                 const response = await fetch(`/upload-enhance?token=${encodeURIComponent(token)}`, {
@@ -650,15 +664,30 @@
                     },
                 });
                 console.log('fetch response received:', response.status);
+                console.log('Response headers:', Object.fromEntries([...response.headers]));
+
 
                 if (!response.ok) {
                     const errorText = await response.text();
-                    console.error('Response not ok:', {
+                    console.error('Response error:', {
                         status: response.status,
                         statusText: response.statusText,
-                        errortext: errorText
+                        errorText: errorText
                     });
-                    throw new Error(`HTTP error! status: ${errorText}`);
+
+                    let errorMessage = 'Une erreur est survenue lors du traitement de l\'image.';
+
+                    if (response.status === 413) {
+                        errorMessage = 'Le fichier est trop volumineux pour le serveur. Limite: 20 MB';
+                        console.error('file too large error:', {
+                            fileSize: file.size,
+                            fileSizeMB: (file.size / (1024 * 1024)).toFixed(2)
+                        });
+                    }
+
+                    showErrorOverlay('Erreur', errorMessage);
+                    loadingOverlay.classList.remove('active');
+                    return;
                 }
                 const result = await handleApiResponse(response);
                 console.log('Response parsed successfully:', result);
@@ -675,6 +704,7 @@
 
                 enhancedImages.unshift(newImage);
                 addImageToSidebar(newImage);
+                createImageComparison(newImage);
 
                 // Create comparison container with TwentyTwenty
                const comparisonDiv = document.createElement('div');
@@ -761,10 +791,30 @@
             container.id = `comparison-${image.id}`;
             container.className = 'twentytwenty-container';
 
-            container.innerHTML = `
-                <img src="${image.original}" alt="Original" />
-                <img src="${image.enhanced}" alt="Enhanced" />
-            `;
+            // Create and load images first
+            const originalImg = new Image();
+            const enhancedImg = new Image();
+
+            // Promise to ensure both images are loaded
+            const loadImages = new Promise((resolve) => {
+                let loadedImages = 0;
+
+                function imageLoaded() {
+                    loadedImages++;
+                    if (loadedImages === 2) resolve();
+                }
+                originalImg.onload = imageLoaded;
+                enhancedImg.onload = imageLoaded;
+
+                originalImg.src = image.original;
+                originalImg.alt = "Original";
+                enhancedImg.src = image.enhanced;
+                enhancedImg.alt = "Enhanced";
+            });
+
+            container.appendChild(originalImg);
+            container.appendChild(enhancedImg);
+
             imageContainer.insertBefore(container, imageContainer.firstChild);
 
             const downloadSection = document.createElement('div');
@@ -779,16 +829,23 @@
             `;
             container.after(downloadSection);
 
-            $(window).on('load', function() {
-                $(container).twentytwenty({
-                    default_offset_pct: 0.5,
-                    before_label: 'before',
-                    after_label: 'after',
-                    no_overlay: false,
-                    move_slider_on_hover: true,
-                    move_with_handle_only: false,
-                    click_to_move: true
-                });
+            loadImages.then(() => {
+                setTimeout(() => {
+                    $(container).twentytwenty({
+                        default_offset_pct: 0.5,
+                        before_label: 'before',
+                        after_label: 'after',
+                        no_overlay: false,
+                        move_slider_on_hover: true,
+                        move_with_handle_only: false,
+                        click_to_move: true
+                    });
+
+                    window.dispatchEvent(new Event('resize'));
+
+                    loadingOverlay.classList.remove('active');
+                }, 100);
+
             });
 
             // Gérer le téléchargement
