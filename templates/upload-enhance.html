@@ -155,8 +155,10 @@
         }
 
         .download-section {
+            position: relative;
             margin-top: 20px;
             text-align: center;
+            z-index: 1000;
         }
 
         .btn-download {
@@ -176,11 +178,14 @@
 
         .format-dropdown {
             position: absolute;
+            top: 100%;
+            left: 0;
             background-color: white;
             border-radius: 5px;
             box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
             display: none;
             margin-top: 5px;
+            z-index: 9999;
         }
 
         .format-dropdown.show {
@@ -603,12 +608,23 @@
 
             // Check file size before uploading
             if (file.size > MAX_FILE_SIZE) {
-                console.log('File size exceeds client-side limit:', {
+                const infoText = document.createElement('p');
+                infoText.className = 'text-muted small file-size-info';
+                infoText.textContent = `Le fichier fait ${(file.size / (1024 * 1024)).toFixed(2)} MB. La taille maximum autorisée est de 20 MB`;
+
+                const oldInfo = document.querySelector('.file-size-info');
+                if (oldInfo) {
+                    oldInfo.remove();
+                }
+                document.querySelector('.container').insertBefore(infoText, document.getElementById('image-container'));
+
+                 console.log('File size exceeds client-side limit:', {
                     fileSize: file.size,
                     maxSize: MAX_FILE_SIZE,
                     fileSizeMB: (file.size / (1024 * 1024)).toFixed(2),
                     maxSizeMB: (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)
                 });
+
                 showErrorOverlay(
                     'Fichier trop volumineux',
                     'Le fichier ne doit pas dépasser 20 MB'
@@ -616,6 +632,11 @@
                 return;
             }
             loadingOverlay.classList.add('active');
+
+            const infoText = document.querySelector('.file-size-info');
+            if (infoText) {
+                infoText.remove();
+            }
 
             console.log('Files details:', {
                 name: file.name,
@@ -705,62 +726,6 @@
                 enhancedImages.unshift(newImage);
                 addImageToSidebar(newImage);
                 createImageComparison(newImage);
-
-                // Create comparison container with TwentyTwenty
-               const comparisonDiv = document.createElement('div');
-               comparisonDiv.className = 'twentytwenty-container';
-               comparisonDiv.id = `comparison-${imageId}`;
-
-               const originalImg = document.createElement('img');
-               originalImg.src = newImage.original;
-
-               const enhancedImg = document.createElement('img');
-               enhancedImg.src = newImage.enhanced;
-
-               comparisonDiv.appendChild(originalImg);
-               comparisonDiv.appendChild(enhancedImg);
-
-               imageContainer.insertBefore(comparisonDiv, imageContainer.firstChild);
-
-               $(comparisonDiv).twentytwenty({
-                   default_offset_pct: 0.5,
-                   no_overlay: false,
-                   before_label: 'Original',
-                   after_label: 'Amélioré',
-                   move_slider_on_hover: true
-               });
-
-               // Add download section
-                const downloadSection = document.createElement('div');
-                downloadSection.className = 'download-section';
-                downloadSection.innerHTML = `
-                         <button class="btn-download">Télécharger l'image</button>
-                    <div class="format-dropdown">
-                        ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format =>
-                            `<div class="format-option" data-format="${format.toLowerCase()}">${format}</div>`
-                        ).join('')}
-                    </div>
-                `;
-
-                comparisonDiv.after(downloadSection);
-
-                // Setup download functionality
-                const downloadButton = downloadSection.querySelector('.btn-download');
-                const formatDropdown = downloadSection.querySelector('.format-dropdown');
-
-                downloadButton.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    formatDropdown.classList.toggle('show');
-                });
-
-                formatDropdown.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('format-option')) {
-                        downloadImage(newImage.enhanced, e.target.dataset.format);
-                        formatDropdown.classList.remove('show');
-                    }
-                });
-
-                // Select the new image
                 selectImage(imageId);
                 sidebar.classList.add('open');
 
@@ -771,7 +736,6 @@
                     'Une erreur est survenue lors du traitement de l\'image.'
                 );
             } finally {
-                loadingOverlay.classList.remove('active');
                 fileInput.value = '';
             }
         }
@@ -783,10 +747,10 @@
             document.querySelector('.container').insertBefore(infoText, document.getElementById('image-container'));
         }
 
-        document.addEventListener('DOMContentLoaded', addFileSizeInfo);
-
         // UI Component Creation
         function createImageComparison(image) {
+            loadingOverlay.classList.add('active');
+
             const container = document.createElement('div');
             container.id = `comparison-${image.id}`;
             container.className = 'twentytwenty-container';
@@ -801,10 +765,20 @@
 
                 function imageLoaded() {
                     loadedImages++;
-                    if (loadedImages === 2) resolve();
+                    if (loadedImages === 2) {
+                        setTimeout(resolve, 500);
+                    }
                 }
                 originalImg.onload = imageLoaded;
                 enhancedImg.onload = imageLoaded;
+                originalImg.onerror = () => {
+                    console.error('Error loading original image');
+                    loadingOverlay.classList.remove('active');
+                }
+                enhancedImg.onerror = () => {
+                    console.error('Error loading enhanced image');
+                    loadingOverlay.classList.remove('active');
+                }
 
                 originalImg.src = image.original;
                 originalImg.alt = "Original";
@@ -816,6 +790,27 @@
             container.appendChild(enhancedImg);
 
             imageContainer.insertBefore(container, imageContainer.firstChild);
+
+            loadImages.then(() => {
+                $(container).twentytwenty({
+                    default_offset_pct: 0.5,
+                    before_label: 'Original',
+                    after_label: 'Amélioré',
+                    no_overlay: false,
+                    move_slider_on_hover: true,
+                    move_with_handle_only: false,
+                    click_to_move: true
+                });
+
+                // Force à recalculer les dimensions
+                window.dispatchEvent(new Event('resize'));
+
+                // Attendez que TwentyTwenty soit complètement initialisé
+                setTimeout(() => {
+                    loadingOverlay.classList.remove('active');
+                    container.classList.add('visible');
+                }, 300);
+            });
 
             const downloadSection = document.createElement('div');
             downloadSection.className = 'download-section';
@@ -868,7 +863,13 @@
                     formatDropdown.classList.remove('show');
                 }
             });
-            setTimeout(() => container.classList.add('visible'), 50);
+
+            // Fermer le menu quand on clique ailleurs
+            document.addEventListener('click', (e) => {
+                if (!e.target.closest('.download-section')) {
+                    formatDropdown.classList.remove('show');
+                }
+            });
         }
 
 
