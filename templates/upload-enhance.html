@@ -9,13 +9,12 @@
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <style>
         body {
-            position: fixed;
             background-color: #f0f2f5;
             min-height: 100vh;
             margin: 0;
             padding: 0;
-            width: 100vw;
-            height: 100vh;
+            width: 100%;
+            min-height: 100vh;
             overflow-x: hidden;
             overflow-y: auto;
             user-select: none;
@@ -230,15 +229,16 @@
         /* Sidebar styles */
         .sidebar {
             position: fixed;
-            right: 0px;
-            top: env(safe-area-inset-top);
-            width: clamp(60px, 15vw, 80px);
+            right: 0;
+            top: max(20px, env(safe-area-inset-top));
+            width: 80px;
             height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
             background-color: white;
             box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
             transition: transform 0.3s ease;
             z-index: 900;
-            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) 0;
+            padding-top: env(safe-area-inset-top);
+            padding-bottom: env(safe-area-inset-bottom);
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -250,11 +250,11 @@
             transform: translateX(0);
         }
         .close-sidebar {
-            position: absolute;
+            position: fixed;
             top: 10px;
             right: 10px;
-            width: 30px;
-            height: 30px;
+            width: clamp(60px, 15vw, 80px);
+            height: 100vh;
             border: none;
             background: #007bff;  /* Couleur principale de votre thème */
             color: white;
@@ -263,9 +263,14 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: all 0.2s ease;
+            transition: transform 0.3s ease;
             font-size: 18px;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            z-index: 900;
+            padding: 20px 0;
+            flex-direction: column;
+            overflow-y: auto;
+            transform: translateX(100%);
         }
         .close-sidebar:hover {
             background: #0056b3;
@@ -292,6 +297,8 @@
         .sidebar img.selected {
             border: 3px solid #007bff;
             transform: scale(1.05);
+            position: relative;
+            z-index: 1;
         }
 
         .error-overlay {
@@ -369,10 +376,10 @@
             margin: 20px auto;
             border-radius: 12px;
             overflow: hidden;
-            max-height: 80vh;
             min-height: 200px;
             touch-action: none;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            position: relative;
         }
         .twentytwenty-handle {
             transform: none !important;
@@ -388,7 +395,19 @@
             opacity: 1 !important;
             pointer-events: none;
         }
+        .twentytwenty-before-label::before {
+            content: "before" !important;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 20px;
+            padding: 8px 16px;
+        }
 
+        .twentytwenty-after-label::before {
+            content: "after" !important;
+            background: rgba(0, 0, 0, 0.5);
+            border-radius: 20px;
+            padding: 8px 16px;
+        }
         /* Animations */
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -454,10 +473,11 @@
             .container {
                 padding: 20px;
             }
-                @supports (padding: max(0px)) {
-            .container {
-                padding-left: max(20px, env(safe-area-inset-left));
-                padding-right: max(20px, env(safe-area-inset-right));
+                @supports not (padding: env(safe-area-inset-top)) {
+            .sidebar {
+                top: 0;
+                height: 100vh;
+                padding: 20px 0;
             }
 }
 }
@@ -630,7 +650,8 @@
             if (selectedElement) {
                 selectedElement.scrollIntoView({
                     behavior: 'smooth',
-                    block: 'start'
+                    block: 'center', //changé de start à slider
+                    inline: 'nearest'
                 });
             }
         }
