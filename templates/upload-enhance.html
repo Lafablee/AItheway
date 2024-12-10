@@ -9,58 +9,38 @@
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
     <style>
         body {
+            position: fixed;
             background-color: #f0f2f5;
             min-height: 100vh;
             margin: 0;
-            position: relative;
+            padding: 0;
+            width: 100vw;
+            height: 100vh;
             overflow-x: hidden;
+            overflow-y: auto;
             user-select: none;
         }
         .container {
-            max-width: 600px;
-            padding: 40px;
+            width: 100%;
+            max-width: 1200px;
+            padding: 20px;
             background-color: white;
+            box-sizing: border-box;
             box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
             border-radius: 12px;
             margin: 50px auto;
             margin-bottom: 100px;
         }
-
-        /* Image preview and comparison styles */
-        .image-wrapper {
-            position: relative;
-            width: 100%;
-            margin-bottom: 30px;
-            border-radius: 12px;
-            overflow: hidden;
-            background-color: #f8f9fa;
-            aspect-ratio: 16/9;
-            max-height: 500px;
+        h1 {
+            font-size: clamp(1.5rem, 5vw, 2.5rem);
+            text-align: center;
+            margin: 20px 0;
+            padding: 0 15px;
         }
 
-        .preview-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            opacity: 1;
-            transition: opacity 0.3s ease;
-        }
 
         .preview-container.fading {
             opacity: 0;
-        }
-
-        .preview-image {
-            width: 100%;
-            height: 100%;
-            object-fit: contain;
-            opacity: 0;
-            transition: opacity 0.3s ease;
         }
 
         .preview-image.visible {
@@ -114,14 +94,6 @@
             background-color: #f8f9fa;
         }
 
-        .enhanced-image {
-            position: absolute;
-            top: 0;
-            left: 0;
-            clip-path: inset(0 50% 0 0);
-            transition: clip-path 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
         /* Loading overlay styles */
         .loading-overlay {
             position: fixed;
@@ -156,10 +128,11 @@
 
         .download-section {
             position: relative;
-            margin: 30px auto;
+            margin: 20px auto;
+            padding: 0 15px;
             text-align: center;
             width: 100%;
-            max-width: 200px;
+            max-width: 300px;
             z-index: 1000;
         }
 
@@ -167,12 +140,13 @@
             background-color: #007bff;
             color: white;
             border: none;
-            padding: 10px 20px;
-            border-radius: 5px;
+            padding: 12px 20px;
+            border-radius: 8px;
             cursor: pointer;
             transition: all 0.3s ease;
             width: 100%;
             font-weight: 500;
+            font-size: clamp(14px, 4vw, 16px);
         }
 
         .btn-download:hover {
@@ -256,23 +230,24 @@
         /* Sidebar styles */
         .sidebar {
             position: fixed;
-            right: -200px;
-            top: 0;
-            width: 80px;
-            height: 100vh;
+            right: 0px;
+            top: env(safe-area-inset-top);
+            width: clamp(60px, 15vw, 80px);
+            height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
             background-color: white;
             box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            transition: transform 0.3s ease;
             z-index: 900;
-            padding: 20px 0;
+            padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) 0;
             display: flex;
             flex-direction: column;
             align-items: center;
             overflow-y: auto;
+            transform: translateX(100%);
         }
 
         .sidebar.open {
-            transform: translateX(-200px);
+            transform: translateX(0);
         }
         .close-sidebar {
             position: absolute;
@@ -364,8 +339,8 @@
         /* Controls and buttons */
         .add-button {
             position: fixed;
-            left: 24px;
-            bottom: 24px;
+            left: 20px;
+            bottom: max(20px, env(safe-area-inset-bottom));
             width: 56px;
             height: 56px;
             background-color: #007bff;
@@ -388,10 +363,30 @@
         }
 
         .twentytwenty-container {
-            margin-bottom: 40px;
-            border-radius: 8px;
+            width: 100%;
+            height: auto;
+            aspect-ratio: 16/9;
+            margin: 20px auto;
+            border-radius: 12px;
             overflow: hidden;
+            max-height: 80vh;
+            min-height: 200px;
+            touch-action: none;
             box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+        .twentytwenty-handle {
+            transform: none !important;
+        }
+
+        .twentytwenty-overlay {
+            background: none;
+        }
+
+        /* Fix pour le problème de rectangle caché */
+        .twentytwenty-before-label,
+        .twentytwenty-after-label {
+            opacity: 1 !important;
+            pointer-events: none;
         }
 
         /* Animations */
@@ -411,16 +406,7 @@
             }
         }
 
-        @keyframes dropdownIn {
-            from {
-                opacity: 0;
-                transform: translateY(-10px);
-            }
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
+
         @keyframes dropdownFade {
             from {
                 opacity: 0;
@@ -436,8 +422,7 @@
         /* Responsive styles */
         @media (max-width: 768px) {
             .container {
-                margin: 20px;
-                padding: 20px;
+                padding: 10px;
             }
 
             .sidebar {
@@ -445,8 +430,8 @@
             }
 
             .sidebar img {
-                width: 40px;
-                height: 40px;
+                width: 45px;
+                height: 45px;
             }
 
             .add-button {
@@ -465,6 +450,17 @@
                 width: 32px;
                 height: 32px;
             }
+            @media (min-width: 769px) and (max-width: 1024px) {
+            .container {
+                padding: 20px;
+            }
+                @supports (padding: max(0px)) {
+            .container {
+                padding-left: max(20px, env(safe-area-inset-left));
+                padding-right: max(20px, env(safe-area-inset-right));
+            }
+}
+}
 }
     </style>
 </head>
