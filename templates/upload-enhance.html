@@ -155,8 +155,8 @@
         }
 
         .format-dropdown {
-            position: absolute;
-            top: calc(100% + 5px);
+            position: fixed;
+            top: min(calc(100% + 5px), calc(100vh - 120px));
             left: 50%;
             transform: translateX(-50%);
             background-color: white;
@@ -233,9 +233,12 @@
             top: max(20px, env(safe-area-inset-top));
             width: 80px;
             height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-            background-color: white;
+            background-color:rgba(255, 255, 255, 0.95);
             box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
+            transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            border-top-left-radius: 12px;
+            border-bottom-left-radius: 12px;
+            backdrop-filter: blur(10px);
             z-index: 900;
             padding-top: env(safe-area-inset-top);
             padding-bottom: env(safe-area-inset-bottom);
@@ -243,11 +246,12 @@
             flex-direction: column;
             align-items: center;
             overflow-y: auto;
-            transform: translateX(100%);
+            transform: translateX(110%);
         }
 
         .sidebar.open {
             transform: translateX(0);
+            box-shadow: -5px 0 25px rgba(0, 0, 0, 0.15);
         }
         .close-sidebar {
             position: fixed;
@@ -284,9 +288,11 @@
             border-radius: 8px;
             margin: 10px auto;
             cursor: pointer;
-            transition: all 0.2s ease;
+            transition: all 0.3s ease;
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             display: block;
+            opacity: 0;
+            transform: translateX(20px);
         }
 
         .sidebar img:hover {
@@ -396,14 +402,14 @@
             pointer-events: none;
         }
         .twentytwenty-before-label::before {
-            content: "before" !important;
+            content: "after" !important;
             background: rgba(0, 0, 0, 0.5);
             border-radius: 20px;
             padding: 8px 16px;
         }
 
         .twentytwenty-after-label::before {
-            content: "after" !important;
+            content: "before" !important;
             background: rgba(0, 0, 0, 0.5);
             border-radius: 20px;
             padding: 8px 16px;
@@ -452,6 +458,14 @@
                 width: 45px;
                 height: 45px;
             }
+
+            .sidebar.open img {
+                opacity: 1;
+                transform: translateX(0);
+            }
+            .sidebar img:nth-child(1) { transition-delay: 0.1s; }
+            .sidebar img:nth-child(2) { transition-delay: 0.2s; }
+            .sidebar img:nth-child(3) { transition-delay: 0.3s; }
 
             .add-button {
                 width: 48px;
@@ -903,6 +917,19 @@
             const downloadButton = downloadSection.querySelector('.btn-download');
             const formatDropdown = downloadSection.querySelector('.format-dropdown');
 
+            function adjustDropdownPosition(dropdown) {
+                const rect = dropdown.getBoundingClientRect();
+                const viewportHeight = window.innerHeight;
+
+                if (rect.bottom > viewportHeight) {
+                    dropdown.style.top = 'auto';
+                    dropdown.style.bottom = '100%';
+                } else {
+                    dropdown.style.top = '100%';
+                    dropdown.style.bottom = 'auto';
+                }
+            }
+
             downloadButton.addEventListener('click', (e) => {
                 e.stopPropagation();
                 document.querySelectorAll('.format-dropdown').forEach(dropdown => {
@@ -911,6 +938,7 @@
                     }
                 });
                 formatDropdown.classList.toggle('show');
+                adjustDropdownPosition(formatDropdown);
             });
 
             formatDropdown.addEventListener('click', (e) => {
@@ -941,6 +969,15 @@
         });
 
         closeSidebarButton.addEventListener('click', () => sidebar.classList.remove('open'));
+
+        document.addEventListener('click', function(e) {
+            if (!e.target.closest('.sidebar') && !e.target.closest('.add-button')) {
+                const sidebar = document.querySelector('.sidebar');
+                if (sidebar.classList.contains('open')) {
+                    sidebar.classList.remove('open');
+                }
+            }
+        });
 
         document.addEventListener('click', (e) => {
             if (!e.target.closest('.download-section')) {
