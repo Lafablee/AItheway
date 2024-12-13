@@ -699,7 +699,7 @@ def enhance_image_quality(file_path):
                 'https://api.deepai.org/api/waifu2x',
                 files={'image': image_file},
                 headers={'api-key': deep_ai_api_key},
-                timeout=10
+                timeout=35
             )
             app.logger.error(f"DeepAI API Status Code: {response.status_code}")
             app.logger.error(f"DeepAI API Response Headers: {response.headers}")
