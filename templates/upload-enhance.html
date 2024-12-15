@@ -126,9 +126,11 @@
         }
 
         .download-section {
+            background: linear-gradient(to right, #f8f9fa, white);
+            border-radius: 0 0 12px 12px;
             position: relative;
             margin: 20px auto;
-            padding: 0 15px;
+            padding: 15px;
             text-align: center;
             width: 100%;
             max-width: 300px;
@@ -155,6 +157,8 @@
         }
 
         .format-dropdown {
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.3);
             position: absolute;
             top: calc(100% + 5px);
             left: 50%;
@@ -305,6 +309,7 @@
         }
 
         .error-overlay {
+            backdrop-filter: blur(8px);
             position: fixed;
             top: 20px;
             right: 20px;
@@ -348,12 +353,13 @@
         }
         /* Controls and buttons */
         .add-button {
+            background: linear-gradient(135deg, #007bff, #0056b3);
             position: fixed;
             left: 20px;
             bottom: max(20px, env(safe-area-inset-bottom));
             width: 56px;
             height: 56px;
-            background-color: #007bff;
+            /*background-color: #007bff;*/
             color: white;
             border: none;
             border-radius: 50%;
@@ -374,8 +380,8 @@
 
         .twentytwenty-container {
             width: 100%;
+            max-width: 800px;
             height: auto;
-            aspect-ratio: 16/9;
             margin: 20px auto;
             border-radius: 12px;
             overflow: hidden;
@@ -400,6 +406,8 @@
             width: 40px;
             margin-left: -20px;
             margin-top: -20px;
+            background: white;
+            box-shadow: 0 0 12px rgba(0,0,0,0.2);
         }
 
         .twentytwenty-overlay {
@@ -412,19 +420,145 @@
             opacity: 1 !important;
             pointer-events: none;
         }
+        .twentytwenty-before-label::before,
+        .twentytwenty-after-label::before {
+            transition: all 0.3s ease;
+            backdrop-filter: blur(4px);
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            border-radius: 12px;
+            padding: 8px 12px;
+            position: absolute;
+            font-size: 12px;
+            top: 50%;
+        }
+
         .twentytwenty-before-label::before {
             content: "before" !important;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 20px;
-            padding: 8px 16px;
+            right: 10px;
+            transform: translate(-100%, -50%);
         }
 
         .twentytwenty-after-label::before {
             content: "after" !important;
-            background: rgba(0, 0, 0, 0.5);
-            border-radius: 20px;
-            padding: 8px 16px;
+            left: 10px;
+            transform: translate(100%, -50%);
         }
+
+        /* progress container*/
+        .progress-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            backdrop-filter: blur(8px);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+
+        .progress-container.active {
+            opacity: 1;
+        }
+
+        .progress-bar-wrapper {
+            width: 300px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 20px;
+            padding: 4px;
+            margin: 20px 0;
+            box-shadow: 0 0 20px rgba(0, 123, 255, 0.2);
+        }
+        .progress-bar {
+            height: 8px;
+            background: linear-gradient(90deg, #007bff, #00ff88);
+            border-radius: 20px;
+            width: 0%;
+            transition: width 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(
+                90deg,
+                transparent,
+                rgba(255, 255, 255, 0.4),
+                transparent
+            );
+            animation: shine 1.5s infinite;
+        }
+        .progress-message {
+            color: white;
+            font-size: 18px;
+            margin-bottom: 15px;
+            min-height: 27px;
+            text-align: center;
+            opacity: 0;
+            transform: translateY(10px);
+        }
+        .progress-message.active {
+            opacity: 1;
+            transform: translateY(0);
+            transition: all 0.3s ease;
+        }
+        .progress-percentage {
+            color: #00ff88;
+            font-size: 48px;
+            font-weight: bold;
+            margin: 10px 0;
+            background: linear-gradient(90deg, #007bff, #00ff88);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+        @keyframes shine {
+            0% {
+                transform: translateX(-100%);
+            }
+            100% {
+                transform: translateX(100%);
+            }
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        /* Animations de feedback */
+        @keyframes success-pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+
+        .success-message {
+            animation: success-pulse 0.5s ease;
+        }
+
+        @media (max-width: 768px) {
+            .twentytwenty-container {
+                border-radius: 0;
+                margin: 10px 0;
+            }
+
+            .sidebar {
+                width: 60px;
+            }
+        }
+
         /* Animations */
         @keyframes spin {
             0% { transform: rotate(0deg); }
@@ -512,6 +646,14 @@
         <div id="image-container"></div>
     </div>
 
+    <div class="progress-container">
+        <div class="progress-message"></div>
+         <div class="progress-percentage">0%</div>
+        <div class="progress-bar-wrapper">
+            <div class="progress-bar"></div>
+        </div>
+    </div>
+
     <button class="add-button" id="add-button">+</button>
     <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg, image/gif" style="display: none;">
 
@@ -543,6 +685,63 @@
         const imageContainer = document.getElementById('image-container');
         const loadingOverlay = document.getElementById('loading-overlay');
         const MAX_FILE_SIZE = 20 * 1024 * 1024; // 10 MB in bytes
+
+        class ProgressBar {
+            constructor() {
+               this.container = document.querySelector('.progress-container');
+                this.bar = document.querySelector('.progress-bar');
+                this.message = document.querySelector('.progress-message');
+                this.percentage = document.querySelector('.progress-percentage');
+                this.messages = [
+                    "Initialisation...",
+                    "Analyse de l'image...",
+                    "Application des améliorations...",
+                    "Optimisation des détails...",
+                    "Finalisation..."
+                ];
+            }
+            show() {
+                this.container.classList.add('active');
+            }
+
+            hide() {
+                this.container.classList.remove('active');
+            }
+
+            updateProgress(progress) {
+                this.bar.style.width = `${progress}%`;
+                this.percentage.textContent = `${Math.round(progress)}%`;
+
+                // Mise à jour du message en fonction de la progression
+                const messageIndex = Math.floor((progress / 100) * (this.messages.length - 1));
+                this.updateMessage(this.messages[messageIndex]);
+            }
+                    updateMessage(text) {
+                this.message.classList.remove('active');
+                setTimeout(() => {
+                    this.message.textContent = text;
+                    this.message.classList.add('active');
+                }, 300);
+            }
+            async simulateProgress() {
+                this.show();
+                let progress = 0;
+                const increment = () => {
+                    progress += Math.random() * 15;
+                    if (progress > 100) progress = 100;
+                    this.updateProgress(progress);
+
+                    if (progress < 100) {
+                        setTimeout(increment, 500 + Math.random() * 500);
+                    } else {
+                        setTimeout(() => this.hide(), 1000);
+                    }
+                };
+                increment();
+            }
+        }
+        const progressBar = new ProgressBar();
+
         // State
         let enhancedImages = [];
         let selectedImageId = null;
@@ -745,6 +944,8 @@
             loadingOverlay.classList.add('active');
 
             try {
+                await progressBar.simulateProgress();
+
                 // Get token and prepare form data
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token');
@@ -758,6 +959,7 @@
                     fileName: file.name,
                     token: token ? 'Present' : 'Missing'
                 });
+
 
                 // Upload and get enhanced image
                 console.log('Starting fetch request...')
@@ -821,6 +1023,7 @@
                     'Une erreur est survenue lors du traitement de l\'image.'
                 );
             } finally {
+                progressBar.hide();
                 fileInput.value = '';
             }
         }
