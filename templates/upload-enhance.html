@@ -353,13 +353,12 @@
         }
         /* Controls and buttons */
         .add-button {
-            /*background: linear-gradient(135deg, #007bff, #0056b3); */
+            background: linear-gradient(135deg, #007bff, #0056b3);
             position: fixed;
             left: 20px;
             bottom: max(20px, env(safe-area-inset-bottom));
             width: 56px;
             height: 56px;
-            transform-origin: center;  /* Ajout de cette ligne */
             /*background-color: #007bff;*/
             color: white;
             border: none;
@@ -371,7 +370,7 @@
             justify-content: center;
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 4000;
+            z-index: 1000;
         }
 
         .add-button:hover {
@@ -642,7 +641,6 @@
     </style>
 </head>
 <body>
-    <div id="error-container"></div>
     <div class="container">
         <h1 class="text-center mb-4">Améliorer la Qualité d'une Image</h1>
         <div id="image-container"></div>
@@ -668,10 +666,9 @@
         <div class="loading-spinner"></div>
     </div>
 
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/js/jquery.twentytwenty.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery-event-move/2.0.1/jquery.event.move.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/twentytwenty/1.0.0/js/jquery.twentytwenty.min.js"></script>
 
     <script>
                 // Configuration and initialization
@@ -689,197 +686,75 @@
         const loadingOverlay = document.getElementById('loading-overlay');
         const MAX_FILE_SIZE = 20 * 1024 * 1024; // 10 MB in bytes
 
-        const CONFIG = {
-          ANIMATION: {
-            DURATION: 300,
-            EASING: 'cubic-bezier(0.4, 0, 0.2, 1)',
-          },
-          PROGRESS: {
-            STAGES: [
-              { threshold: 0, message: 'Initialisation...', minDuration: 1000 },
-              { threshold: 20, message: 'Analyse de l\'image...', minDuration: 2000 },
-              { threshold: 40, message: 'Optimisation des couleurs...', minDuration: 2000 },
-              { threshold: 60, message: 'Amélioration des détails...', minDuration: 2500 },
-              { threshold: 80, message: 'Finalisation...', minDuration: 1500 },
-              { threshold: 100, message: 'Terminé !', minDuration: 500 }
-            ]
-          },
-          MAX_FILE_SIZE: 20 * 1024 * 1024,
-          SUPPORTED_FORMATS: ['image/png', 'image/jpeg', 'image/jpg', 'image/gif']
-        };
+        document.addEventListener('DOMContentLoaded', function() {
+            addButton?.removeEventListener('click', handleAddButtonClick);
+            addButton?.addEventListener('click', handleAddButtonClick);
+        });
 
-        class EnhancedProgressBar {
+        function handleAddButtonClick(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            fileInput.click();
+        }
+        if (fileInput) {
+            fileInput.setAttribute('accept', 'image/png, image/jpeg, image/jpg, image/gif');
+            console.log('File input configured');
+        }
+
+        class ProgressBar {
             constructor() {
-                this.container = document.querySelector('.progress-container');
+               this.container = document.querySelector('.progress-container');
                 this.bar = document.querySelector('.progress-bar');
                 this.message = document.querySelector('.progress-message');
                 this.percentage = document.querySelector('.progress-percentage');
-                this.currentStage = 0;
-                this.startTime = null;
-                this.stagesComplete = new Set();
-            }
-
-            start() {
-                this.show();
-                this.startTime = Date.now();
-                this.currentStage = 0;
-                this.stagesComplete.clear();
-                this.updateProgress(0);
+                this.messages = [
+                    "Initialisation...",
+                    "Analyse de l'image...",
+                    "Application des améliorations...",
+                    "Optimisation des détails...",
+                    "Finalisation..."
+                ];
             }
             show() {
                 this.container.classList.add('active');
-                // Ajout d'animations ARIA
-                this.container.setAttribute('role', 'progressbar');
-                this.container.setAttribute('aria-valuemin', '0');
-                this.container.setAttribute('aria-valuemax', '100');
             }
+
             hide() {
-                return new Promise(resolve => {
-                    const duration = CONFIG.ANIMATION.DURATION;
-                    this.container.style.transition = `opacity ${duration}ms ${CONFIG.ANIMATION.EASING}`;
-                    this.container.classList.remove('active');
-                    setTimeout(() => {
-                        this.container.style.transition = '';
-                        resolve();
-                    }, duration);
-                });
+                this.container.classList.remove('active');
             }
 
-            async updateProgress(progress) {
-                progress = Math.min(Math.max(progress, 0), 100);
-                const stages = CONFIG.PROGRESS.STAGES;
-
-                // Trouver le stage actuel
-                const currentStage = stages.reduce((prev, curr) =>
-                  progress >= curr.threshold ? curr : prev
-                );
-
-                // Mise à jour visuelle
+            updateProgress(progress) {
                 this.bar.style.width = `${progress}%`;
                 this.percentage.textContent = `${Math.round(progress)}%`;
 
-                // Mise à jour ARIA
-                this.container.setAttribute('aria-valuenow', progress);
-
-                // Animation du message si changement de stage
-                if (!this.stagesComplete.has(currentStage)) {
-                    this.stagesComplete.add(currentStage);
-                    await this.updateMessage(currentStage.message);
-                }
+                // Mise à jour du message en fonction de la progression
+                const messageIndex = Math.floor((progress / 100) * (this.messages.length - 1));
+                this.updateMessage(this.messages[messageIndex]);
             }
-
-            async updateMessage(text) {
-                const duration = CONFIG.ANIMATION.DURATION;
-
-                // Fade out
-                this.message.style.transition = `opacity ${duration/2}ms ${CONFIG.ANIMATION.EASING}`;
-                this.message.style.opacity = '0';
-
-                await new Promise(resolve => setTimeout(resolve, duration/2));
-
-                // Update text
-                this.message.textContent = text;
-
-                // Fade in
-                this.message.style.opacity = '1';
-
-                await new Promise(resolve => setTimeout(resolve, duration/2));
-                this.message.style.transition = '';
+                    updateMessage(text) {
+                this.message.classList.remove('active');
+                setTimeout(() => {
+                    this.message.textContent = text;
+                    this.message.classList.add('active');
+                }, 300);
             }
             async simulateProgress() {
+                this.show();
                 let progress = 0;
-                const stages = CONFIG.PROGRESS.STAGES;
+                const increment = () => {
+                    progress += Math.random() * 15;
+                    if (progress > 100) progress = 100;
+                    this.updateProgress(progress);
 
-                for (const stage of stages) {
-                    const startProgress = progress;
-                    const endProgress = stage.threshold;
-                    const duration = stage.minDuration;
-
-                    await this.animateProgressSegment(startProgress, endProgress, duration);
-                    progress = endProgress;
-                }
-            }
-            async animateProgressSegment(start, end, duration) {
-                const startTime = Date.now();
-                const animate = () => {
-                    const elapsed = Date.now() - startTime;
-                    const progress = Math.min(elapsed / duration, 1);
-
-                    // Fonction d'easing pour une progression plus naturelle
-                    const eased = this.easeInOutCubic(progress);
-                    const current = start + (end - start) * eased;
-
-                    this.updateProgress(current);
-
-                    if (progress < 1) {
-                        requestAnimationFrame(animate);
+                    if (progress < 100) {
+                        setTimeout(increment, 500 + Math.random() * 500);
+                    } else {
+                        setTimeout(() => this.hide(), 1000);
                     }
                 };
-
-                return new Promise(resolve => {
-                    animate();
-                    setTimeout(resolve, duration);
-                });
+                increment();
             }
-            easeInOutCubic(t) {
-                return t < 0.5
-                  ? 4 * t * t * t
-                  : 1 - Math.pow(-2 * t + 2, 3) / 2;
-            }
-
         }
-
-        // Optimisation des images
-        class ImageOptimizer {
-           static async optimize(file) {
-               return new Promise((resolve, reject) => {
-                  const img = new Image();
-                  const reader = new FileReader();
-
-                  reader.onload = e => {
-                     img.onload = () => {
-                         // Création d'un canvas pour l'optimisation
-                          const canvas = document.createElement('canvas');
-                          const ctx = canvas.getContext('2d');
-
-                          // Calcul des dimensions optimales
-                          let { width, height } = ImageOptimizer.calculateDimensions(img);
-
-                          canvas.width = width;
-                          canvas.height = height;
-
-                          // Dessiner l'image avec une qualité optimisée
-                          ctx.drawImage(img, 0, 0, width, height);
-
-                          // Convertir en Blob avec compression
-                          canvas.toBlob(blob => {
-                            resolve(blob);
-                          }, file.type, 0.85); // Compression de 85%
-                     };
-                     img.onerror = reject;
-                     img.src = e.target.result;
-                  };
-                  reader.onerror = reject;
-                  reader.readAsDataURL(file);
-               });
-           }
-           static calculateDimensions(img) {
-               const MAX_WIDTH = 2048;
-               const MAX_HEIGHT = 2048;
-
-               let ratio = Math.min(
-                   1,
-                  MAX_WIDTH / img.width,
-                  MAX_HEIGHT / img.height
-               );
-               return {
-                  width: img.width * ratio,
-                  height: img.height * ratio
-               };
-           }
-        }
-
-
         const progressBar = new ProgressBar();
 
         // State
@@ -902,7 +777,7 @@
                 reader.readAsDataURL(file);
             });
         }
-        function ErrorHandler(tittle, message, isAuthError = false) {
+        function showErrorOverlay(tittle, message, isAuthError = false) {
             const loadingOverlay = document.getElementById('loading-overlay');
             loadingOverlay.innerHTML = `
                 <div class="error-message text-center">
@@ -959,7 +834,7 @@
         async function handleApiResponse(response) {
             if (!response.ok) {
                 const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
-                await ErrorHandler.showError('Erreur', errorData.message || 'Une erreur est survenue');
+                showErrorOverlay('Erreur', errorData.message || 'Une erreur est survenue');
                 return null;
             }
             return response.json();
@@ -982,7 +857,7 @@
                 URL.revokeObjectURL(downloadUrl);
             } catch (error) {
                 console.error('Download error:', error);
-                await ErrorHandler.showError(
+                showErrorOverlay(
                     'Erreur de téléchargement',
                     'Impossible de télécharger l\'image. Veuillez réessayer.'
                 );
@@ -1049,7 +924,7 @@
                     maxSizeMB: (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)
                 });
 
-                await ErrorHandler.showError(
+                showErrorOverlay(
                     'Fichier trop volumineux',
                     'Le fichier ne doit pas dépasser 20 MB'
                 );
@@ -1073,7 +948,7 @@
             console.log('Checking file format:', file.type);
             if (!acceptedFormats.includes(file.type)) {
                 console.error('Invalid file format');
-                await ErrorHandler.showError(
+                showErrorOverlay(
                     'Format non supporté',
                     'Veuillez importer un fichier en PNG, JPEG, JPG, ou GIF.'
                 );
@@ -1133,33 +1008,32 @@
                         });
                     }
 
-                    await ErrorHandler.showError('Erreur', errorMessage);
+                    showErrorOverlay('Erreur', errorMessage);
                     loadingOverlay.classList.remove('active');
                     return;
                 }
-                const data = await handleApiResponse(response);
+                const result = await handleApiResponse(response);
                 console.log('Response parsed successfully:', result);
-                if (data) {
+                if (!result) return;
 
-                    // Create image objects and update UI
-                    const imageId = Date.now();
-                    const newImage = {
-                        id: imageId,
-                        original: URL.createObjectURL(file),
-                        enhanced: result.image_url,
-                        sliderValue: 50
-                    };
+                // Create image objects and update UI
+                const imageId = Date.now();
+                const newImage = {
+                    id: imageId,
+                    original: URL.createObjectURL(file),
+                    enhanced: result.image_url,
+                    sliderValue: 50
+                };
 
-                    enhancedImages.unshift(newImage);
-                    addImageToSidebar(newImage);
-                    createImageComparison(newImage);
-                    selectImage(imageId);
-                    sidebar.classList.add('open');
-                }
+                enhancedImages.unshift(newImage);
+                addImageToSidebar(newImage);
+                createImageComparison(newImage);
+                selectImage(imageId);
+                sidebar.classList.add('open');
 
             } catch (error) {
                 console.error('Error:', error);
-                await ErrorHandler.showError(
+                showErrorOverlay(
                     'Erreur',
                     'Une erreur est survenue lors du traitement de l\'image.'
                 );
@@ -1358,7 +1232,7 @@
                 const response = await fetch(window.location.href, { headers });
                 if (!response.ok) {
                     const result = await response.json();
-                    await ErrorHandler.showError(
+                    showErrorOverlay(
                         'Authentication Required',
                         result.message || 'Please log in to continue',
                         true
@@ -1366,7 +1240,7 @@
                 }
             } catch (error) {
                 console.error('Authentication check failed:', error);
-                await ErrorHandler.showError(
+                showErrorOverlay(
                     'Authentication Required',
                     'Please log in to continue',
                     true
@@ -1383,11 +1257,11 @@
 
     {% if show_error %}
     <script>
-        document.addEventListener('DOMContentLoaded', async function() {
-            await ErrorHandler.showError(
+        document.addEventListener('DOMContentLoaded', function() {
+            window.showErrorOverlay(
                 'Authentication Required',
                 'Please log in to continue',
-                { isAuthError: true }
+                true
             );
         });
     </script>

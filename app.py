@@ -360,28 +360,18 @@ def update_client_expiry(client_id, days=1):
 
 
 def handle_error_response(message, status_code, title="Error"):
-    """Gestionnaire centralisé des réponses d'erreur.
-    Args:
-        message (str): Message d'erreur à afficher
-        status_code (int): Code de statut HTTP
-        title (str, optional): Titre de l'erreur. Par défaut "Error"
-    Returns:
-        Response: Réponse JSON avec les informations d'erreur"""
-    response_data = {
-        "error": message,
-        "title": title,
-        "status": status_code
-    }
-
-    if status_code in [401, 403]:
-        response_data["redirect_url"] = LOGIN_URL
-
+    """Enhanced error handler with template support"""
     if request.headers.get('X-Requested-With') == 'XMLHttpRequest' or request.headers.get(
             'Accept') == 'application/json':
-        return jsonify(response_data), status_code
+        return jsonify({
+            "error": "authentication_error",
+            "message": message,
+            "redirect_url": LOGIN_URL
+        }), status_code
 
     # For regular requests, redirect to error page with parameters
-    return jsonify(response_data), status_code
+    error_url = f'/error?title={quote(title)}&message={quote(message)}'
+    return redirect(error_url)
 
 def allowed_file(filename):
     return '.' in filename and filename.rsplit('.', 1)[1].lower() in app.config['ALLOWED_EXTENSIONS']
