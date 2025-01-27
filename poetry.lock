@@ -605,6 +605,25 @@ files = [
 cli = ["click (>=5.0)"]
 
 [[package]]
+name = "runwayml"
+version = "2.1.6"
+description = "The official Python library for the runwayml API"
+optional = false
+python-versions = ">=3.8"
+files = [
+    {file = "runwayml-2.1.6-py3-none-any.whl", hash = "sha256:9c93f47093bfb78f1fd3e61a98dc0892fc26103614ab24a3df081c23807fdbe5"},
+    {file = "runwayml-2.1.6.tar.gz", hash = "sha256:6c03caf4075582ee5a056594edc1e2611fa690fc44fb6a338a0b9caba19f4fef"},
+]
+
+[package.dependencies]
+anyio = ">=3.5.0,<5"
+distro = ">=1.7.0,<2"
+httpx = ">=0.23.0,<1"
+pydantic = ">=1.9.0,<3"
+sniffio = "*"
+typing-extensions = ">=4.10,<5"
+
+[[package]]
 name = "sniffio"
 version = "1.3.1"
 description = "Sniff out which async library your code is running under"
@@ -666,4 +685,4 @@ watchdog = ["watchdog (>=2.3)"]
 [metadata]
 lock-version = "2.0"
 python-versions = "^3.11"
-content-hash = "b0d3b0373f264241149cb7945f2664bba667ce4dbe2f43e80b570a330dca6e6d"
+content-hash = "79edb076e23fdca0340d8d13022e8365483ec07b2a90ce0ab1a28892a1936ea8"
