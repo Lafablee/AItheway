@@ -56,6 +56,7 @@ class ImageManager:
 
     def _generate_key(self, user_id, type="temp"):
         """Génère une clé unique avec préfixe"""
+
         timestamp = datetime.now().timestamp()
         return f"img:temp:image:{user_id}:{timestamp}"
 
