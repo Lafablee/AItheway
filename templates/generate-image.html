@@ -392,7 +392,7 @@
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token');
 
-                const response = await fetch(`/api/history/generated?page=${page}&token=${encodeURIComponent(token)}`, {
+                const response = await fetch(`/api/chat/history/generated?page=${page}&token=${encodeURIComponent(token)}`, {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     }

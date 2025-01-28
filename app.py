@@ -1195,9 +1195,9 @@ def get_generated_history(wp_user_id):
     page = request.args.get('page', 1, type=int)
     per_page = request.args.get('per_page', 10, type=int)
 
-    app.logger.info("=== Fetching Generated History ===")
-    app.logger.info(f"User ID: {wp_user_id}")
-    app.logger.info(f"Page: {page}, Per Page: {per_page}")
+    app.logger.error("=== Fetching Generated History ===")
+    app.logger.error(f"User ID: {wp_user_id}")
+    app.logger.error(f"Page: {page}, Per Page: {per_page}")
 
     try:
         # Appel à la méthode pour récupérer l'historique
@@ -1206,7 +1206,7 @@ def get_generated_history(wp_user_id):
             history_type="generated"
         )
 
-        app.logger.debug(f"Fetched history: {history}")
+        app.logger.error(f"Fetched history: {history}")
 
         # Paginer les résultats
         start_idx = (page - 1) * per_page
@@ -1214,8 +1214,8 @@ def get_generated_history(wp_user_id):
         paginated_history = history[start_idx:end_idx]
 
         has_more = len(history) > end_idx
-        app.logger.info(f"Paginated History: {paginated_history}")
-        app.logger.info(f"Has More: {has_more}")
+        app.logger.error(f"Paginated History: {paginated_history}")
+        app.logger.error(f"Has More: {has_more}")
 
         return jsonify({
             'success': True,
