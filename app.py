@@ -57,7 +57,7 @@ class ImageManager:
     def _generate_key(self, user_id, type="temp"):
         """Génère une clé unique avec préfixe"""
         timestamp = datetime.now().timestamp()
-        return f"app:chat:{type}:{user_id}:{timestamp}"
+        return f"img:temp:image:{user_id}:{timestamp}"
 
     def store_temp_image(self, user_id, image_data, metadata=None):
         """Version améliorée du stockage"""
@@ -85,10 +85,14 @@ class ImageManager:
             # Ajouter à l'index utilisateur
             user_index_key = f"user:{user_id}:images"
             pipe.lpush(user_index_key, key)
+
             pipe.ltrim(user_index_key, 0, 99)  # Garder les 100 dernières images
 
             # Exécuter toutes les opérations
             pipe.execute()
+
+            app.logger.error(f"Image stored with key: {key}")
+            app.logger.error(f"Metadata stored at: {metadata_key if metadata else 'No metadata'}")
 
             return key
 
@@ -102,6 +106,10 @@ class ImageManager:
         app.logger.error(f"Fetching history for user {user_id} with type {history_type}")
         if history_type == "enhanced":
             pattern = f"temp:image:{user_id}:*"
+
+            app.logger.error(f"Searching with pattern: {pattern}")
+            app.logger.error(f"Found keys: {self.redis.keys(pattern)}")
+
             images = []
 
             for key in self.redis.keys(pattern):
@@ -875,6 +883,8 @@ def generate_image(wp_user_id):
                         image_response.content,
                         metadata
                     )
+                    app.logger.error(f"Storing image with key: {image_key}")
+                    app.logger.error(f"Metadata stored: {metadata}")
 
                     return jsonify({
                         'success': True,
