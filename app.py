@@ -65,6 +65,7 @@ class ImageManager:
         try:
             # Génération d'une clé unique
             key = self._generate_key(user_id)
+            app.logger.error(f"Generated key for image: {key}")
 
             # Pipeline pour les opérations atomiques
             pipe = self.redis.pipeline()
@@ -79,26 +80,44 @@ class ImageManager:
             # Stockage des métadonnées si présentes
             if metadata:
                 metadata_key = f"{key}:meta"
-                metadata['created_at'] = datetime.now().isoformat()
+
+                # S'assurer que toutes les valeurs sont en bytes
+                processed_metadata = {}
+                for k, v in metadata.items():
+                    if isinstance(v, str):
+                        processed_metadata[k] = v.encode('utf-8')
+                    elif isinstance(v, bytes):
+                        processed_metadata[k] = v
+                    else:
+                        processed_metadata[k] = str(v).encode('utf-8')
+
+                # Ajout de la timestamp si non présente
+                if b'timestamp' not in processed_metadata:
+                    processed_metadata[b'timestamp'] = datetime.now().isoformat().encode('utf-8')
+
+                app.logger.error(f"Storing metadata at {metadata_key}: {processed_metadata}")
+
                 pipe.hmset(metadata_key, metadata)
                 pipe.expire(metadata_key, TEMP_STORAGE_DURATION)
 
-            # Ajouter à l'index utilisateur
-            user_index_key = f"user:{user_id}:images"
-            pipe.lpush(user_index_key, key)
+                # Ajouter à l'index utilisateur
+                user_index_key = f"user:{user_id}:images"
+                pipe.lpush(user_index_key, key)
 
-            pipe.ltrim(user_index_key, 0, 99)  # Garder les 100 dernières images
+                pipe.ltrim(user_index_key, 0, 99)  # Garder les 100 dernières images
 
             # Exécuter toutes les opérations
             pipe.execute()
 
-            app.logger.error(f"Image stored with key: {key}")
-            app.logger.error(f"Metadata stored at: {metadata_key if metadata else 'No metadata'}")
+            if metadata:
+                stored_metadata = self.redis.hgetall(f"{key}:meta")
+                app.logger.error(f"Verified stored metadata: {stored_metadata}")
 
             return key
 
         except Exception as e:
             app.logger.error(f"Redis storage error: {str(e)}")
+            app.logger.error(f"Failed to store image with metadata: {metadata}")
             raise
 
 
@@ -870,15 +889,15 @@ def generate_image(wp_user_id):
                     app.logger.error(f"Preparing to store generated image for user {wp_user_id}")
                     # Préparer les métadonnées
                     metadata = {
-                        'type': 'generated',
-                        'prompt': prompt,
-                        'timestamp': datetime.now().isoformat(),
+                        'type': b'generated',
+                        'prompt': prompt.encode('utf-8'),
+                        'timestamp': datetime.now().isoformat().encode('utf-8'),
                         'parameters': json.dumps({
                             'model': 'dall-e-3',
                             'size': '1024x1024'
-                        })
+                        }).encode('utf-8'),
                     }
-                    app.logger.error(f"Metadata stored: {metadata}")
+                    app.logger.error(f"Storing image with metadata: {metadata}")
 
                     # Stockage de l'image avec ses métadonnées
                     image_key = image_manager.store_temp_image(
@@ -892,7 +911,7 @@ def generate_image(wp_user_id):
                     app.logger.error(f"Image retrieval verification: {'Success' if stored_image else 'Failed'}")
 
                     stored_metadata = image_manager.redis.hgetall(f"{image_key}:meta")
-                    app.logger.error(f"Stored metadata: {stored_metadata}")
+                    app.logger.error(f"Verified stored metadata: {stored_metadata}")
 
                     return jsonify({
                         'success': True,
