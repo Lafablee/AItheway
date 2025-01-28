@@ -1,6 +1,5 @@
 import os
 import openai
-from CORScanner.cors_scan import results
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, url_for, send_file, abort, redirect
 from io import BytesIO
