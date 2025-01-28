@@ -1162,7 +1162,7 @@ def send_message(wp_user_id):
         return jsonify({'error': 'Failed to send message'}), 500
 
 
-@app.route('/api/chat/history')
+@app.route('/api/chat/history/generated')
 @token_required
 def get_chat_history(wp_user_id):
     page = request.args.get('page', 1, type=int)
@@ -1184,6 +1184,7 @@ def get_chat_history(wp_user_id):
 
     except Exception as e:
         app.logger.error(f"Error fetching chat history: {str(e)}")
+        app.logger.error(f"Error in /api/chat/history/generated: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Failed to fetch chat history'
