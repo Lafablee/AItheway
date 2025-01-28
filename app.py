@@ -1,5 +1,6 @@
 import os
 import openai
+from CORScanner.cors_scan import results
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, url_for, send_file, abort, redirect
 from io import BytesIO
@@ -80,22 +81,24 @@ class ImageManager:
             # Stockage des métadonnées si présentes
             if metadata:
                 metadata_key = f"{key}:meta"
+                app.logger.error(f"Original metadata: {metadata}")
 
                 # S'assurer que toutes les valeurs sont en bytes
                 processed_metadata = {}
                 for k, v in metadata.items():
-                    if isinstance(v, str):
-                        processed_metadata[k] = v.encode('utf-8')
-                    elif isinstance(v, bytes):
-                        processed_metadata[k] = v
-                    else:
-                        processed_metadata[k] = str(v).encode('utf-8')
+                    app.logger.error(f"Metadata {k}: {v} (type: {type(v)})")
+                    #if isinstance(v, str):
+                        #processed_metadata[k] = v.encode('utf-8')
+                    #elif isinstance(v, bytes):
+                        #processed_metadata[k] = v
+                    #else:
+                        #processed_metadata[k] = str(v).encode('utf-8')
 
                 # Ajout de la timestamp si non présente
-                if b'timestamp' not in processed_metadata:
-                    processed_metadata[b'timestamp'] = datetime.now().isoformat().encode('utf-8')
+                #if b'timestamp' not in processed_metadata:
+                    #processed_metadata[b'timestamp'] = datetime.now().isoformat().encode('utf-8')
 
-                app.logger.error(f"Storing metadata at {metadata_key}: {processed_metadata}")
+                #app.logger.error(f"Storing metadata at {metadata_key}: {processed_metadata}")
 
                 pipe.hmset(metadata_key, metadata)
                 pipe.expire(metadata_key, TEMP_STORAGE_DURATION)
@@ -104,14 +107,16 @@ class ImageManager:
                 user_index_key = f"user:{user_id}:images"
                 pipe.lpush(user_index_key, key)
 
-                pipe.ltrim(user_index_key, 0, 99)  # Garder les 100 dernières images
+            results = pipe.execute()
+            app.logger.error(f"Pipeline execution results: {results}")
+            #pipe.ltrim(user_index_key, 0, 99)  # Garder les 100 dernières images
 
             # Exécuter toutes les opérations
-            pipe.execute()
+            #pipe.execute()
 
             if metadata:
-                stored_metadata = self.redis.hgetall(f"{key}:meta")
-                app.logger.error(f"Verified stored metadata: {stored_metadata}")
+                stored = self.redis.hgetall(metadata_key)
+                app.logger.error(f"Immediate verification - stored metadata: {stored}")
 
             return key
 
@@ -897,7 +902,7 @@ def generate_image(wp_user_id):
                             'size': '1024x1024'
                         }).encode('utf-8'),
                     }
-                    app.logger.error(f"Storing image with metadata: {metadata}")
+                    app.logger.error(f"Preparing metadata: {metadata}")
 
                     # Stockage de l'image avec ses métadonnées
                     image_key = image_manager.store_temp_image(
