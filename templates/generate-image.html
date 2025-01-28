@@ -379,6 +379,7 @@
 
         // Fonction pour charger l'historique
         async function loadHistory(page = 1, append = false) {
+            console.log(`Fetching history for page ${page}...`);
             if (isLoading || (!append && !hasMore)) return;
 
             const historyLoader = document.getElementById('historyLoader');
@@ -396,6 +397,7 @@
                         'X-Requested-With': 'XMLHttpRequest'
                     }
             });
+
             if (!response.ok) {
                 if (response.status === 401 || response.status === 403) {
                     // Gérer l'authentification
@@ -404,7 +406,9 @@
                 }
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
+            console.log('Response status:', response.status);
             const data = await response.json();
+            console.log('Fetched data:', data);
 
             if (!append) {
                 historyContent.innerHTML = '';

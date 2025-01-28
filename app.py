@@ -99,11 +99,13 @@ class ImageManager:
 
     def get_user_history(self, user_id, history_type="enhanced"):
         """Récupère l'historique des images d'un utilisateur"""
+        app.logger.error(f"Fetching history for user {user_id} with type {history_type}")
         if history_type == "enhanced":
             pattern = f"temp:image:{user_id}:*"
             images = []
 
             for key in self.redis.keys(pattern):
+                app.logger.error(f"Redis keys found for pattern {pattern}: {self.redis.keys(pattern)}")
                 metadata = self.redis.hgetall(f"{key}:meta")
                 if metadata.get(b'type') == b'enhanced':
                     original_key = metadata.get(b'original_key')
@@ -124,7 +126,9 @@ class ImageManager:
             images = []
 
             for key in self.redis.keys(pattern):
+                app.logger.error(f"Redis keys found for pattern {pattern}: {self.redis.keys(pattern)}")
                 metadata = self.redis.hgetall(f"{key}:meta")
+                app.logger.error(f"Metadata for key {key}: {metadata}")
 
                 if metadata.get(b'type') == b'generated':
                     try:
@@ -148,10 +152,13 @@ class ImageManager:
                     except Exception as e:
                         app.logger.error(f"Error processing generated image metadata: {e}")
         else:
+            app.logger.error(f"Invalid history type requested: {history_type}")
             # Gérer d'autres types d'historique si nécessaire
             return []
 
-        return sorted(images, key=lambda x: x['timestamp', ''], reverse=True)
+        sorted_images = sorted(images, key=lambda x: x['timestamp'], reverse=True)
+        app.logger.error(f"Sorted images: {sorted_images}")
+        return sorted_images
 
 
 
@@ -1181,6 +1188,44 @@ def get_chat_history(wp_user_id):
             'success': False,
             'error': 'Failed to fetch chat history'
         }), 500
+
+
+def get_generated_history(wp_user_id):
+    """Récupère l'historique des images générées pour un utilisateur."""
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 10, type=int)
+
+    app.logger.info("=== Fetching Generated History ===")
+    app.logger.info(f"User ID: {wp_user_id}")
+    app.logger.info(f"Page: {page}, Per Page: {per_page}")
+
+    try:
+        # Appel à la méthode pour récupérer l'historique
+        history = image_manager.get_user_history(
+            wp_user_id,
+            history_type="generated"
+        )
+
+        app.logger.debug(f"Fetched history: {history}")
+
+        # Paginer les résultats
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+        paginated_history = history[start_idx:end_idx]
+
+        has_more = len(history) > end_idx
+        app.logger.info(f"Paginated History: {paginated_history}")
+        app.logger.info(f"Has More: {has_more}")
+
+        return jsonify({
+            'success': True,
+            'items': paginated_history,
+            'has_more': has_more
+        }), 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching generated history for user {wp_user_id}: {str(e)}")
+        return jsonify({'success': False, 'error': 'Failed to fetch generated history'}), 500
 
 @app.route('/download-enhanced-image', methods=['POST'])
 def download_enhanced_image():
