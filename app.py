@@ -867,6 +867,7 @@ def generate_image(wp_user_id):
                 image_response = requests.get(image_url)
 
                 if image_response.status_code == 200:
+                    app.logger.error(f"Preparing to store generated image for user {wp_user_id}")
                     # Préparer les métadonnées
                     metadata = {
                         'type': 'generated',
@@ -877,6 +878,7 @@ def generate_image(wp_user_id):
                             'size': '1024x1024'
                         })
                     }
+                    app.logger.error(f"Metadata stored: {metadata}")
 
                     # Stockage de l'image avec ses métadonnées
                     image_key = image_manager.store_temp_image(
@@ -885,7 +887,12 @@ def generate_image(wp_user_id):
                         metadata
                     )
                     app.logger.error(f"Storing image with key: {image_key}")
-                    app.logger.error(f"Metadata stored: {metadata}")
+
+                    stored_image = image_manager.get_image(image_key)
+                    app.logger.error(f"Image retrieval verification: {'Success' if stored_image else 'Failed'}")
+
+                    stored_metadata = image_manager.redis.hgetall(f"{image_key}:meta")
+                    app.logger.error(f"Stored metadata: {stored_metadata}")
 
                     return jsonify({
                         'success': True,
@@ -1173,29 +1180,49 @@ def send_message(wp_user_id):
         return jsonify({'error': 'Failed to send message'}), 500
 
 
-@app.route('/api/chat/history/generated')
+@app.route('/api/chat/history/generated', methods=['GET'])
 @token_required
 def get_chat_history(wp_user_id):
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 20, type=int)
-    filter_type = request.args.get('type')  # optionnel
-
     try:
-        history = chat_manager.get_user_chat_history(
-            wp_user_id,
-            page=page,
-            per_page=per_page,
-            filter_type=filter_type
+        page = request.args.get('page', 1, type=int)
+        per_page = min(50, request.args.get('per_page', 20, type=int))  # Limite max de 50
+
+        app.logger.error(f"Fetching history for user {wp_user_id}")
+        app.logger.error(f"Request method: {request.method}")
+        app.logger.error(f"Page: {page}, Items per page: {per_page}")
+
+        # Récupération directe de l'historique généré
+        history = image_manager.get_user_history(
+            user_id=wp_user_id,
+            history_type="generated"
         )
+
+        # Pagination
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+
+        items = history[start_idx:end_idx] if history else []
+        total_items = len(history) if history else 0
+
+        app.logger.error(f"Found {total_items} total items")
+        app.logger.error(f"Returning {len(items)} items for current page")
+
 
         return jsonify({
             'success': True,
-            'data': history
-        })
+            'data': {
+                'items': items,
+                'pagination': {
+                    'current_page': page,
+                    'per_page': per_page,
+                    'total_items': total_items,
+                    'has_more': total_items > end_idx
+                }
+            }
+        }), 200
 
     except Exception as e:
         app.logger.error(f"Error fetching chat history: {str(e)}")
-        app.logger.error(f"Error in /api/chat/history/generated: {str(e)}")
         return jsonify({
             'success': False,
             'error': 'Failed to fetch chat history'
