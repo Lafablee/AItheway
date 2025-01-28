@@ -13,8 +13,10 @@ from functools import wraps
 import psycopg2
 from datetime import datetime, timedelta
 from urllib.parse import quote
+import redis
+import json
 
-
+from config import redis_client, TEMP_STORAGE_DURATION, PERMANENT_STORAGE_DURATION
 
 
 load_dotenv(dotenv_path='.env')
@@ -35,6 +37,310 @@ app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB limit
 
 deep_ai_api_key = os.getenv('DEEPAI_API_KEY')
 
+# Configuration Redis
+redis_client = redis.Redis(
+    host='localhost',
+    port=6379,
+    db=0,
+    decode_responses=False  # Important pour les données binaires
+)
+
+# Durées de conservation
+TEMP_STORAGE_DURATION = timedelta(hours=24)  # Pour les uploads temporaires
+PERMANENT_STORAGE_DURATION = timedelta(days=30)  # Pour les images sauvegardées
+
+class ImageManager:
+    def __init__(self, redis_client):
+        self.redis = redis_client
+        self.prefix = "img"
+
+    def _generate_key(self, user_id, type="temp"):
+        """Génère une clé unique avec préfixe"""
+        timestamp = datetime.now().timestamp()
+        return f"app:chat:{type}:{user_id}:{timestamp}"
+
+    def store_temp_image(self, user_id, image_data, metadata=None):
+        """Version améliorée du stockage"""
+        try:
+            # Génération d'une clé unique
+            key = self._generate_key(user_id)
+
+            # Pipeline pour les opérations atomiques
+            pipe = self.redis.pipeline()
+
+            # Stockage de l'image
+            pipe.setex(
+                key,
+                TEMP_STORAGE_DURATION,
+                image_data
+            )
+
+            # Stockage des métadonnées si présentes
+            if metadata:
+                metadata_key = f"{key}:meta"
+                metadata['created_at'] = datetime.now().isoformat()
+                pipe.hmset(metadata_key, metadata)
+                pipe.expire(metadata_key, TEMP_STORAGE_DURATION)
+
+            # Ajouter à l'index utilisateur
+            user_index_key = f"user:{user_id}:images"
+            pipe.lpush(user_index_key, key)
+            pipe.ltrim(user_index_key, 0, 99)  # Garder les 100 dernières images
+
+            # Exécuter toutes les opérations
+            pipe.execute()
+
+            return key
+
+        except Exception as e:
+            app.logger.error(f"Redis storage error: {str(e)}")
+            raise
+
+
+    def get_user_history(self, user_id, history_type="enhanced"):
+        """Récupère l'historique des images d'un utilisateur"""
+        if history_type == "enhanced":
+            pattern = f"temp:image:{user_id}:*"
+            images = []
+
+            for key in self.redis.keys(pattern):
+                metadata = self.redis.hgetall(f"{key}:meta")
+                if metadata.get(b'type') == b'enhanced':
+                    original_key = metadata.get(b'original_key')
+                    try:
+                        images.append({
+                            'enhanced_key': key.decode('utf-8'),
+                            'original_key': original_key.decode('utf-8') if original_key else None,
+                            'timestamp': metadata.get(b'timestamp', b'').decode('utf-8'),
+                            'enhanced_url': f"/image/{key.decode('utf-8')}",
+                            'original_url': f"/image/{original_key.decode('utf-8')}" if original_key else None
+                        })
+                    except Exception as e:
+                        app.logger.error(f"Error processing enhanced image metadata: {e}")
+
+
+        elif history_type == "generated":
+            pattern = f"img:temp:image:{user_id}:*"
+            images = []
+
+            for key in self.redis.keys(pattern):
+                metadata = self.redis.hgetall(f"{key}:meta")
+
+                if metadata.get(b'type') == b'generated':
+                    try:
+                        # Utiliser .get() avec une valeur par défaut pour éviter les erreurs
+                        decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
+                        decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
+
+                        # Charger les paramètres de manière sécurisée
+                        try:
+                            parameters = json.loads(metadata.get(b'parameters', b'{}').decode('utf-8'))
+                        except (json.JSONDecodeError, TypeError):
+                            parameters = {}
+
+                        images.append({
+                            'key': key.decode('utf-8'),
+                            'prompt': decoded_prompt,
+                            'timestamp': decoded_timestamp,
+                            'url': f"/image/{key.decode('utf-8')}",
+                            'parameters': parameters,
+                        })
+                    except Exception as e:
+                        app.logger.error(f"Error processing generated image metadata: {e}")
+        else:
+            # Gérer d'autres types d'historique si nécessaire
+            return []
+
+        return sorted(images, key=lambda x: x['timestamp', ''], reverse=True)
+
+
+
+    def save_image(self, user_id, image_data):
+        """Sauvegarde une image de manière permanente"""
+        key = f"user:{user_id}:images:{datetime.now().timestamp()}"
+        self.redis.setex(
+            key,
+            PERMANENT_STORAGE_DURATION,
+            image_data
+        )
+        return key
+
+    def get_image(self, key):
+        """Récupère une image"""
+        if not self.redis.exists(key):
+            return None
+        return self.redis.get(key)
+
+    def delete_image(self, key):
+        """Suppression propre avec métadonnées"""
+        pipe = self.redis.pipeline()
+        pipe.delete(key)
+        pipe.delete(f"{key}:meta")
+        pipe.execute()
+
+    def get_image_metadata(self, key):
+        """Récupère les métadonnées d'une image"""
+        metadata_key = f"{key}:metadata"
+        return self.redis.hgetall(metadata_key)
+
+def cleanup_expired_images():
+    """Nettoie les images expirées de Redis"""
+    pattern = "temp:image:*"
+    for key in redis_client.keys(pattern):
+        if not redis_client.ttl(key):  # Si pas de TTL ou expiré
+            redis_client.delete(key)
+
+image_manager = ImageManager(redis_client)
+
+class ChatManager:
+    def __init__(self, redis_client):
+        self.redis = redis_client
+        self.image_manager = ImageManager(redis_client)
+        self.prefix = "chat"
+
+    def store_message(self, user_id, message_data):
+        """
+        Stocke un message
+        """
+        message_id = f"{self.prefix}:{user_id}:{datetime.now().timestamp()}"
+
+        timestamp_key = f"app:chat:timestamps:{user_id}"
+        current_timestamp = datetime.now().timestamp()
+        self.redis.zadd(timestamp_key, {message_id: current_timestamp})
+
+
+        #prépare les donnés du message
+        data = {
+            'user_id': user_id,
+            'text': message_data.get('text',  ''),
+            'timestamp': datetime.now().isoformat(),
+            'type': message_data.get('type', 'text'),  # text, image, enhanced_image
+            'message_id': message_id
+        }
+        # Gère les images attachées
+        if message_data.get('image_data'):
+            image_key = self.image_manager.store_temp_image(
+                user_id,
+                message_data['image_data'],
+                {'type': 'chat_image'}
+            )
+            data['image_key'] = image_key
+
+        # Utilise un pipeline pour les opérations atomiques
+        pipe = self.redis.pipeline()
+
+        # Stocke le message
+        pipe.hmset(message_id, data)
+        pipe.expire(message_id, PERMANENT_STORAGE_DURATION)
+
+        # Ajoute à l'historique utilisateur
+        pipe.lpush(f"user:{user_id}:messages", message_id)
+
+        # Expire l'index des timestamps aussi
+        pipe.expire(timestamp_key, PERMANENT_STORAGE_DURATION)
+
+        # Exécute toutes les opérations
+        pipe.execute()
+
+        return message_id
+
+    def get_messages_by_timerange(self, user_id, start_time, end_time):
+        """
+        Récupère les messages dans une plage temporelle
+        """
+        timestamp_key = f"app:chat:timestamps:{user_id}"
+        message_ids = self.redis.zrangebyscore(timestamp_key, start_time, end_time)
+
+        if not message_ids:
+            return []
+
+        # Utilise un pipeline pour récupérer tous les messages
+        pipe = self.redis.pipeline()
+        for mid in message_ids:
+            pipe.hgetall(mid)
+
+        messages = pipe.execute()
+
+        # Traite les messages
+        return [
+            {k.decode('utf-8'): v.decode('utf-8') for k, v in msg.items()}
+            for msg in messages if msg
+        ]
+
+    def get_message(self, message_id):
+        """Récupère un message spécifique"""
+        message = self.redis.hgetall(message_id)
+        if message and message.get('image_key'):
+            message['image_url'] = f"/image/{message['image_key']}"
+        return message
+
+    def get_user_chat_history(self, user_id, page=1, per_page=20, filter_type=None):
+        """
+        Récupère l'historique des messages avec filtrage optionnel
+        """
+
+
+        # Clé pour l'index des messages
+        user_messages_key = f"user:{user_id}:messages"
+
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page - 1
+
+        # Récupère les IDs des messages avec filtrage potentiel
+        message_ids = self.redis.lrange(user_messages_key, start_idx, end_idx)
+
+        if not message_ids:
+            return {
+                'messages': [],
+                'page': page,
+                'has_more': False
+            }
+
+        # Utilise un pipeline pour récupérer tous les messages et leurs métadonnées en une seule opération
+        pipeline = self.redis.pipeline()
+        for mid in message_ids:
+            pipeline.hgetall(mid)
+
+        # Exécute toutes les commandes en une fois
+        results = pipeline.execute()
+
+        # Récupère les messages avec leurs images
+        messages = []
+        for msg in results:
+            if filter_type and msg.get('type') != filter_type:
+                continue
+
+            if msg.get('image_key'):
+                msg['image_url'] = f"/image/{msg['image_key']}"
+
+            # Décode les valeurs bytes en strings si nécessaire
+            processed_msg = {
+                k.decode('utf-8') if isinstance(k, bytes) else k:
+                v.decode('utf-8') if isinstance(v, bytes) else v
+                for k, v in msg.items()
+            } if msg else {}
+
+            if processed_msg:  # N'ajoute que les messages non vides
+                messages.append(processed_msg)
+
+        # Vérifie s'il y a plus de messages
+        next_page_check = self.redis.lrange(user_messages_key, end_idx + 1, end_idx + 1)
+
+        return {
+            'messages': messages,
+            'page': page,
+            'has_more': bool(next_page_check)
+        }
+
+    def search_message(self, user_id, query, page=1, per_page=20):
+        """
+                Recherche dans l'historique des messages
+                """
+        # Implémentation dépendrait de la mise en place d'un index de recherche (PLUS TARD !)
+
+
+# Initialisation
+chat_manager = ChatManager(redis_client)
 
 def get_client_by_wp_user_id(wp_user_id):
     app.logger.error(f"Attempting to get client with wp_user_id: {wp_user_id}")
@@ -386,6 +692,7 @@ def validate_image_format(img_format):
         #img_format = 'webp'
     return True, img_format
 
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -523,7 +830,8 @@ def generate_image(wp_user_id):
         # GET request - show form
         if request.method == 'GET':
             app.logger.error("Returning template...")
-            return render_template('generate-image.html')
+            history = image_manager.get_user_history(wp_user_id, "generated")
+            return render_template('generate-image.html', history=history)
 
         # POST request - generate image
         if request.method == 'POST':
@@ -543,11 +851,29 @@ def generate_image(wp_user_id):
                 image_response = requests.get(image_url)
 
                 if image_response.status_code == 200:
-                    img = Image.open(BytesIO(image_response.content))
-                    filename = secure_filename(f"{prompt}.png")
-                    file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                    img.save(file_path, "PNG")
-                    return jsonify({'image_url': url_for('static', filename=f'uploads/{filename}')})
+                    # Préparer les métadonnées
+                    metadata = {
+                        'type': 'generated',
+                        'prompt': prompt,
+                        'timestamp': datetime.now().isoformat(),
+                        'parameters': json.dumps({
+                            'model': 'dall-e-3',
+                            'size': '1024x1024'
+                        })
+                    }
+
+                    # Stockage de l'image avec ses métadonnées
+                    image_key = image_manager.store_temp_image(
+                        wp_user_id,
+                        image_response.content,
+                        metadata
+                    )
+
+                    return jsonify({
+                        'success': True,
+                        'image_key': image_key,
+                        'image_url': f"/image/{image_key}"
+                    })
                 else:
                     return jsonify({'error': 'Failed to download image'}), 500
 
@@ -639,7 +965,12 @@ def upload_enhance(wp_user_id):
 
         if request.method == 'GET':
             app.logger.error("GET request - Returning template...")
-            return render_template('upload-enhance.html')
+            app.logger.error("GET request - reach history user...")
+            history = image_manager.get_user_history(wp_user_id, "enhanced")
+            return render_template(
+                'upload-enhance.html',
+                history=history
+            )
 
         if request.method == 'POST':
             app.logger.error("POST request received")
@@ -663,25 +994,51 @@ def upload_enhance(wp_user_id):
                 return jsonify({'error': 'No selected file'}), 400
 
             if file and allowed_file(file.filename):
-                filename = secure_filename(file.filename)
-                file_path = os.path.join(app.config['UPLOAD_FOLDER'], filename)
-                file.save(file_path)
-                app.logger.info(f"File saved to {file_path}")
 
-                if not os.path.exists(file_path):
-                    app.logger.error("File was not saved successfully")
-                    return jsonify({'error': 'File upload failed'}), 500
+                # Stocke l'image originale
+                image_data = file.read()
 
-                enhanced_image_url = enhance_image_quality(file_path)
-                if enhanced_image_url:
-                    app.logger.info(f"Enhanced image URL: {enhanced_image_url}")
-                    return jsonify({'image_url': enhanced_image_url})
-                else:
-                    app.logger.error("Failed to enhance image")
-                    return jsonify({'error': 'Failed to enhance image, please retry later'}), 500
+                # Stockage de l'image originale
+                original_metadata = {
+                    'type': 'original',
+                    'filename': secure_filename(file.filename),
+                    'status': 'pending',  # pour suivre l'état de l'amélioration
+                    'timestamp': datetime.now().isoformat()
+                }
+                original_key = image_manager.store_temp_image(
+                    wp_user_id,
+                    image_data,
+                    original_metadata
+                )
 
-            return jsonify({'error': 'Invalid file'}), 400
-        return jsonify({"error": "Invalid request method"}), 400
+                enhanced_url = enhance_image_quality(BytesIO(image_data))
+                if enhanced_url:
+                    # Télécharger l'image améliorée
+                    enhanced_response = requests.get(enhanced_url)
+                    if enhanced_response.status_code == 200:
+                        # Stockage de l'image améliorée
+                        enhanced_metadata = {
+                            'type': 'enhanced',
+                            'original_key': original_key,
+                            'timestamp': datetime.now().isoformat()
+                        }
+                        enhanced_key = image_manager.store_temp_image(
+                            wp_user_id,
+                            enhanced_response.content,
+                            enhanced_metadata
+                        )
+
+                        return jsonify({
+                            'success': True,
+                            'original_key': original_key,
+                            'enhanced_key': enhanced_key,
+                            'original_url': f"/image/{original_key}",
+                            'enhanced_url': f"/image/{enhanced_key}",
+                            'status': 'enhanced'
+                        })
+                return jsonify({'error': 'Failed to enhance image'}), 500
+
+        return jsonify({"error": "Method not allowed"}), 405
 
     except Exception as e:
         app.logger.error(f"Unexpected error in /upload_enhance: {str(e)}")
@@ -722,6 +1079,108 @@ def enhance_image_quality(file_path):
     except Exception as e:
         app.logger.error(f"Unexpected error contacting DeepAI: {str(e)}")
         return None
+
+@app.route('/image/<image_key>')
+def serve_image(image_key):
+    image_data = image_manager.get_image(image_key)
+    if not image_data:
+        return "Image not found", 404
+    return send_file(
+        BytesIO(image_data),
+        mimetype='image/png'
+    )
+
+@app.route('/save-image', methods=['POST'])
+@token_required
+def save_image(wp_user_id):
+    image_key = request.form.get('image_key')
+    if not image_key:
+        app.logger.error("Image key not found")
+        return jsonify({'error': 'No image key provided'}), 400
+
+    try:
+        image_data = image_manager.get_image(image_key)
+        if not image_data:
+            app.logger.error(f"Image not found: {image_key}")
+            return jsonify({'error': 'Image not found'}), 404
+
+        # Sauvegarde de manière permanente
+        permanent_key = image_manager.save_image(wp_user_id, image_data)
+
+        return jsonify({
+            'success': True,
+            'permanent_key': image_key,
+            'image_url': f"/image/{permanent_key}"
+        })
+    except Exception as e:
+        app.logger.error(f"Error saving image: {str(e)}")
+        return jsonify({'error': 'Failed to save image'}), 500
+
+@app.route('/chat/send', methods=['POST'])
+@token_required
+def send_message(wp_user_id):
+    """
+    Envoie un message avec potentiellement une image
+    """
+    try:
+        message_data = {
+            'text': request.form.get('text', ''),
+            'type': request.form.get('type', 'text')
+        }
+
+        # Gestion d'une image si présente
+        if 'image' in request.files:
+            file = request.files['image']
+            if file and allowed_file(file.filename):
+                # Stockage de l'image
+                image_content = file.read()
+                image_key = image_manager.store_temp_image(
+                    wp_user_id,
+                    image_content,
+                    "chat_image"
+                )
+                message_data['image_key'] = image_key
+                message_data['type'] = 'image'
+
+       # Stockage du message
+        message_id = chat_manager.store_message(wp_user_id, message_data)
+
+        return jsonify({
+            'success': True,
+            'message_id': message_id,
+            'message': chat_manager.get_message(message_id)
+        })
+    except Exception as e:
+        app.logger.error(f"Error sending message: {str(e)}")
+        return jsonify({'error': 'Failed to send message'}), 500
+
+
+@app.route('/api/chat/history')
+@token_required
+def get_chat_history(wp_user_id):
+    page = request.args.get('page', 1, type=int)
+    per_page = request.args.get('per_page', 20, type=int)
+    filter_type = request.args.get('type')  # optionnel
+
+    try:
+        history = chat_manager.get_user_chat_history(
+            wp_user_id,
+            page=page,
+            per_page=per_page,
+            filter_type=filter_type
+        )
+
+        return jsonify({
+            'success': True,
+            'data': history
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error fetching chat history: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch chat history'
+        }), 500
 
 @app.route('/download-enhanced-image', methods=['POST'])
 def download_enhanced_image():

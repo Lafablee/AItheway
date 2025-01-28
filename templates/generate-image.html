@@ -134,6 +134,86 @@
         .dropdown-item:hover {
             background-color: #e2e6ea;
         }
+    /* Ajout style historique Test */
+        .history-container {
+    margin-top: 30px;
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
+}
+
+.history-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+}
+
+.history-content {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 20px;
+    padding: 10px;
+}
+
+.history-item {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 15px;
+    transition: transform 0.2s;
+    opacity: 0;
+    transform: translateY(20px);
+    animation: fadeIn 0.5s forwards;
+}
+
+.history-item:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+}
+
+.history-item img {
+    width: 100%;
+    height: 200px;
+    object-fit: cover;
+    border-radius: 6px;
+    margin-bottom: 10px;
+}
+
+.history-item .prompt {
+    font-size: 0.9em;
+    color: #666;
+    margin-bottom: 8px;
+}
+
+.history-item .timestamp {
+    font-size: 0.8em;
+    color: #999;
+}
+
+@keyframes fadeIn {
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.load-more {
+    width: 100%;
+    padding: 10px;
+    margin-top: 20px;
+    background: none;
+    border: 2px solid #007bff;
+    color: #007bff;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.load-more:hover {
+    background: #007bff;
+    color: white;
+}
     </style>
 </head>
 <body>
@@ -160,6 +240,40 @@
         </div>
     </div>
 
+
+    <div class="history-container" id="history-container">
+    <div class="history-header">
+        <h2>Historique des générations</h2>
+        <button id="loadHistoryBtn" class="btn btn-primary">
+            <span>Charger l'historique</span>
+            <div class="spinner-border spinner-border-sm d-none" role="status"></div>
+        </button>
+    </div>
+
+    <div class="history-content" id="historyContent">
+        <!-- Les éléments d'historique seront chargés ici -->
+    </div>
+
+    <div id="historyLoader" class="text-center d-none">
+        <div class="spinner-border" role="status">
+            <span class="sr-only">Chargement...</span>
+        </div>
+    </div>
+</div>
+
+
+
+{% if debug %}
+<div id="test-panel" style="position: fixed; bottom: 20px; right: 20px; background: #f0f0f0; padding: 10px; border-radius: 5px;">
+    <h3>Panel de Test</h3>
+    <button onclick="testImageGeneration()">Tester Génération</button>
+    <button onclick="testHistoryLoading()">Tester Historique</button>
+    <div id="test-results"></div>
+</div>
+
+
+
+
     <div class="sidebar" id="sidebar">
         <div class="new-image" onclick="createNewInstance()">+</div>
     </div>
@@ -167,6 +281,11 @@
     <script>
         let generatedImageUrl = '';
         const instances = [];
+
+        //ajout supplémentaire !
+        let currentPage = 1;
+        let isLoading = false;
+        let hasMore = true;
 
         document.getElementById('generate-image-form').addEventListener('submit', async function(event) {
             event.preventDefault();
@@ -216,6 +335,9 @@
                     saveInstance(promptInput.value, generatedImageUrl);
                     addImageToSidebar(generatedImageUrl, instances.length - 1);
 
+                    //ajout pour rafraichir l'historique
+                    loadHistory(1, false);
+
                     generateText.textContent = 'Générer une nouvelle image';
                 } else {
                     showErrorOverlay('Erreur', result.error || 'Une erreur est survenue');
@@ -228,6 +350,145 @@
                 generateText.style.display = 'inline';
                 promptInput.disabled = false;
             }
+        });
+
+        async function testImageGeneration() {
+            try {
+                const response = await fetch('/generate_image', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: new URLSearchParams({
+                        'prompt': 'Test automatique - paysage montagneux'
+                    })
+                });
+
+                const result = await response.json();
+                document.getElementById('test-results').innerHTML += `
+                    <p>Test génération: ${result.success ? 'SUCCESS' : 'FAILED'}</p>
+                `;
+            } catch (error) {
+                document.getElementById('test-results').innerHTML += `
+                    <p>Test génération: ERROR - ${error.message}</p>
+                `;
+            }
+        }
+
+
+        // Fonction pour charger l'historique
+        async function loadHistory(page = 1, append = false) {
+            if (isLoading || (!append && !hasMore)) return;
+
+            const historyLoader = document.getElementById('historyLoader');
+            const historyContent = document.getElementById('historyContent');
+
+            isLoading = true;
+            historyLoader.classList.remove('d-none');
+
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+
+                const response = await fetch(`/api/history/generated?page=${page}&token=${encodeURIComponent(token)}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+            });
+            if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    // Gérer l'authentification
+                    window.location.href = LOGIN_URL;
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+
+            if (!append) {
+                historyContent.innerHTML = '';
+            }
+            if (data.items && data.items.length > 0) {
+                data.items.forEach((item, index) => {
+                    const delay = index * 100;
+                    const historyItem = createHistoryItem(item, delay);
+                    historyContent.appendChild(historyItem);
+                });
+
+                hasMore = data.has_more;
+                currentPage = page;
+
+                if (hasMore) {
+                    if (!document.getElementById('loadMoreBtn')) {
+                        const loadMoreBtn = document.createElement('button');
+                        loadMoreBtn.id = 'loadMoreBtn';
+                        loadMoreBtn.className = 'load-more';
+                        loadMoreBtn.textContent = 'Charger plus';
+                        loadMoreBtn.onclick = () => loadHistory(currentPage + 1, true);
+                        historyContent.after(loadMoreBtn);
+                    }
+                } else {
+                    const loadMoreBtn = document.getElementById('loadMoreBtn');
+                    if (loadMoreBtn) loadMoreBtn.remove();
+                }
+            } else {
+                if (!append) {
+                    historyContent.innerHTML = '<p class="text-center">Aucun historique disponible</p>';
+                }
+                hasMore = false;
+                }
+            } catch (error) {
+                console.error('Error loading history:', error);
+                historyContent.innerHTML += '<p class="text-center text-danger">Erreur lors du chargement de l\'historique</p>';
+            } finally {
+                isLoading = false;
+                historyLoader.classList.add('d-none');
+            }
+        }
+
+        function createHistoryItem(item, delay) {
+            const div = document.createElement('div');
+            div.className = 'history-item';
+            div.style.animationDelay = `${delay}ms`;
+
+            div.innerHTML = `
+                <img src="${item.url}" alt="Generated image" loading="lazy">
+                <div class="prompt">${item.prompt}</div>
+                <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+            `;
+
+            div.onclick = () => {
+                document.getElementById('prompt').value = item.prompt;
+                document.getElementById('generated-image').innerHTML = `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
+                document.getElementById('download-section').style.display = 'block';
+                generatedImageUrl = item.url;
+            };
+
+            return div;
+        }
+        // Écouteur pour le bouton de chargement d'historique
+        document.getElementById('loadHistoryBtn').addEventListener('click', () => {
+            currentPage = 1;
+            hasMore = true;
+            loadHistory(1, false);
+        });
+
+        // Chargement automatique au scroll
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting && hasMore && !isLoading) {
+                    loadHistory(currentPage + 1, true);
+                }
+            });
+        }, {
+            rootMargin: '100px'
+        });
+        // Observer le loader
+        observer.observe(document.getElementById('historyLoader'));
+
+        // Chargement initial de l'historique
+        document.addEventListener('DOMContentLoaded', () => {
+            loadHistory(1, false);
         });
 
         function saveInstance(prompt, imageUrl) {
