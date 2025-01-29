@@ -214,6 +214,20 @@
     background: #007bff;
     color: white;
 }
+.error-overlay {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background: rgba(255, 0, 0, 0.1);
+    padding: 15px;
+    border-radius: 8px;
+    z-index: 1000;
+    border: 1px solid red;
+}
+
+.error-content {
+    color: red;
+}
     </style>
 </head>
 <body>
@@ -328,21 +342,36 @@
                      }, 3000);
                      return;
                 }
+
                 if (result.image_url) {
                     generatedImageUrl = result.image_url;
                     imageDiv.innerHTML = `<img src="${generatedImageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
                     downloadSection.style.display = 'block';
 
+                    // Mettre à jour l'historique immédiatement après la génération
                     saveInstance(promptInput.value, generatedImageUrl);
                     addImageToSidebar(generatedImageUrl, instances.length - 1);
 
-                    //ajout pour rafraichir l'historique
                     loadHistory(1, false);
 
                     generateText.textContent = 'Générer une nouvelle image';
                 } else {
                     showErrorOverlay('Erreur', result.error || 'Une erreur est survenue');
                 }
+
+                document.getElementById('download-button').addEventListener('click', () => {
+                    document.getElementById('format-dropdown').classList.toggle('show');
+                });
+
+                document.getElementById('format-dropdown').addEventListener('click', (event) => {
+                    if (event.target.classList.contains('dropdown-item')) {
+                        const format = event.target.getAttribute('data-format');
+                        downloadImage(generatedImageUrl, format);
+                        document.getElementById('format-dropdown').classList.remove('show');
+                    }
+                });
+
+
             } catch (error) {
                 showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
                 console.error('Error:', error); // Added for debugging
@@ -352,6 +381,52 @@
                 promptInput.disabled = false;
             }
         });
+
+        // Pour la barre latérale (à garder)
+        function saveInstance(prompt, imageUrl) {
+            instances.push({ prompt, imageUrl });
+        }
+
+        function addImageToSidebar(url, index) {
+            const sidebar = document.getElementById('sidebar');
+            const thumbnail = document.createElement('img');
+            thumbnail.src = url;
+            thumbnail.onclick = () => displayInstance(index);
+            sidebar.insertBefore(thumbnail, sidebar.querySelector('.new-image').nextSibling);
+        }
+        function showErrorOverlay(tittle, message, isAuthError = false) {
+            const loadingOverlay = document.getElementById('loading-overlay');
+            loadingOverlay.innerHTML = `
+                <div class="error-message text-center">
+                    <h4 class="mb-3">${title}</h4>
+                    <p class="mb-4">${message}</p>
+                    ${isAuthError ? `
+                        <a href="https://aitheway.com/login/" class="btn btn-primary">
+                            Se connecter
+                        </a>
+                    ` : ''}
+                </div>
+            `;
+            document.body.appendChild(errorDiv);
+            setTimeout(() => {
+                errorDiv.remove();
+            }, 3000);
+        }
+
+        function displayInstance(index) {
+            const { prompt, imageUrl } = instances[index];
+            const promptInput = document.getElementById('prompt');
+            const imageDiv = document.getElementById('generated-image');
+            const downloadSection = document.getElementById('download-section');
+
+            promptInput.value = prompt;
+            promptInput.disabled = true;
+            imageDiv.innerHTML = `<img src="${imageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
+            downloadSection.style.display = 'block';
+            generatedImageUrl = imageUrl;
+
+            document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+        }
 
         async function testImageGeneration() {
             try {
@@ -375,7 +450,6 @@
                 `;
             }
         }
-
 
         // Fonction pour charger l'historique
         async function loadHistory(page = 1, append = false) {
@@ -500,17 +574,6 @@
             loadHistory(1, false);
         });
 
-        function saveInstance(prompt, imageUrl) {
-            instances.push({ prompt, imageUrl });
-        }
-
-        function addImageToSidebar(url, index) {
-            const sidebar = document.getElementById('sidebar');
-            const thumbnail = document.createElement('img');
-            thumbnail.src = url;
-            thumbnail.onclick = () => displayInstance(index);
-            sidebar.insertBefore(thumbnail, sidebar.querySelector('.new-image').nextSibling);
-        }
 
         function displayInstance(index) {
             const { prompt, imageUrl } = instances[index];
