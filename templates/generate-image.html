@@ -396,52 +396,56 @@
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     }
-            });
-
-            if (!response.ok) {
-                if (response.status === 401 || response.status === 403) {
-                    // Gérer l'authentification
-                    window.location.href = LOGIN_URL;
-                    return;
-                }
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            console.log('Response status:', response.status);
-            const data = await response.json();
-            console.log('Fetched data:', data);
-
-            if (!append) {
-                historyContent.innerHTML = '';
-            }
-            if (data.items && data.items.length > 0) {
-                data.items.forEach((item, index) => {
-                    const delay = index * 100;
-                    const historyItem = createHistoryItem(item, delay);
-                    historyContent.appendChild(historyItem);
                 });
 
-                hasMore = data.has_more;
-                currentPage = page;
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        window.location.href = LOGIN_URL;
+                        return;
+                    }
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
 
-                if (hasMore) {
-                    if (!document.getElementById('loadMoreBtn')) {
-                        const loadMoreBtn = document.createElement('button');
-                        loadMoreBtn.id = 'loadMoreBtn';
-                        loadMoreBtn.className = 'load-more';
-                        loadMoreBtn.textContent = 'Charger plus';
-                        loadMoreBtn.onclick = () => loadHistory(currentPage + 1, true);
-                        historyContent.after(loadMoreBtn);
+                const data = await response.json();
+                console.log('Fetched data:', data);
+
+                if (!append) {
+                    historyContent.innerHTML = '';
+                }
+
+                const items = data.data?.items || [];
+
+                if (items.length > 0) {
+                    items.forEach((item, index) => {
+                        const delay = index * 100;
+                        const historyItem = createHistoryItem(item, delay);
+                        historyContent.appendChild(historyItem);
+                    });
+
+                    hasMore = data.data?.pagination?.has_more || false;
+                    currentPage = page;
+
+                    // Gestion du bouton "Charger plus"
+                    if (hasMore) {
+                        if (!document.getElementById('loadMoreBtn')) {
+                            const loadMoreBtn = document.createElement('button');
+                            loadMoreBtn.id = 'loadMoreBtn';
+                            loadMoreBtn.className = 'load-more';
+                            loadMoreBtn.textContent = 'Charger plus';
+                            loadMoreBtn.onclick = () => loadHistory(currentPage + 1, true);
+                            historyContent.after(loadMoreBtn);
+                        }
+                } else {
+                        const loadMoreBtn = document.getElementById('loadMoreBtn');
+                        if (loadMoreBtn) loadMoreBtn.remove();
                     }
                 } else {
-                    const loadMoreBtn = document.getElementById('loadMoreBtn');
-                    if (loadMoreBtn) loadMoreBtn.remove();
+                    if (!append) {
+                        historyContent.innerHTML = '<p class="text-center">Aucun historique disponible</p>';
+                    }
+                    hasMore = false;
                 }
-            } else {
-                if (!append) {
-                    historyContent.innerHTML = '<p class="text-center">Aucun historique disponible</p>';
-                }
-                hasMore = false;
-                }
+
             } catch (error) {
                 console.error('Error loading history:', error);
                 historyContent.innerHTML += '<p class="text-center text-danger">Erreur lors du chargement de l\'historique</p>';
@@ -449,7 +453,7 @@
                 isLoading = false;
                 historyLoader.classList.add('d-none');
             }
-        }
+
 
         function createHistoryItem(item, delay) {
             const div = document.createElement('div');
@@ -561,7 +565,8 @@
                     URL.revokeObjectURL(link.href);
                 }, `image/${format}`);
             };
-        }
+        }}
+
     </script>
     <script src="{{ url_for('static', filename='js/script.js') }}"></script>
 </body>
