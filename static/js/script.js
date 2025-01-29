@@ -66,7 +66,7 @@ function showErrorOverlay(title, message, isAuthError = false) {
         transition: opacity 0.3s ease;
     `;
 
-    const buttonText = isAuthError ? 'Retour à la connexion' : 'Réessayer';
+    const buttonText = isAuthError ? 'Retour Ã  la connexion' : 'RÃ©essayer';
     const buttonAction = isAuthError ?
         `window.location.href='${LOGIN_URL}'` :
         'window.location.reload()';
@@ -170,8 +170,8 @@ async function handleApiResponse(response) {
 
     if (response.status === 401) {
         showErrorOverlay(
-            'Session Expirée',
-            'Votre session a expiré. Veuillez vous reconnecter.',
+            'Session ExpirÃ©e',
+            'Votre session a expirÃ©. Veuillez vous reconnecter.',
             true
         );
         return null;
@@ -180,7 +180,7 @@ async function handleApiResponse(response) {
     if (response.status === 403) {
         showErrorOverlay(
             'Erreur d\'authentification',
-            'Accès non autorisé. Veuillez vous reconnecter.',
+            'AccÃ¨s non autorisÃ©. Veuillez vous reconnecter.',
             true
         );
         return null;
@@ -200,9 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
     if (typingBox) {  // Only run if typing-box exists
         const phrases = [
             "Coloriser les images en noir et blanc",
-            "Générer des images uniques avec IA",
-            "Améliorer la qualité de vos photos",
-            "Supprimer l'arrière-plan des images",
+            "GÃ©nÃ©rer des images uniques avec IA",
+            "AmÃ©liorer la qualitÃ© de vos photos",
+            "Supprimer l'arriÃ¨re-plan des images",
             "Vectoriser des logos et des dessins"
         ];
         let currentPhraseIndex = 0;
