@@ -128,18 +128,44 @@ class ImageManager:
     def get_user_history(self, user_id, history_type="enhanced"):
         """Récupère l'historique des images d'un utilisateur"""
         app.logger.error(f"Fetching history for user {user_id} with type {history_type}")
-        if history_type == "enhanced":
-            pattern = f"temp:image:{user_id}:*"
 
-            app.logger.error(f"Searching with pattern: {pattern}")
-            app.logger.error(f"Found keys: {self.redis.keys(pattern)}")
+        pattern = f"img:temp:image:{user_id}:*"
+        images = []
 
-            images = []
+        # Récupérer toutes les clés
+        all_keys = self.redis.keys(pattern)
+        app.logger.error(f"Found all keys: {all_keys}")
 
-            for key in self.redis.keys(pattern):
-                app.logger.error(f"Redis keys found for pattern {pattern}: {self.redis.keys(pattern)}")
-                metadata = self.redis.hgetall(f"{key}:meta")
-                if metadata.get(b'type') == b'enhanced':
+        # Filtrer pour ne garder que les clés d'images (pas les métadonnées)
+        image_keys = [k for k in all_keys if not k.endswith(b':meta')]
+        app.logger.error(f"Filtered image keys: {image_keys}")
+
+        for key in image_keys:
+            metadata_key = f"{key.decode('utf-8')}:meta"
+            metadata = self.redis.hgetall(metadata_key)
+            app.logger.error(f"Checking metadata for key {metadata_key}: {metadata}")
+
+            try:
+                if history_type == "generated" and metadata.get(b'type') == b'generated':
+                    # Logique pour les images générées
+                    decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
+                    decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
+
+                    try:
+                        parameters = json.loads(metadata.get(b'parameters', b'{}').decode('utf-8'))
+                    except (json.JSONDecodeError, TypeError):
+                        parameters = {}
+
+                    images.append({
+                        'key': key.decode('utf-8'),
+                        'prompt': decoded_prompt,
+                        'timestamp': decoded_timestamp,
+                        'url': f"/image/{key.decode('utf-8')}",
+                        'parameters': parameters,
+                    })
+
+                elif history_type == "enhanced" and metadata.get(b'type') == b'enhanced':
+                    # Logique pour les images améliorées
                     original_key = metadata.get(b'original_key')
                     try:
                         images.append({
@@ -152,46 +178,13 @@ class ImageManager:
                     except Exception as e:
                         app.logger.error(f"Error processing enhanced image metadata: {e}")
 
+            except Exception as e:
+                app.logger.error(f"Error processing image metadata: {e}")
 
-        elif history_type == "generated":
-            pattern = f"img:temp:image:{user_id}:*"
-            images = []
-
-            for key in self.redis.keys(pattern):
-                app.logger.error(f"Redis keys found for pattern {pattern}: {self.redis.keys(pattern)}")
-                metadata = self.redis.hgetall(f"{key}:meta")
-                app.logger.error(f"Metadata for key {key}: {metadata}")
-
-                if metadata.get(b'type') == b'generated':
-                    try:
-                        # Utiliser .get() avec une valeur par défaut pour éviter les erreurs
-                        decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
-                        decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
-
-                        # Charger les paramètres de manière sécurisée
-                        try:
-                            parameters = json.loads(metadata.get(b'parameters', b'{}').decode('utf-8'))
-                        except (json.JSONDecodeError, TypeError):
-                            parameters = {}
-
-                        images.append({
-                            'key': key.decode('utf-8'),
-                            'prompt': decoded_prompt,
-                            'timestamp': decoded_timestamp,
-                            'url': f"/image/{key.decode('utf-8')}",
-                            'parameters': parameters,
-                        })
-                    except Exception as e:
-                        app.logger.error(f"Error processing generated image metadata: {e}")
-        else:
-            app.logger.error(f"Invalid history type requested: {history_type}")
-            # Gérer d'autres types d'historique si nécessaire
-            return []
-
+        # Trier et retourner les images
         sorted_images = sorted(images, key=lambda x: x['timestamp'], reverse=True)
         app.logger.error(f"Sorted images: {sorted_images}")
         return sorted_images
-
 
 
     def save_image(self, user_id, image_data):
