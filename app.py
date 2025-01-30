@@ -19,6 +19,14 @@ import json
 from config import redis_client, TEMP_STORAGE_DURATION, PERMANENT_STORAGE_DURATION
 
 
+
+# Définir les chemins des dossiers de templates
+template_dir = os.path.abspath('templates')
+template_temp_dir = os.path.abspath('templates_temp')
+
+
+
+
 load_dotenv(dotenv_path='.env')
 
 openai.api_key = os.getenv("openai.api_key")
@@ -27,6 +35,10 @@ FIXED_TOKEN = os.getenv('FIXED_TOKEN')
 LOGIN_URL = "https://aitheway.com/login/"
 
 app = Flask(__name__)
+
+app.jinja_loader.searchpath = [template_dir, template_temp_dir]  # Ajouter les deux dossiers
+
+
 
 # Configuration des fichiers uploadés
 UPLOAD_FOLDER = 'static/uploads/'

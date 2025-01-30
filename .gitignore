@@ -1,5 +1,9 @@
 
 .env
 
-
+.DS_Store
+**/.DS_Store
+__pycache__/
+**/__pycache__/
+*.pyc
 

@@ -1,457 +1,375 @@
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Générer une Image</title>
-    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
-    <style>
-        body {
-            background-color: #f0f2f5;
-            display: flex;
-        }
-        .container {
-            max-width: 600px;
-            padding: 40px;
-            background-color: white;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            margin: 50px auto;
-            flex: 1;
-            display: none;
-        }
-        .container.active {
-            display: block;
-        }
-        .sidebar {
-            width: 150px;
-            padding: 20px;
-            background-color: #ffffff;
-            box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-            border-radius: 8px;
-            margin-left: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 15px;
-            height: 100vh;
-            overflow-y: auto;
-        }
-        .sidebar img {
-            width: 50px;
-            height: 50px;
-            object-fit: cover;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .sidebar .new-image {
-            font-size: 24px;
-            width: 50px;
-            height: 50px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #007bff;
-            color: #ffffff;
-            border-radius: 5px;
-            cursor: pointer;
-        }
-        .form-group input {
-            font-size: 16px;
-            padding: 10px;
-            border: 2px solid #007bff;
-            border-radius: 8px;
-            width: 100%;
-        }
-        .form-group input:disabled {
-            background-color: #f0f2f5;
-            color: #6b7280;
-        }
-        .btn-primary {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        .btn-primary:hover {
-            background-color: #0056b3;
-        }
-        .spinner-border {
+{% extends 'base.html' %}
+
+{% block title %}Home Page{% endblock %}
+
+{% block content %}
+
+<style>
+     .spinner-border {
             width: 2rem;
             height: 2rem;
             color: #333;
             margin-top: 20px;
             display: none;
         }
-        #generated-image img {
-            max-width: 100%;
-            height: auto;
-            margin-top: 20px;
-        }
-        .download-section {
-            margin-top: 20px;
-            display: none;
-            position: relative;
-        }
-        .btn-download {
-            width: 100%;
-            padding: 10px;
-            font-size: 16px;
-            background-color: #007bff;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            transition: background-color 0.3s ease;
-        }
-        .btn-download:hover {
-            background-color: #0056b3;
-        }
-        .dropdown-menu {
-            display: none;
-            position: absolute;
-            top: 100%;
-            left: 0;
-            width: 100%;
-            background-color: #f8f9fa;
-            border-radius: 6px;
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
-            z-index: 1000;
-        }
-        .dropdown-menu.show {
-            display: block;
-        }
-        .dropdown-item {
-            color: #333;
-            padding: 8px;
-            cursor: pointer;
-            text-align: center;
-        }
-        .dropdown-item:hover {
-            background-color: #e2e6ea;
-        }
-    /* Ajout style historique Test */
-        .history-container {
-    margin-top: 30px;
-    padding: 20px;
-    background-color: white;
-    border-radius: 8px;
-    box-shadow: 0px 0px 10px rgba(0, 0, 0, 0.1);
-}
 
-.history-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 20px;
-}
-
-.history-content {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    gap: 20px;
-    padding: 10px;
-}
-
-.history-item {
-    background: #f8f9fa;
-    border-radius: 8px;
-    padding: 15px;
-    transition: transform 0.2s;
-    opacity: 0;
-    transform: translateY(20px);
-    animation: fadeIn 0.5s forwards;
-}
-
-.history-item:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-}
-
-.history-item img {
-    width: 100%;
-    height: 200px;
-    object-fit: cover;
-    border-radius: 6px;
-    margin-bottom: 10px;
-}
-
-.history-item .prompt {
-    font-size: 0.9em;
-    color: #666;
-    margin-bottom: 8px;
-}
-
-.history-item .timestamp {
-    font-size: 0.8em;
-    color: #999;
-}
-
-@keyframes fadeIn {
-    to {
-        opacity: 1;
-        transform: translateY(0);
+    .dropdown-item{
+        cursor: pointer
     }
-}
-
-.load-more {
-    width: 100%;
-    padding: 10px;
-    margin-top: 20px;
-    background: none;
-    border: 2px solid #007bff;
-    color: #007bff;
-    border-radius: 6px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-}
-
-.load-more:hover {
-    background: #007bff;
-    color: white;
-}
-.error-overlay {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background: rgba(255, 0, 0, 0.1);
-    padding: 15px;
-    border-radius: 8px;
-    z-index: 1000;
-    border: 1px solid red;
-}
-
-.error-content {
-    color: red;
-}
-    </style>
-</head>
-<body>
-    <div class="container active" id="image-generation-container">
-        <h1>Générer une Image</h1>
-        <form id="generate-image-form">
-            <div class="form-group">
-                <input type="text" id="prompt" placeholder="Entrez une description" required>
-            </div>
-            <button type="submit" class="btn btn-primary">
-                <span id="generate-text">Générer l'image</span>
-                <div class="spinner-border" id="spinner" role="status"></div>
-            </button>
-        </form>
-        <div id="generated-image" class="mt-5"></div>
-        <div class="download-section" id="download-section">
-            <button id="download-button" class="btn-download">Télécharger l'image</button>
-            <div class="dropdown-menu" id="format-dropdown">
-                <div class="dropdown-item" data-format="png">PNG</div>
-                <div class="dropdown-item" data-format="jpg">JPG</div>
-                <div class="dropdown-item" data-format="jpeg">JPEG</div>
-                <div class="dropdown-item" data-format="gif">GIF</div>
-            </div>
-        </div>
-    </div>
-
-
-    <div class="history-container" id="history-container">
-    <div class="history-header">
-        <h2>Historique des générations</h2>
-        <button id="loadHistoryBtn" class="btn btn-primary">
-            <span>Charger l'historique</span>
-            <div class="spinner-border spinner-border-sm d-none" role="status"></div>
-        </button>
-    </div>
-
-    <div class="history-content" id="historyContent">
-        <!-- Les éléments d'historique seront chargés ici -->
-    </div>
-
-    <div id="historyLoader" class="text-center d-none">
-        <div class="spinner-border" role="status">
-            <span class="sr-only">Chargement...</span>
-        </div>
-    </div>
-</div>
-
-
-
-{% if debug %}
-<div id="test-panel" style="position: fixed; bottom: 20px; right: 20px; background: #f0f0f0; padding: 10px; border-radius: 5px;">
-    <h3>Panel de Test</h3>
-    <button onclick="testImageGeneration()">Tester Génération</button>
-    <button onclick="testHistoryLoading()">Tester Historique</button>
-    <div id="test-results"></div>
-</div>
-{% endif %}
-
-
-
-
-    <div class="sidebar" id="sidebar">
-        <div class="new-image" onclick="createNewInstance()">+</div>
-    </div>
-
-    <script>
-        let generatedImageUrl = '';
-        const instances = [];
-
-        //ajout supplémentaire !
-        let currentPage = 1;
-        let isLoading = false;
-        let hasMore = true;
-
-        document.getElementById('generate-image-form').addEventListener('submit', async function(event) {
-            event.preventDefault();
-            const promptInput = document.getElementById('prompt');
-            const spinner = document.getElementById('spinner');
-            const generateText = document.getElementById('generate-text');
-            const downloadSection = document.getElementById('download-section');
-            const imageDiv = document.getElementById('generated-image');
-
-            // Get the token from URL
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-
-            promptInput.disabled = true;
-            spinner.style.display = 'inline-block';
-            generateText.style.display = 'none';
-            downloadSection.style.display = 'none';
-
-            try {
-                const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest'  // This identifies it as an AJAX request
-                    },
-                    body: `prompt=${encodeURIComponent(promptInput.value)}`
-                });
-
-                const result = await response.json();
-                // Handle token expiration and other auth errors
-                if(response.status === 401 || response.status === 403){
-                    showErrorOverlay(
-                        response.status === 401 ? 'Session Expirée' : 'Erreur d\'authentification',
-                        result.message || 'Veuillez vous reconnecter.'
-                    );
-                    // Redirect after 3 seconds
-                     setTimeout(() => {
-                         window.location.href = result.redirect_url || LOGIN_URL;
-                     }, 3000);
-                     return;
-                }
-
-                if (result.image_url) {
-                    generatedImageUrl = result.image_url;
-                    imageDiv.innerHTML = `<img src="${generatedImageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
-                    downloadSection.style.display = 'block';
-
-                    // Mettre à jour l'historique immédiatement après la génération
-                    saveInstance(promptInput.value, generatedImageUrl);
-                    addImageToSidebar(generatedImageUrl, instances.length - 1);
-
-                    loadHistory(1, false);
-
-                    generateText.textContent = 'Générer une nouvelle image';
-                } else {
-                    showErrorOverlay('Erreur', result.error || 'Une erreur est survenue');
-                }
-
-                document.getElementById('download-button').addEventListener('click', () => {
-                    document.getElementById('format-dropdown').classList.toggle('show');
-                });
-
-                document.getElementById('format-dropdown').addEventListener('click', (event) => {
-                    if (event.target.classList.contains('dropdown-item')) {
-                        const format = event.target.getAttribute('data-format');
-                        downloadImage(generatedImageUrl, format);
-                        document.getElementById('format-dropdown').classList.remove('show');
-                    }
-                });
-
-
-            } catch (error) {
-                showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
-                console.error('Error:', error); // Added for debugging
-            } finally {
-                spinner.style.display = 'none';
-                generateText.style.display = 'inline';
-                promptInput.disabled = false;
-            }
-        });
-
-        // Pour la barre latérale (à garder)
-        function saveInstance(prompt, imageUrl) {
-            instances.push({ prompt, imageUrl });
+    #download-section {
+            display: none;
         }
+</style>
+<div class="neltar_fn_page">
 
-        function addImageToSidebar(url, index) {
-            const sidebar = document.getElementById('sidebar');
-            const thumbnail = document.createElement('img');
-            thumbnail.src = url;
-            thumbnail.onclick = () => displayInstance(index);
-            sidebar.insertBefore(thumbnail, sidebar.querySelector('.new-image').nextSibling);
-        }
-        function showErrorOverlay(tittle, message, isAuthError = false) {
-            const loadingOverlay = document.getElementById('loading-overlay');
-            loadingOverlay.innerHTML = `
-                <div class="error-message text-center">
-                    <h4 class="mb-3">${title}</h4>
-                    <p class="mb-4">${message}</p>
-                    ${isAuthError ? `
-                        <a href="https://aitheway.com/login/" class="btn btn-primary">
-                            Se connecter
+    <!-- Image Generation Page -->
+    <div class="neltar_fn_image_generation_page">
+
+        <div class="generation__page">
+
+            <!-- Generation Header -->
+            <div class="generation_header">
+                <div class="header_top">
+                    <h1 class="title">Image Generation</h1>
+                    <div class="setup">
+                        <p class="info">This wil use <span class="count">4</span> tokens</p>
+                        <a href="#" class="sidebar__trigger">
+                            <img src="{{ url_for('static', filename='assets/svg/option.svg') }}" alt="" class="fn__svg">
                         </a>
-                    ` : ''}
+                    </div>
                 </div>
-            `;
-            document.body.appendChild(errorDiv);
-            setTimeout(() => {
-                errorDiv.remove();
-            }, 3000);
-        }
+                <div class="header_bottom">
+                    <form id="generate-image-form">
 
-        function displayInstance(index) {
-            const { prompt, imageUrl } = instances[index];
-            const promptInput = document.getElementById('prompt');
-            const imageDiv = document.getElementById('generated-image');
-            const downloadSection = document.getElementById('download-section');
+                    <div class="include_area">
+                        <textarea  id="prompt" placeholder="Entrez une description" required rows="1"></textarea>
 
-            promptInput.value = prompt;
-            promptInput.disabled = true;
-            imageDiv.innerHTML = `<img src="${imageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
-            downloadSection.style.display = 'block';
-            generatedImageUrl = imageUrl;
+                    </div>
 
-            document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
-        }
+                    <div class="generate_section">
 
-        async function testImageGeneration() {
-            try {
-                const response = await fetch('/generate_image', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: new URLSearchParams({
-                        'prompt': 'Test automatique - paysage montagneux'
-                    })
-                });
+                        <button type="submit" id="generate_it" href="#" class="neltar_fn_button btn btn-link">
+                            <span id="generate-text">Générer l'image</span>
+                            <div class="spinner-border" id="spinner" role="status"></div>
+                        </button>
+                    </div>
+                </form>
 
-                const result = await response.json();
-                document.getElementById('test-results').innerHTML += `
-                    <p>Test génération: ${result.success ? 'SUCCESS' : 'FAILED'}</p>
-                `;
-            } catch (error) {
-                document.getElementById('test-results').innerHTML += `
-                    <p>Test génération: ERROR - ${error.message}</p>
-                `;
+                </div>
+
+
+            </div>
+
+            <div class="generation_history"  id="download-section">
+
+                <!-- Ajoutez ces éléments dans  HTML -->
+
+                <div id="historyLoader" class="text-center d-none">
+                    <div class="spinner-border" role="status">
+                        <span class="sr-only">Chargement...</span>
+                    </div>
+                </div>
+                <div id="historyContent" class="fn__generation_list">
+                    <!-- L'historique sera chargé ici -->
+                </div>
+
+                <div class="fn__generation_item">
+
+                    <div class="item_list">
+                        <ul class="fn__generation_list" style="justify-content: center;">
+                            <li class="fn__gl_item" style="width: 400px;">
+                                <div class="fn__gl__item">
+
+                                    <div class="abs_item">
+
+                                        <div id="generated-image">
+                                            <!-- <img src="{{ url_for('static', filename='assets/img/gallery/1.jpg') }}" alt=""> -->
+
+                                        </div>
+                                        <div class="all_options">
+                                            <div class="fn__icon_options medium_size">
+
+                                                <div class="dropdown">
+                                                    <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                                        <img src="{{ url_for('static', filename='assets/svg/download.svg') }}" alt="" class="fn__svg">
+                                                    </button>
+                                                    <ul class="dropdown-menu dropdown-menu-dark">
+
+                                                      <li class="dropdown-item" data-format="png">PNG</li>
+                                                      <li class="dropdown-item" data-format="jpg">JPG</li>
+                                                      <li class="dropdown-item" data-format="jpeg">JPEG</li>
+                                                      <li class="dropdown-item" data-format="gif">GIF</li>
+
+                                                    </ul>
+                                                  </div>
+                                            </div>
+
+                                        </div>
+                                    </div>
+                                </div>
+                            </li>
+
+                        </ul>
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="generation_history">
+
+                <div class="fn__generation_item">
+                    <div class="item_header">
+                        <div class="title_holder">
+                            <h2 class="prompt_title">Images History</h2>
+                        </div>
+                        <div class="item_options">
+                            <div class="fn__icon_options medium_size align_right">
+                                <a href="javascript:;" class="fn__icon_button" onclick="createNewInstance()">
+                                    <img src="{{ url_for('static', filename='assets/svg/plus.svg') }}" alt="" class="fn__svg">
+                                </a>
+
+                            </div>
+
+                        </div>
+                    </div>
+                    <div class="item_list">
+                        <ul class="fn__generation_list sidebar" id="sidebar">
+
+                            <!-- <li class="fn__gl_item">
+                                <div class="fn__gl__item">
+                                    <div class="abs_item">
+                                            <img src="img/gallery/1.jpg" alt="">
+                                    </div>
+                                </div>
+                            </li> -->
+
+
+                        </ul>
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+
+        <div class="generation__sidebar">
+            <div class="sidebar_model">
+                <div class="fn__select_model">
+                    <a class="model_open">
+                        <img class="user_img" src="{{ url_for('static', filename='assets/img/user/user.jpg') }}" alt="">
+                        <div class="author">
+                            <h4 class="subtitle">Model</h4>
+                            <h3 class="title">GPT 4o</h3>
+                        </div>
+                        <span class="fn__icon_button">
+                            <img src="{{ url_for('static', filename='assets/svg/arrow.svg') }}" alt="" class="fn__svg">
+                        </span>
+                    </a>
+                    <div class="all_models">
+                        <ul>
+                            <li><a class="selected" href="#">GPT 4o</a></li>
+                            <li><a href="#">Midjourney</a></li>
+
+                        </ul>
+                    </div>
+                </div>
+            </div>
+            <div class="sidebar_details">
+                <div class="number_of_images">
+                    <h4 class="title">Number of Images</h4>
+                    <div class="fn__quantity">
+                        <a href="#" class="decrease"></a>
+                        <input type="number" value="1" max="20" min="1">
+                        <a href="#" class="increase"></a>
+                    </div>
+                </div>
+                <div class="img_sizes">
+                    <h4 class="title">Image Dimensions</h4>
+                    <div class="img_size_select">
+                        <select>
+                            <option value="512_512" selected="">512 x 512px</option>
+                            <option value="768_768">768 x 768px</option>
+                            <option value="512_1024">512 x 1024px</option>
+                            <option value="768_1024">768 x 1024px</option>
+                            <option value="1024_1024">1024 x 1024px</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="guidance_scale">
+                    <h4 class="title">Image Dimensions<span class="fn__tooltip" title="Select the resoultion of the images."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
+                    <div class="fn__range">
+                        <div class="range_in">
+                            <input type="range" min="1" max="40" value="7">
+                            <div class="slider"></div>
+                        </div>
+                        <div class="value">7</div>
+                    </div>
+                </div>
+                <div class="prompt_magic_switcher">
+                    <h4 class="title"><label for="prompt_switcher">Prompt Magic</label><span class="fn__tooltip" title="TechWave Prompt v3.0. Our custom render pipeline which has much faster compliance and can improve the result with any model selected. Applies a 2x multiplier to accepted costs due to higher GPU overhead."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
+                    <label class="fn__toggle">
+                        <span class="t_in">
+                            <input type="checkbox" checked="" id="prompt_switcher">
+                            <span class="t_slider"></span>
+                            <span class="t_content"></span>
+                        </span>
+                    </label>
+                </div>
+                <div class="contrast_switcher">
+                    <h4 class="title"><label for="contrast_switcher">High Contrast</label><span class="fn__tooltip" title="If your photo consists of extremely bright and dark areas, then it's considered high contrast. When it has a wide range of tones that go from pure white to pure black, it's medium contrast. No pure whites or blacks and a range of middle tones means it's low contrast."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
+                    <label class="fn__toggle">
+                        <span class="t_in">
+                            <input type="checkbox" id="contrast_switcher">
+                            <span class="t_slider"></span>
+                            <span class="t_content"></span>
+                        </span>
+                    </label>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+    <!-- !Image Generation Page -->
+
+</div>
+
+<script>
+    document.querySelectorAll('.neltar_fn_wrapper').forEach(element => {
+    element.classList.add('fn__has_sidebar');
+});
+
+
+    let generatedImageUrl = '';
+    const instances = [];
+
+    //ajout supplémentaire !
+    let currentPage = 1;
+    let isLoading = false;
+    let hasMore = true;
+
+    document.getElementById('generate-image-form').addEventListener('submit', async function(event) {
+        event.preventDefault();
+        const promptInput = document.getElementById('prompt');
+        const spinner = document.getElementById('spinner');
+        const generateText = document.getElementById('generate-text');
+        const downloadSection = document.getElementById('download-section');
+        const imageDiv = document.getElementById('generated-image');
+
+        // Get the token from URL
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        promptInput.disabled = true;
+        spinner.style.display = 'inline-block';
+        generateText.style.display = 'none';
+        downloadSection.style.display = 'none';
+
+        try {
+            const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-Requested-With': 'XMLHttpRequest'  // This identifies it as an AJAX request
+                },
+                body: `prompt=${encodeURIComponent(promptInput.value)}`
+            });
+
+            const result = await response.json();
+            // Handle token expiration and other auth errors
+            if(response.status === 401 || response.status === 403){
+                showErrorOverlay(
+                    response.status === 401 ? 'Session Expirée' : 'Erreur d\'authentification',
+                    result.message || 'Veuillez vous reconnecter.'
+                );
+                // Redirect after 3 seconds
+                 setTimeout(() => {
+                     window.location.href = result.redirect_url || LOGIN_URL;
+                 }, 3000);
+                 return;
             }
-        }
+            if (result.image_url) {
+                generatedImageUrl = result.image_url;
+                imageDiv.innerHTML = `<img src="${generatedImageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
+                downloadSection.style.display = 'block';
 
-        // Fonction pour charger l'historique
+                saveInstance(promptInput.value, generatedImageUrl);
+                addImageToSidebar(generatedImageUrl, instances.length - 1);
+
+                loadHistory(1, false);
+
+                generateText.textContent = 'Générer une nouvelle image';
+            } else {
+                showErrorOverlay('Erreur', result.error || 'Une erreur est survenue');
+            }
+            document.getElementById('download-button').addEventListener('click', () => {
+                document.getElementById('format-dropdown').classList.toggle('show');
+
+            });
+
+            document.getElementById('format-dropdown').addEventListener('click', (event) => {
+                if (event.target.classList.contains('dropdown-item')) {
+                    const format = event.target.getAttribute('data-format');
+                    downloadImage(generatedImageUrl, format);
+                    document.getElementById('format-dropdown').classList.remove('show');
+                }
+            });
+
+        } catch (error) {
+            showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
+            console.error('Error:', error); // Added for debugging
+        } finally {
+            spinner.style.display = 'none';
+            generateText.style.display = 'inline';
+            promptInput.disabled = false;
+        }
+    });
+
+    function saveInstance(prompt, imageUrl) {
+        instances.push({ prompt, imageUrl });
+    }
+
+    // function addImageToSidebar(url, index) {
+    //     const sidebar = document.getElementById('sidebar');
+    //     const thumbnail = document.createElement('img');
+    //     thumbnail.src = url;
+    //     thumbnail.onclick = () => displayInstance(index);
+    //     sidebar.insertBefore(thumbnail, sidebar.querySelector('.new-image').nextSibling);
+    // }
+
+    function addImageToSidebar(url, index) {
+        const sidebar = document.getElementById('sidebar');
+
+        const listItem = `
+            <li class="fn__gl_item">
+                <div class="fn__gl__item">
+                    <div class="abs_item">
+                        <img src="${url}" alt="Image ${index}" onclick="displayInstance(${index})">
+                    </div>
+                </div>
+            </li>
+        `;
+
+        sidebar.innerHTML += listItem;
+    }
+
+    function displayInstance(index) {
+        const { prompt, imageUrl } = instances[index];
+        const promptInput = document.getElementById('prompt');
+        const imageDiv = document.getElementById('generated-image');
+        const downloadSection = document.getElementById('download-section');
+
+        promptInput.value = prompt;
+        promptInput.disabled = true;
+        imageDiv.innerHTML = `<img src="${imageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
+        downloadSection.style.display = 'block';
+        generatedImageUrl = imageUrl;
+
+        document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+    }
+
+    // Fonction pour charger l'historique
         async function loadHistory(page = 1, append = false) {
             console.log(`Fetching history for page ${page}...`);
             if (isLoading || (!append && !hasMore)) return;
@@ -528,26 +446,33 @@
                 historyLoader.classList.add('d-none');
             }
 
-
         function createHistoryItem(item, delay) {
-            const div = document.createElement('div');
-            div.className = 'history-item';
-            div.style.animationDelay = `${delay}ms`;
+            const listItem = document.createElement('li');
+            listItem.className = 'fn__gl_item';
 
-            div.innerHTML = `
-                <img src="${item.url}" alt="Generated image" loading="lazy">
-                <div class="prompt">${item.prompt}</div>
-                <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+            listItem.innerHTML = `
+                <div class="fn__gl__item">
+                    <div class="abs_item">
+                        <img src="${item.url}" alt="Generated image" loading="lazy">
+                        <div class="prompt">${item.prompt}</div>
+                        <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+                    </div>
+                </div>
             `;
 
-            div.onclick = () => {
+            // Ajouter l'événement click
+            listItem.onclick = () => {
                 document.getElementById('prompt').value = item.prompt;
-                document.getElementById('generated-image').innerHTML = `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
+                document.getElementById('generated-image').innerHTML =
+                    `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
                 document.getElementById('download-section').style.display = 'block';
                 generatedImageUrl = item.url;
             };
+             // Ajouter le délai d'animation
+            listItem.style.animationDelay = `${delay}ms`;
 
-            return div;
+            return listItem;
+
         }
         // Écouteur pour le bouton de chargement d'historique
         document.getElementById('loadHistoryBtn').addEventListener('click', () => {
@@ -575,62 +500,52 @@
         });
 
 
-        function displayInstance(index) {
-            const { prompt, imageUrl } = instances[index];
-            const promptInput = document.getElementById('prompt');
-            const imageDiv = document.getElementById('generated-image');
-            const downloadSection = document.getElementById('download-section');
+    function createNewInstance() {
+        document.getElementById('prompt').value = '';
+        document.getElementById('prompt').disabled = false;
+        document.getElementById('generated-image').innerHTML = '';
+        document.getElementById('download-section').style.display = 'none';
+        document.getElementById('generate-text').textContent = 'Générer l\'image';
+    }
 
-            promptInput.value = prompt;
-            promptInput.disabled = true;
-            imageDiv.innerHTML = `<img src="${imageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
-            downloadSection.style.display = 'block';
-            generatedImageUrl = imageUrl;
+    document.getElementById('download-button').addEventListener('click', () => {
+        document.getElementById('format-dropdown').classList.toggle('show');
+    });
 
-            document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+    document.getElementById('format-dropdown').addEventListener('click', (event) => {
+        if (event.target.classList.contains('dropdown-item')) {
+            const format = event.target.getAttribute('data-format');
+            downloadImage(generatedImageUrl, format);
+            document.getElementById('format-dropdown').classList.remove('show');
         }
+    });
 
-        function createNewInstance() {
-            document.getElementById('prompt').value = '';
-            document.getElementById('prompt').disabled = false;
-            document.getElementById('generated-image').innerHTML = '';
-            document.getElementById('download-section').style.display = 'none';
-            document.getElementById('generate-text').textContent = 'Générer l\'image';
-        }
+    function downloadImage(url, format) {
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.src = url;
+        img.onload = () => {
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob((blob) => {
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `image-generee.${format}`;
+                link.click();
+                URL.revokeObjectURL(link.href);
+            }, `image/${format}`);
+        };
+    }}
+    // Chargement automatique de l'historique au chargement de la page
+    document.addEventListener('DOMContentLoaded', function() {
+        loadHistory(1, false);
+    });
+</script>
 
-        document.getElementById('download-button').addEventListener('click', () => {
-            document.getElementById('format-dropdown').classList.toggle('show');
-        });
 
-        document.getElementById('format-dropdown').addEventListener('click', (event) => {
-            if (event.target.classList.contains('dropdown-item')) {
-                const format = event.target.getAttribute('data-format');
-                downloadImage(generatedImageUrl, format);
-                document.getElementById('format-dropdown').classList.remove('show');
-            }
-        });
 
-        function downloadImage(url, format) {
-            const img = new Image();
-            img.crossOrigin = 'anonymous';
-            img.src = url;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                const ctx = canvas.getContext('2d');
-                canvas.width = img.width;
-                canvas.height = img.height;
-                ctx.drawImage(img, 0, 0);
-                canvas.toBlob((blob) => {
-                    const link = document.createElement('a');
-                    link.href = URL.createObjectURL(blob);
-                    link.download = `image-generee.${format}`;
-                    link.click();
-                    URL.revokeObjectURL(link.href);
-                }, `image/${format}`);
-            };
-        }}
 
-    </script>
-    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-</body>
-</html>
+{% endblock %}
