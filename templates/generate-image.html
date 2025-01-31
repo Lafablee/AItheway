@@ -291,7 +291,26 @@
             }
             if (result.image_url) {
                 generatedImageUrl = result.image_url;
-                imageDiv.innerHTML = `<img src="${generatedImageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
+                imageDiv.innerHTML = `
+                    <div class="abs_item">
+                        <img src="${generatedImageUrl}" class="img-fluid mt-3" alt="Generated Image">
+                        <div class="all_options">
+                            <div class="fn__icon_options medium_size">
+                                <div class="dropdown">
+                                    <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark">
+                                        <li class="dropdown-item" data-format="png" data-url="${generatedImageUrl}">PNG</li>
+                                        <li class="dropdown-item" data-format="jpg" data-url="${generatedImageUrl}">JPG</li>
+                                        <li class="dropdown-item" data-format="jpeg" data-url="${generatedImageUrl}">JPEG</li>
+                                        <li class="dropdown-item" data-format="gif" data-url="${generatedImageUrl}">GIF</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
                 downloadSection.style.display = 'block';
 
                 saveInstance(promptInput.value, generatedImageUrl);
@@ -303,10 +322,7 @@
             } else {
                 showErrorOverlay('Erreur', result.error || 'Une erreur est survenue');
             }
-            document.getElementById('download-button').addEventListener('click', () => {
-                document.getElementById('format-dropdown').classList.toggle('show');
 
-            });
 
 
         } catch (error) {
@@ -360,86 +376,51 @@
         generatedImageUrl = imageUrl;
 
         document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+
+    }
+    function createNewInstance() {
+        document.getElementById('prompt').value = '';
+        document.getElementById('prompt').disabled = false;
+        document.getElementById('generated-image').innerHTML = '';
+        document.getElementById('download-section').style.display = 'none';
+        document.getElementById('generate-text').textContent = 'Générer l\'image';
+    }
+    function downloadImage(url, format) {
+        console.error('Starting download:', {url, format});
+
+        const img = new Image();
+        img.crossOrigin = 'anonymous';
+        img.onload = function () {
+            console.error('Image loaded successfully');
+            const canvas = document.createElement('canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = img.width;
+            canvas.height = img.height;
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob(function (blob) {
+                if (!blob) {
+                    console.error('Failed to create blob')
+                    return;
+                }
+                console.error('Blob created successfully');
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = `image.${format.toLowerCase()}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                URL.revokeObjectURL(link.href);
+            }, `image/${format.toLowerCase()}`, 1.0);
+        };
+        // Gestion des erreurs
+        img.onerror = function () {
+            console.error('Erreur lors du chargement de l\'image');
+            alert('Impossible de télécharger l\'image. Veuillez réessayer.');
+        };
+        img.src = url;
     }
 
-    // Fonction pour charger l'historique
-        async function loadHistory(page = 1, append = false) {
-            console.log(`Fetching history for page ${page}...`);
-            if (isLoading || (!append && !hasMore)) return;
-
-            const historyLoader = document.getElementById('historyLoader');
-            const historyContent = document.querySelector('.generation_history .fn__generation_list.sidebar');
-
-            isLoading = true;
-            historyLoader.classList.remove('d-none');
-
-            try {
-                const urlParams = new URLSearchParams(window.location.search);
-                const token = urlParams.get('token');
-
-                const response = await fetch(`/api/chat/history/generated?page=${page}&token=${encodeURIComponent(token)}`, {
-                    headers: {
-                        'X-Requested-With': 'XMLHttpRequest'
-                    }
-                });
-
-                if (!response.ok) {
-                    if (response.status === 401 || response.status === 403) {
-                        window.location.href = LOGIN_URL;
-                        return;
-                    }
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const data = await response.json();
-                console.log('Fetched data:', data);
-
-                if (!append) {
-                    historyContent.innerHTML = '';
-                }
-
-                const items = data.data?.items || [];
-
-                if (items.length > 0) {
-                    items.forEach((item, index) => {
-                        const delay = index * 100;
-                        const historyItem = createHistoryItem(item, delay);
-                        historyContent.appendChild(historyItem);
-                    });
-
-                    hasMore = data.data?.pagination?.has_more || false;
-                    currentPage = page;
-
-                    // Gestion du bouton "Charger plus"
-                    if (hasMore) {
-                        if (!document.getElementById('loadMoreBtn')) {
-                            const loadMoreBtn = document.createElement('button');
-                            loadMoreBtn.id = 'loadMoreBtn';
-                            loadMoreBtn.className = 'load-more';
-                            loadMoreBtn.textContent = 'Charger plus';
-                            loadMoreBtn.onclick = () => loadHistory(currentPage + 1, true);
-                            historyContent.after(loadMoreBtn);
-                        }
-                } else {
-                        const loadMoreBtn = document.getElementById('loadMoreBtn');
-                        if (loadMoreBtn) loadMoreBtn.remove();
-                    }
-                } else {
-                    if (!append) {
-                        historyContent.innerHTML = '<p class="text-center">Aucun historique disponible</p>';
-                    }
-                    hasMore = false;
-                }
-
-            } catch (error) {
-                console.error('Error loading history:', error);
-                historyContent.innerHTML += '<p class="text-center text-danger">Erreur lors du chargement de l\'historique</p>';
-            } finally {
-                isLoading = false;
-                historyLoader.classList.add('d-none');
-            }
-
-        function createHistoryItem(item, delay) {
+    function createHistoryItem(item, delay) {
             const listItem = document.createElement('li');
             listItem.className = 'fn__gl_item';
 
@@ -510,116 +491,154 @@
         observer.observe(document.getElementById('historyLoader'));
 
         // Chargement initial de l'historique
-        document.addEventListener('DOMContentLoaded', () => {
-            loadHistory(1, false);
-        });
+        //document.addEventListener('DOMContentLoaded', () => {
+            //loadHistory(1, false);
+        //});
 
+    // Fonction pour charger l'historique
+        async function loadHistory(page = 1, append = false) {
+            console.log(`Fetching history for page ${page}...`);
+            if (isLoading || (!append && !hasMore)) return;
 
-    function createNewInstance() {
-        document.getElementById('prompt').value = '';
-        document.getElementById('prompt').disabled = false;
-        document.getElementById('generated-image').innerHTML = '';
-        document.getElementById('download-section').style.display = 'none';
-        document.getElementById('generate-text').textContent = 'Générer l\'image';
-    }
+            const historyLoader = document.getElementById('historyLoader');
+            const historyContent = document.querySelector('.generation_history .fn__generation_list.sidebar');
 
+            isLoading = true;
+            historyLoader.classList.remove('d-none');
 
-    function downloadImage(url, format) {
-        const img = new Image();
-        img.crossOrigin = 'anonymous';
-        img.onload = function() {
-            const canvas = document.createElement('canvas');
-            const ctx = canvas.getContext('2d');
-            canvas.width = img.width;
-            canvas.height = img.height;
-            ctx.drawImage(img, 0, 0);
-            canvas.toBlob(function(blob) {
-                if (!blob) {
-                    console.error('Failed to create blob')
-                    return;
-                }
-                const link = document.createElement('a');
-                link.href = URL.createObjectURL(blob);
-                link.download = `image.${format.toLowerCase()}`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(link.href);
-            }, `image/${format.toLowerCase()}`, 1.0);
-        };
-        // Gestion des erreurs
-        img.onerror = function() {
-            console.error('Erreur lors du chargement de l\'image');
-            alert('Impossible de télécharger l\'image. Veuillez réessayer.');
-        };
-        img.src = url;
-    }}
-
-document.addEventListener('DOMContentLoaded', function() {
-    // Récupérer le token de l'URL actuelle
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-
-    if (token) {
-        // Modifier tous les liens de navigation pour inclure le token
-        document.querySelectorAll('.neltar_fn_wrapper a').forEach(link => {
-            // Vérifier si c'est un lien interne
-            if (link.href.startsWith(window.location.origin)) {
-                const url = new URL(link.href);
-                url.searchParams.set('token', token);
-                link.href = url.toString();
-            }
-        });
-        // Modifier tous les formulaires pour inclure le token
-        document.querySelectorAll('form').forEach(form => {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'token';
-            input.value = token;
-            form.appendChild(input);
-        });
-    }
-
-    document.addEventListener('click', function(event) {
-        const dropdownItem = event.target.closest('.dropdown-item');
-        if (dropdownItem) {
-            const format = dropdownItem.getAttribute('data-format');
-            const imageUrl = dropdownItem.getAttribute('data-url') || generatedImageUrl;
-
-            console.log('Download clicked:', {format, imageUrl});
-
-            if (format && imageUrl) {
-                downloadImage(imageUrl, format);
-                // Fermer le dropdown après la sélection
-                const dropdownMenu = dropdownItem.closest('.dropdown-menu');
-                if (dropdownMenu) {
-                    dropdownMenu.classList.remove('show');
-                }
-            }
-        }
-    });
-
-    // Intercepter fetch pour les  erreurs d'authentification
-    fetch = (originalFetch => {
-        return async (...arguments) => {
             try {
-                const response = await originalFetch(...arguments);
-                if (response.status === 401 || response.status === 403) {
-                    const data = await response.json();
-                    if (data.redirect_url) {
-                        window.location.href = data.redirect_url;
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+
+                const response = await fetch(`/api/chat/history/generated?page=${page}&token=${encodeURIComponent(token)}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                });
+
+                if (!response.ok) {
+                    if (response.status === 401 || response.status === 403) {
+                        window.location.href = LOGIN_URL;
                         return;
                     }
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                return response;
-            } catch (error) {
-                throw error;
-            }
-        };
-    })(fetch);
 
-    loadHistory(1, false);
-});
+                const data = await response.json();
+                console.log('Fetched data:', data);
+
+                if (!append) {
+                    historyContent.innerHTML = '';
+                }
+
+                const items = data.data?.items || [];
+
+                if (items.length > 0) {
+                    items.forEach((item, index) => {
+                        const delay = index * 100;
+                        const historyItem = createHistoryItem(item, delay);
+                        historyContent.appendChild(historyItem);
+                    });
+
+                    hasMore = data.data?.pagination?.has_more || false;
+                    currentPage = page;
+
+                    // Gestion du bouton "Charger plus"
+                    if (hasMore) {
+                        if (!document.getElementById('loadMoreBtn')) {
+                            const loadMoreBtn = document.createElement('button');
+                            loadMoreBtn.id = 'loadMoreBtn';
+                            loadMoreBtn.className = 'load-more';
+                            loadMoreBtn.textContent = 'Charger plus';
+                            loadMoreBtn.onclick = () => loadHistory(currentPage + 1, true);
+                            historyContent.after(loadMoreBtn);
+                        }
+                    } else {
+                        const loadMoreBtn = document.getElementById('loadMoreBtn');
+                        if (loadMoreBtn) loadMoreBtn.remove();
+                    }
+                } else {
+                    if (!append) {
+                        historyContent.innerHTML = '<p class="text-center">Aucun historique disponible</p>';
+                    }
+                    hasMore = false;
+                }
+
+            } catch (error) {
+                console.error('Error loading history:', error);
+                historyContent.innerHTML += '<p class="text-center text-danger">Erreur lors du chargement de l\'historique</p>';
+            } finally {
+                isLoading = false;
+                historyLoader.classList.add('d-none');
+            }
+        }
+
+
+        document.addEventListener('DOMContentLoaded', function() {
+            // Récupérer le token de l'URL actuelle
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
+            if (token) {
+                // Modifier tous les liens de navigation pour inclure le token
+                document.querySelectorAll('.neltar_fn_wrapper a').forEach(link => {
+                    // Vérifier si c'est un lien interne
+                    if (link.href.startsWith(window.location.origin)) {
+                        const url = new URL(link.href);
+                        url.searchParams.set('token', token);
+                        link.href = url.toString();
+                    }
+                });
+                // Modifier tous les formulaires pour inclure le token
+                document.querySelectorAll('form').forEach(form => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'token';
+                    input.value = token;
+                    form.appendChild(input);
+                });
+            }
+
+            document.addEventListener('click', function(event) {
+                const dropdownItem = event.target.closest('.dropdown-item');
+                if (dropdownItem) {
+                    const format = dropdownItem.getAttribute('data-format');
+                    const imageUrl = dropdownItem.getAttribute('data-url') || generatedImageUrl;
+
+                    console.log('Download clicked:', {format, imageUrl});
+
+                    if (format && imageUrl) {
+                        downloadImage(imageUrl, format);
+                        // Fermer le dropdown après la sélection
+                        const dropdownMenu = dropdownItem.closest('.dropdown-menu');
+                        if (dropdownMenu) {
+                            dropdownMenu.classList.remove('show');
+                        }
+                    }
+                }
+            });
+
+            // Intercepter fetch pour les  erreurs d'authentification
+            fetch = (originalFetch => {
+                return async (...arguments) => {
+                    try {
+                        const response = await originalFetch(...arguments);
+                        if (response.status === 401 || response.status === 403) {
+                            const data = await response.json();
+                            if (data.redirect_url) {
+                                window.location.href = data.redirect_url;
+                                return;
+                            }
+                        }
+                        return response;
+                    } catch (error) {
+                        throw error;
+                    }
+                };
+            })(fetch);
+
+            loadHistory(1, false);
+        });
 </script>
 
 
