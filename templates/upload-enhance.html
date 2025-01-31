@@ -1,5 +1,8 @@
 <!DOCTYPE html>
 <html lang="fr">
+
+{% extends 'base.html' %}
+{% block content %}
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -1261,6 +1264,15 @@ document.addEventListener('DOMContentLoaded', function() {
                 url.searchParams.set('token', token);
                 link.href = url.toString();
             }
+        });
+
+        // Modifier tous les formulaires pour inclure le token
+        document.querySelectorAll('form').forEach(form => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'token';
+            input.value = token;
+            form.appendChild(input);
         });
     }
 

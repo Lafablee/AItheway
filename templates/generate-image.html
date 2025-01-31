@@ -469,7 +469,6 @@
                 </div>
             `;
 
-            listItem.innerHTML = itemHtml;
 
             // Empêcher la propagation du clic pour les boutons de téléchargement
             const downloadButtons = listItem.querySelectorAll('.dropdown-item, .dropdown-toggle');
@@ -478,7 +477,18 @@
                     e.stopPropagation();
                 });
             });
+            const img = listItem.querySelector('img');
+            if (img) {
+                img.addEventListener('click', () => {
+                    const mainImageContainer = document.getElementById('generated-image');
+                    const downloadSection = document.getElementById('download-section');
 
+                    mainImageContainer.innerHTML = `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
+                    document.getElementById('prompt').value = item.prompt;
+                    downloadSection.style.display = 'block';
+                    generatedImageUrl = item.url;
+                });
+            }
              // Ajouter le délai d'animation
             listItem.style.animationDelay = `${delay}ms`;
 
@@ -559,6 +569,14 @@ document.addEventListener('DOMContentLoaded', function() {
                 url.searchParams.set('token', token);
                 link.href = url.toString();
             }
+        });
+        // Modifier tous les formulaires pour inclure le token
+        document.querySelectorAll('form').forEach(form => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'token';
+            input.value = token;
+            form.appendChild(input);
         });
     }
 

@@ -240,6 +240,35 @@
 
 		<div class="neltar_fn_content">
 
+        <script>
+            document.addEventListener('DOMContentLoaded', function() {
+            // Récupérer le token de l'URL actuelle
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
+            if (token) {
+                // Modifier TOUS les liens de navigation
+                document.querySelectorAll('a').forEach(link => {
+                    // Ne pas modifier les liens externes
+                    if (link.href.startsWith(window.location.origin)) {
+                        const url = new URL(link.href);
+                        // Préserver les autres paramètres d'URL existants
+                        url.searchParams.set('token', token);
+                        link.href = url.toString();
+                    }
+                });
+
+                // Modifier tous les formulaires pour inclure le token
+                document.querySelectorAll('form').forEach(form => {
+                    const input = document.createElement('input');
+                    input.type = 'hidden';
+                    input.name = 'token';
+                    input.value = token;
+                    form.appendChild(input);
+                });
+            }
+        });
+        </script>
 
         {% block content %}{% endblock %}
 
