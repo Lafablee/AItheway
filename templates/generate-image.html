@@ -254,7 +254,7 @@
         const promptInput = document.getElementById('prompt');
         const spinner = document.getElementById('spinner');
         const generateText = document.getElementById('generate-text');
-        const downloadSection = document.getElementById('download-section');
+        const downloadSection = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
         const imageDiv = document.getElementById('generated-image');
 
         // Get the token from URL
@@ -308,13 +308,6 @@
 
             });
 
-            document.getElementById('format-dropdown').addEventListener('click', (event) => {
-                if (event.target.classList.contains('dropdown-item')) {
-                    const format = event.target.getAttribute('data-format');
-                    downloadImage(generatedImageUrl, format);
-                    document.getElementById('format-dropdown').classList.remove('show');
-                }
-            });
 
         } catch (error) {
             showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
@@ -358,7 +351,7 @@
         const { prompt, imageUrl } = instances[index];
         const promptInput = document.getElementById('prompt');
         const imageDiv = document.getElementById('generated-image');
-        const downloadSection = document.getElementById('download-section');
+        const downloadSection = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
 
         promptInput.value = prompt;
         promptInput.disabled = true;
@@ -375,7 +368,7 @@
             if (isLoading || (!append && !hasMore)) return;
 
             const historyLoader = document.getElementById('historyLoader');
-            const historyContent = document.getElementById('historyContent');
+            const historyContent = document.querySelector('.generation_history .fn__generation_list.sidebar');
 
             isLoading = true;
             historyLoader.classList.remove('d-none');
@@ -456,16 +449,34 @@
                         <img src="${item.url}" alt="Generated image" loading="lazy">
                         <div class="prompt">${item.prompt}</div>
                         <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+                        <!-- Ajout du bouton de téléchargement similaire à celui des nouvelles images -->
+                        <div class="all_options">
+                            <div class="fn__icon_options medium_size">
+                                <div class="dropdown">
+                                    <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark">
+                                        <li class="dropdown-item" data-format="png" data-url="${item.url}">PNG</li>
+                                        <li class="dropdown-item" data-format="jpg" data-url="${item.url}">JPG</li>
+                                        <li class="dropdown-item" data-format="jpeg" data-url="${item.url}">JPEG</li>
+                                        <li class="dropdown-item" data-format="gif" data-url="${item.url}">GIF</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             `;
 
             // Ajouter l'événement click
             listItem.onclick = () => {
+                const mainImageContainer = document.getElementById('generated-image');
+                const downloadSection = document.getElementById('download-section');
+
+                mainImageContainer.innerHTML = `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
                 document.getElementById('prompt').value = item.prompt;
-                document.getElementById('generated-image').innerHTML =
-                    `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
-                document.getElementById('download-section').style.display = 'block';
+                downloadSection.style.display = 'block';
                 generatedImageUrl = item.url;
             };
              // Ajouter le délai d'animation
@@ -508,16 +519,23 @@
         document.getElementById('generate-text').textContent = 'Générer l\'image';
     }
 
-    document.getElementById('download-button').addEventListener('click', () => {
-        document.getElementById('format-dropdown').classList.toggle('show');
-    });
+    // Gestion globale des clics pour le téléchargement
+    document.addEventListener('DOMContentLoaded', function() {
+        document.addEventListener('click', function(event) {
+            if (event.target.classList.contains('dropdown-item')) {
+                const format = event.target.getAttribute('data-format');
+                const imageUrl = event.target.getAttribute('data-url') || generatedImageUrl;
 
-    document.getElementById('format-dropdown').addEventListener('click', (event) => {
-        if (event.target.classList.contains('dropdown-item')) {
-            const format = event.target.getAttribute('data-format');
-            downloadImage(generatedImageUrl, format);
-            document.getElementById('format-dropdown').classList.remove('show');
-        }
+                if (format && imageUrl) {
+                    downloadImage(imageUrl, format);
+                    // Fermer le dropdown après la sélection
+                    const dropdownMenu = event.target.closest('.dropdown-menu');
+                    if (dropdownMenu) {
+                        dropdownMenu.classList.remove('show');
+                    }
+                }
+            }
+        });
     });
 
     function downloadImage(url, format) {
@@ -533,11 +551,19 @@
             canvas.toBlob((blob) => {
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = `image-generee.${format}`;
+                link.download = `generated-image.${format.toLowerCase()}`;
+                document.body.appendChild(link);
                 link.click();
+                document.body.removeChild(link);
                 URL.revokeObjectURL(link.href);
-            }, `image/${format}`);
+            }, `image/${format.toLowerCase()}`, 1.0);
         };
+        // Gestion des erreurs
+        img.onerror = function() {
+            console.error('Erreur lors du chargement de l\'image');
+            alert('Impossible de télécharger l\'image. Veuillez réessayer.');
+        };
+        img.src = url;
     }}
     // Chargement automatique de l'historique au chargement de la page
     document.addEventListener('DOMContentLoaded', function() {
