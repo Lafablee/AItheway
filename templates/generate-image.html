@@ -456,20 +456,24 @@
             downloadButtons.forEach(button => {
                 button.addEventListener('click', (e) => {
                     e.stopPropagation();
+                    const format = button.getAttribute('data-format');
+                    const imageUrl = button.getAttribute('data-url');
+                    if (format && imageUrl) {
+                        downloadImage(imageUrl, format);
+                    }
                 });
             });
-            const img = listItem.querySelector('img');
-            if (img) {
-                img.addEventListener('click', () => {
-                    const mainImageContainer = document.getElementById('generated-image');
-                    const downloadSection = document.getElementById('download-section');
 
-                    mainImageContainer.innerHTML = `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
-                    document.getElementById('prompt').value = item.prompt;
-                    downloadSection.style.display = 'block';
-                    generatedImageUrl = item.url;
-                });
-            }
+            const img = listItem.querySelector('img');
+            img.addEventListener('click', () => {
+                const mainImageContainer = document.getElementById('generated-image');
+                const downloadSection = document.getElementById('download-section');
+                mainImageContainer.innerHTML = `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
+                document.getElementById('prompt').value = item.prompt;
+                downloadSection.style.display = 'block';
+                generatedImageUrl = item.url;
+            });
+
              // Ajouter le délai d'animation
             listItem.style.animationDelay = `${delay}ms`;
 
