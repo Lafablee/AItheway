@@ -1247,6 +1247,42 @@
                 );
             }
 });
+document.addEventListener('DOMContentLoaded', function() {
+    // Récupérer le token de l'URL actuelle
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (token) {
+        // Modifier tous les liens de navigation pour inclure le token
+        document.querySelectorAll('.neltar_fn_wrapper a').forEach(link => {
+            // Vérifier si c'est un lien interne
+            if (link.href.startsWith(window.location.origin)) {
+                const url = new URL(link.href);
+                url.searchParams.set('token', token);
+                link.href = url.toString();
+            }
+        });
+    }
+
+    // Gestionnaire d'erreur global (comme dans generate_image)
+    fetch = (originalFetch => {
+        return async (...arguments) => {
+            try {
+                const response = await originalFetch(...arguments);
+                if (response.status === 401 || response.status === 403) {
+                    const data = await response.json();
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                        return;
+                    }
+                }
+                return response;
+            } catch (error) {
+                throw error;
+            }
+        };
+    })(fetch);
+});
     </script>
 
 </body>

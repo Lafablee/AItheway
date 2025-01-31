@@ -495,6 +495,16 @@ def token_required(f):
         app.logger.error(f"Token extracted: {token}")
 
         if not token:
+            # Si c'est une requête AJAX
+            if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+                return jsonify({
+                    "error": "authentication_error",
+                    "message": "Please log in to continue",
+                    "redirect_url": LOGIN_URL
+                }), 401
+            return redirect(f"{LOGIN_URL}?redirect={quote(request.url)}")
+
+        if not token:
             app.logger.error("No token found in request")
             auth_header = request.headers.get('Authorization')  # Fallback to Authorization header
             if auth_header and auth_header.startswith("Bearer "):

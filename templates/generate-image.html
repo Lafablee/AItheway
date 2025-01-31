@@ -469,28 +469,22 @@
                 </div>
             `;
 
-            // Ajouter l'événement click
-            listItem.onclick = () => {
-                const mainImageContainer = document.getElementById('generated-image');
-                const downloadSection = document.getElementById('download-section');
+            listItem.innerHTML = itemHtml;
 
-                mainImageContainer.innerHTML = `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
-                document.getElementById('prompt').value = item.prompt;
-                downloadSection.style.display = 'block';
-                generatedImageUrl = item.url;
-            };
+            // Empêcher la propagation du clic pour les boutons de téléchargement
+            const downloadButtons = listItem.querySelectorAll('.dropdown-item, .dropdown-toggle');
+            downloadButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                });
+            });
+
              // Ajouter le délai d'animation
             listItem.style.animationDelay = `${delay}ms`;
 
             return listItem;
 
         }
-        // Écouteur pour le bouton de chargement d'historique
-        document.getElementById('loadHistoryBtn').addEventListener('click', () => {
-            currentPage = 1;
-            hasMore = true;
-            loadHistory(1, false);
-        });
 
         // Chargement automatique au scroll
         const observer = new IntersectionObserver((entries) => {
@@ -519,39 +513,24 @@
         document.getElementById('generate-text').textContent = 'Générer l\'image';
     }
 
-    // Gestion globale des clics pour le téléchargement
-    document.addEventListener('DOMContentLoaded', function() {
-        document.addEventListener('click', function(event) {
-            if (event.target.classList.contains('dropdown-item')) {
-                const format = event.target.getAttribute('data-format');
-                const imageUrl = event.target.getAttribute('data-url') || generatedImageUrl;
-
-                if (format && imageUrl) {
-                    downloadImage(imageUrl, format);
-                    // Fermer le dropdown après la sélection
-                    const dropdownMenu = event.target.closest('.dropdown-menu');
-                    if (dropdownMenu) {
-                        dropdownMenu.classList.remove('show');
-                    }
-                }
-            }
-        });
-    });
 
     function downloadImage(url, format) {
         const img = new Image();
         img.crossOrigin = 'anonymous';
-        img.src = url;
-        img.onload = () => {
+        img.onload = function() {
             const canvas = document.createElement('canvas');
             const ctx = canvas.getContext('2d');
             canvas.width = img.width;
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
-            canvas.toBlob((blob) => {
+            canvas.toBlob(function(blob) {
+                if (!blob) {
+                    console.error('Failed to create blob')
+                    return;
+                }
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(blob);
-                link.download = `generated-image.${format.toLowerCase()}`;
+                link.download = `image.${format.toLowerCase()}`;
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
@@ -565,10 +544,64 @@
         };
         img.src = url;
     }}
-    // Chargement automatique de l'historique au chargement de la page
-    document.addEventListener('DOMContentLoaded', function() {
-        loadHistory(1, false);
+
+document.addEventListener('DOMContentLoaded', function() {
+    // Récupérer le token de l'URL actuelle
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (token) {
+        // Modifier tous les liens de navigation pour inclure le token
+        document.querySelectorAll('.neltar_fn_wrapper a').forEach(link => {
+            // Vérifier si c'est un lien interne
+            if (link.href.startsWith(window.location.origin)) {
+                const url = new URL(link.href);
+                url.searchParams.set('token', token);
+                link.href = url.toString();
+            }
+        });
+    }
+
+    document.addEventListener('click', function(event) {
+        const dropdownItem = event.target.closest('.dropdown-item');
+        if (dropdownItem) {
+            const format = dropdownItem.getAttribute('data-format');
+            const imageUrl = dropdownItem.getAttribute('data-url') || generatedImageUrl;
+
+            console.log('Download clicked:', {format, imageUrl});
+
+            if (format && imageUrl) {
+                downloadImage(imageUrl, format);
+                // Fermer le dropdown après la sélection
+                const dropdownMenu = dropdownItem.closest('.dropdown-menu');
+                if (dropdownMenu) {
+                    dropdownMenu.classList.remove('show');
+                }
+            }
+        }
     });
+
+    // Intercepter fetch pour les  erreurs d'authentification
+    fetch = (originalFetch => {
+        return async (...arguments) => {
+            try {
+                const response = await originalFetch(...arguments);
+                if (response.status === 401 || response.status === 403) {
+                    const data = await response.json();
+                    if (data.redirect_url) {
+                        window.location.href = data.redirect_url;
+                        return;
+                    }
+                }
+                return response;
+            } catch (error) {
+                throw error;
+            }
+        };
+    })(fetch);
+
+    loadHistory(1, false);
+});
 </script>
 
 
