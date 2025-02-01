@@ -327,7 +327,7 @@
             bottom: 100px;
             width: 56px;
             height: 56px;
-            /*background-color: #007bff;*/
+            background-color: #6e6e76;
             color: white;
             border: none;
             border-radius: 50%;
@@ -711,9 +711,6 @@ const headers = {
 
 
 // DOM Elements
-const fileInput = document.getElementById('file-input');
-const addButton = document.getElementById('add-button');
-const sidebar = document.getElementById('nav-sidebar');
 const closeSidebarButton = document.getElementById('close-sidebar');
 const imageContainer = document.getElementById('image-container');
 const loadingOverlay = document.getElementById('loading-overlay');
@@ -759,6 +756,8 @@ document.addEventListener('DOMContentLoaded', function() {
             await handleFileUpload(event.target.files[0]);
         }
     });
+    loadHistory(1, false);
+    console.error('History load succesfully ')
 });
 
 
@@ -1245,11 +1244,16 @@ document.addEventListener('click', (e) => {
 
 // Fonction pour charger l'historique
 async function loadHistory(page = 1, append = false) {
+    const historyLoader = document.getElementById('history-sidebar');
+    const historyContent = document.getElementById('history-sidebar');
+
+    if (!historyContent) {
+        console.error('History content not found.')
+        return;
+    }
     console.log(`Fetching history for page ${page}...`);
     if (isLoading || (!append && !hasMore)) return;
 
-    const historyLoader = document.getElementById('historyLoader');
-    const historyContent = document.querySelector('history-sidebar');
 
     isLoading = true;
     if (historyLoader) historyLoader.classList.remove('d-none');
@@ -1353,17 +1357,6 @@ function createHistoryItem(item, delay) {
     return listItem;
 }
 
-
-// Event Listeners
-fileInput.addEventListener('change', async (event) => {
-console.log('File input chnage event triggered');
-await handleFileUpload(event.target.files[0]);
-});
-
-addButton.addEventListener('click', () => {
-fileInput.click();
-sidebar.classList.add('open');
-});
 
 closeSidebarButton.addEventListener('click', () => sidebar.classList.remove('open'));
 
