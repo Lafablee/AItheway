@@ -1,4 +1,6 @@
 import os
+from http.client import responses
+
 import openai
 from dotenv import load_dotenv
 from flask import Flask, render_template, request, jsonify, url_for, send_file, abort, redirect
@@ -385,6 +387,54 @@ class ChatManager:
 
 # Initialisation
 chat_manager = ChatManager(redis_client)
+
+def get_paginated_history(wp_user_id, history_type):
+    """
+    Fonction utilitaire pour gérer la pagination de l'historique
+    """
+    try:
+        # Récupère le numéro de page et le nombre d'éléments par page depuis l'URL
+        page = request.args.get('page', 1, type=int)
+        per_page = min(50, request.args.get('per_page', 20, type=int))
+
+        # Log des informations
+        app.logger.error(f"Fetching {history_type} history for user {wp_user_id}")
+        app.logger.error(f"Page: {page}, Items per page: {per_page}")
+
+        # Récupère l'historique complet pour le type demandé
+        history = image_manager.get_user_history(
+            user_id=wp_user_id,
+            history_type=history_type
+        )
+
+        # Calcule les indices pour la pagination
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+
+        # Extrait la portion demandée de l'historique
+        items = history[start_idx:end_idx] if history else []
+        total_items = len(history) if history else 0
+
+        # Retourne la réponse formatée
+        return {
+            'success': True,
+            'data': {
+                'items': items,
+                'pagination': {
+                    'current_page': page,
+                    'per_page': per_page,
+                    'total_items': total_items,
+                    'has_more': total_items > end_idx
+                }
+            }
+        }, 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching {history_type} history: {str(e)}")
+        return {
+            'success': False,
+            'error': f'Failed to fetch {history_type} history'
+        }, 500
 
 def get_client_by_wp_user_id(wp_user_id):
     app.logger.error(f"Attempting to get client with wp_user_id: {wp_user_id}")
@@ -1212,88 +1262,15 @@ def send_message(wp_user_id):
 @app.route('/api/chat/history/generated', methods=['GET'])
 @token_required
 def get_chat_history(wp_user_id):
-    try:
-        page = request.args.get('page', 1, type=int)
-        per_page = min(50, request.args.get('per_page', 20, type=int))  # Limite max de 50
+   response, status_code = get_paginated_history(wp_user_id, "generated")
+   return jsonify(response), status_code
 
-        app.logger.error(f"Fetching history for user {wp_user_id}")
-        app.logger.error(f"Request method: {request.method}")
-        app.logger.error(f"Page: {page}, Items per page: {per_page}")
-
-        # Récupération directe de l'historique généré
-        history = image_manager.get_user_history(
-            user_id=wp_user_id,
-            history_type="generated"
-        )
-
-        # Pagination
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-
-        items = history[start_idx:end_idx] if history else []
-        total_items = len(history) if history else 0
-
-        app.logger.error(f"Found {total_items} total items")
-        app.logger.error(f"Returning {len(items)} items for current page")
-
-
-        return jsonify({
-            'success': True,
-            'data': {
-                'items': items,
-                'pagination': {
-                    'current_page': page,
-                    'per_page': per_page,
-                    'total_items': total_items,
-                    'has_more': total_items > end_idx
-                }
-            }
-        }), 200
-
-    except Exception as e:
-        app.logger.error(f"Error fetching chat history: {str(e)}")
-        return jsonify({
-            'success': False,
-            'error': 'Failed to fetch chat history'
-        }), 500
-
-
-def get_generated_history(wp_user_id):
-    """Récupère l'historique des images générées pour un utilisateur."""
-    page = request.args.get('page', 1, type=int)
-    per_page = request.args.get('per_page', 10, type=int)
-
-    app.logger.error("=== Fetching Generated History ===")
-    app.logger.error(f"User ID: {wp_user_id}")
-    app.logger.error(f"Page: {page}, Per Page: {per_page}")
-
-    try:
-        # Appel à la méthode pour récupérer l'historique
-        history = image_manager.get_user_history(
-            wp_user_id,
-            history_type="generated"
-        )
-
-        app.logger.error(f"Fetched history: {history}")
-
-        # Paginer les résultats
-        start_idx = (page - 1) * per_page
-        end_idx = start_idx + per_page
-        paginated_history = history[start_idx:end_idx]
-
-        has_more = len(history) > end_idx
-        app.logger.error(f"Paginated History: {paginated_history}")
-        app.logger.error(f"Has More: {has_more}")
-
-        return jsonify({
-            'success': True,
-            'items': paginated_history,
-            'has_more': has_more
-        }), 200
-
-    except Exception as e:
-        app.logger.error(f"Error fetching generated history for user {wp_user_id}: {str(e)}")
-        return jsonify({'success': False, 'error': 'Failed to fetch generated history'}), 500
+@app.route('/api/chat/history/enhanced', methods=['GET'])
+@token_required
+def get_enhanced_history(wp_user_id):
+    # Utilise la fonction utilitaire pour les images améliorées
+    response, status_code = get_paginated_history(wp_user_id, "enhanced")
+    return jsonify(response), status_code
 
 @app.route('/download-enhanced-image', methods=['POST'])
 def download_enhanced_image():

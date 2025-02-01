@@ -724,19 +724,43 @@ let isLoading = false;
 let hasMore = true;
 
 document.addEventListener('DOMContentLoaded', function() {
-addButton?.removeEventListener('click', handleAddButtonClick);
-addButton?.addEventListener('click', handleAddButtonClick);
+    console.error('DOM Content Loaded');
+
+    const fileInput = document.getElementById('file-input');
+    console.error('File Input found:', !!fileInput);
+
+    const addButton = document.getElementById('add-button');
+    console.error('Add Button found:', !!addButton);
+
+    const navSidebar = document.getElementById('nav-sidebar');
+    console.error('Nav Sidebar found:', !!navSidebar);
+
+    if (!fileInput || !addButton || !navSidebar) {
+        console.error('Required elements not found');
+        return;
+    }
+    // Configuration du file input
+    fileInput.setAttribute('accept', 'image/png, image/jpeg, image/jpg, image/gif');
+    console.error('File input configured');
+
+    // Gestionnaire d'événement pour le bouton +
+    addButton.addEventListener('click', function(e) {
+        console.error('Add button clicked')
+        e.preventDefault();
+        e.stopPropagation();
+        fileInput.click();
+        navSidebar.classList.add('open');
+    });
+    // Gestionnaire d'événement pour le changement de fichier
+    fileInput.addEventListener('change', async function(event) {
+        console.error('File input changed')
+        if (event.target.files && event.target.files[0]) {
+            console.error('File selected:', event.target.files[0].name);
+            await handleFileUpload(event.target.files[0]);
+        }
+    });
 });
 
-function handleAddButtonClick(e) {
-e.preventDefault();
-e.stopPropagation();
-fileInput.click();
-}
-if (fileInput) {
-fileInput.setAttribute('accept', 'image/png, image/jpeg, image/jpg, image/gif');
-console.log('File input configured');
-}
 
 class ProgressBar {
 constructor() {
