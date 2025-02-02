@@ -323,7 +323,7 @@
         .add-button {
             /* background: linear-gradient(135deg, #007bff, #0056b3); */
             position: fixed;
-            /* left: 20px; */
+            left: 20px;
             bottom: 100px;
             width: 56px;
             height: 56px;
@@ -725,6 +725,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const addButton = document.getElementById('add-button');
     console.error('Add Button found:', !!addButton);
+
+    // Logs de débogage
+    console.log('Button exists:', !!addButton);
+    console.log('Button style:', window.getComputedStyle(addButton));
+    console.log('Button position:', addButton.getBoundingClientRect());
 
     const navSidebar = document.getElementById('nav-sidebar');
     console.error('Nav Sidebar found:', !!navSidebar);
