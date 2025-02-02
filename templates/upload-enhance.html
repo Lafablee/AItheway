@@ -711,9 +711,6 @@ const headers = {
 
 
 // DOM Elements
-const closeSidebarButton = document.getElementById('close-sidebar');
-const imageContainer = document.getElementById('image-container');
-const loadingOverlay = document.getElementById('loading-overlay');
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 10 MB in bytes
 
 let currentPage = 1;
@@ -732,6 +729,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const navSidebar = document.getElementById('nav-sidebar');
     console.error('Nav Sidebar found:', !!navSidebar);
 
+    const closeSidebarButton = document.getElementById('close-sidebar');
+    const imageContainer = document.getElementById('image-container');
+    const loadingOverlay = document.getElementById('loading-overlay');
+
     if (!fileInput || !addButton || !navSidebar) {
         console.error('Required elements not found');
         return;
@@ -742,17 +743,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // Gestionnaire d'événement pour le bouton +
     addButton.addEventListener('click', function(e) {
-        console.error('Add button clicked')
+        console.error('=== ADD BUTTON CLICKED ===');
+        console.error('Event:', e.type);
+        console.error('Target:', e.target);
+
         e.preventDefault();
         e.stopPropagation();
+        console.error('Before fileInput.click()');
         fileInput.click();
+        console.error('After fileInput.click()');
+
+        console.error('Before navSidebar.classList.add()');
         navSidebar.classList.add('open');
+        console.error('After navSidebar.classList.add()');
     });
+
+    addButton.style.pointerEvents = 'auto';
+    addButton.style.cursor = 'pointer';
+
+    // Test du hover
+    addButton.addEventListener('mouseover', () => {
+        console.log('Button hover detected');
+    });
+
     // Gestionnaire d'événement pour le changement de fichier
     fileInput.addEventListener('change', async function(event) {
-        console.error('File input changed')
+        console.error('File input changed:', event.target.files)
         if (event.target.files && event.target.files[0]) {
-            console.error('File selected:', event.target.files[0].name);
+            console.log('File selected:', {
+                name: event.target.files[0].name,
+                type: event.target.files[0].type,
+                size: event.target.files[0].size
+            });
             await handleFileUpload(event.target.files[0]);
         }
     });
@@ -1411,6 +1433,15 @@ if (token) {
             input.value = token;
             form.appendChild(input);
         }
+    });
+const addButtonStyle = window.getComputedStyle(addButton);
+    console.error('Add Button Styles:', {
+        backgroundColor: addButtonStyle.backgroundColor,
+        display: addButtonStyle.display,
+        position: addButtonStyle.position,
+        zIndex: addButtonStyle.zIndex,
+        visibility: addButtonStyle.visibility,
+        opacity: addButtonStyle.opacity
     });
 }
 loadHistory(1, false);
