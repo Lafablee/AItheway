@@ -733,16 +733,56 @@ document.addEventListener('DOMContentLoaded', function() {
     const imageContainer = document.getElementById('image-container');
     const loadingOverlay = document.getElementById('loading-overlay');
 
-    if (!fileInput || !addButton || !navSidebar) {
+    if (!fileInput || !addButton || !navSidebar || !closeSidebarButton) {
         console.error('Required elements not found');
         return;
     }
-    // Configuration du file input
-    fileInput.setAttribute('accept', 'image/png, image/jpeg, image/jpg, image/gif');
-    console.error('File input configured');
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    if (token) {
+        // Modifier TOUS les liens de navigation
+        document.querySelectorAll('a').forEach(link => {
+            // Ne pas modifier les liens externes
+            if (link.href.startsWith(window.location.origin)) {
+                const url = new URL(link.href);
+                // Préserver les autres paramètres d'URL existants
+                url.searchParams.set('token', token);
+                link.href = url.toString();
+            }
+        });
+
+        // Modifier tous les formulaires pour inclure le token
+        document.querySelectorAll('form').forEach(form => {
+            if (!form.querySelector('input[name="token"]')) {
+                const input = document.createElement('input');
+                input.type = 'hidden';
+                input.name = 'token';
+                input.value = token;
+                form.appendChild(input);
+            }
+        });
+        const addButtonStyle = window.getComputedStyle(addButton);
+        console.error('Add Button Styles:', {
+            backgroundColor: addButtonStyle.backgroundColor,
+            display: addButtonStyle.display,
+            position: addButtonStyle.position,
+            zIndex: addButtonStyle.zIndex,
+            visibility: addButtonStyle.visibility,
+            opacity: addButtonStyle.opacity
+        });
+    }
+    // 4. Configuration des conteneurs
+    const containers = document.querySelectorAll('.comparison-container');
+    containers.forEach(container => {
+        setupImageComparison(container);
+        setupEntranceAnimation(container);
+    });
+
 
     // Gestionnaire d'événement pour le bouton +
-    addButton.addEventListener('click', function(e) {
+    addButton.addEventListener('click', function (e) {
         console.error('=== ADD BUTTON CLICKED ===');
         console.error('Event:', e.type);
         console.error('Target:', e.target);
@@ -758,16 +798,8 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('After navSidebar.classList.add()');
     });
 
-    addButton.style.pointerEvents = 'auto';
-    addButton.style.cursor = 'pointer';
-
-    // Test du hover
-    addButton.addEventListener('mouseover', () => {
-        console.log('Button hover detected');
-    });
-
     // Gestionnaire d'événement pour le changement de fichier
-    fileInput.addEventListener('change', async function(event) {
+    fileInput.addEventListener('change', async function (event) {
         console.error('File input changed:', event.target.files)
         if (event.target.files && event.target.files[0]) {
             console.log('File selected:', {
@@ -778,6 +810,417 @@ document.addEventListener('DOMContentLoaded', function() {
             await handleFileUpload(event.target.files[0]);
         }
     });
+
+    closeSidebarButton.addEventListener('click', function () {
+        console.error('=== CLOSE BUTTON CLICKED ===');
+        navSidebar.classList.remove('open');
+    });
+    // 5. Gestionnaire pour fermer avec Escape
+    document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') {
+            navSidebar.classList.remove('open');
+            document.querySelectorAll('.format-dropdown').forEach(dropdown =>
+                dropdown.classList.remove('show')
+            );
+        }
+    });
+
+    // Image Upload and Processing
+    async function handleFileUpload(file) {
+        if (!file) {
+            console.error('No file selected')
+            return;
+        }
+        console.log('File Dtails:', {
+            name: file.name,
+            type: file.type,
+            size: file.size,
+            sizeInMB: (file.size / (1024 * 1024)).toFixed(2) + 'MB'
+        });
+
+        // Check file size before uploading
+        if (file.size > MAX_FILE_SIZE) {
+            const infoText = document.createElement('p');
+            infoText.className = 'text-muted small file-size-info';
+            infoText.textContent = `Le fichier fait ${(file.size / (1024 * 1024)).toFixed(2)} MB. La taille maximum autorisée est de 20 MB`;
+
+            const oldInfo = document.querySelector('.file-size-info');
+            if (oldInfo) {
+                oldInfo.remove();
+            }
+            document.querySelector('.container').insertBefore(infoText, document.getElementById('image-container'));
+
+            console.log('File size exceeds client-side limit:', {
+                fileSize: file.size,
+                maxSize: MAX_FILE_SIZE,
+                fileSizeMB: (file.size / (1024 * 1024)).toFixed(2),
+                maxSizeMB: (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)
+            });
+
+            showErrorOverlay(
+                'Fichier trop volumineux',
+                'Le fichier ne doit pas dépasser 20 MB'
+            );
+            return;
+        }
+        loadingOverlay.classList.add('active');
+
+        const infoText = document.querySelector('.file-size-info');
+        if (infoText) {
+            infoText.remove();
+        }
+
+        console.log('Files details:', {
+            name: file.name,
+            type: file.type,
+            size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`
+        });
+
+        // Validate file format
+        const acceptedFormats = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
+        console.log('Checking file format:', file.type);
+        if (!acceptedFormats.includes(file.type)) {
+            console.error('Invalid file format');
+            showErrorOverlay(
+                'Format non supporté',
+                'Veuillez importer un fichier en PNG, JPEG, JPG, ou GIF.'
+            );
+            return;
+        }
+
+        // Show loading state
+        loadingOverlay.classList.add('active');
+
+        try {
+            await progressBar.simulateProgress();
+
+            // Get token and prepare form data
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            console.log('Token present:', !!token)
+            const formData = new FormData();
+            formData.append('file', file);
+            console.log('FormData created with file');
+
+            console.log('Sending request with:', {
+                fileSize: file.size,
+                fileName: file.name,
+                token: token ? 'Present' : 'Missing'
+            });
+
+
+            // Upload and get enhanced image
+            console.log('Starting fetch request...')
+            const response = await fetch(`/upload-enhance?token=${encodeURIComponent(token)}`, {
+                method: 'POST',
+                body: formData,
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'application/json'
+                },
+            });
+            console.log('fetch response received:', response.status);
+            console.log('Response headers:', Object.fromEntries([...response.headers]));
+
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('Response error:', {
+                    status: response.status,
+                    statusText: response.statusText,
+                    errorText: errorText
+                });
+
+                let errorMessage = 'Une erreur est survenue lors du traitement de l\'image.';
+
+                if (response.status === 413) {
+                    errorMessage = 'Le fichier est trop volumineux pour le serveur. Limite: 20 MB';
+                    console.error('file too large error:', {
+                        fileSize: file.size,
+                        fileSizeMB: (file.size / (1024 * 1024)).toFixed(2)
+                    });
+                }
+
+                showErrorOverlay('Erreur', errorMessage);
+                loadingOverlay.classList.remove('active');
+                return;
+            }
+            const result = await handleApiResponse(response);
+            console.log('Response parsed successfully:', result);
+            if (!result) return;
+
+            // Create image objects and update UI
+            const imageId = Date.now();
+            const newImage = {
+                id: imageId,
+                original: URL.createObjectURL(file),
+                enhanced: result.image_url,
+                sliderValue: 50
+            };
+
+            enhancedImages.unshift(newImage);
+            addImageToSidebar(newImage);
+            createImageComparison(newImage);
+            selectImage(imageId);
+            sidebar.classList.add('open');
+
+        } catch (error) {
+            console.error('Error:', error);
+            showErrorOverlay(
+                'Erreur',
+                'Une erreur est survenue lors du traitement de l\'image.'
+            );
+        } finally {
+            progressBar.hide();
+            fileInput.value = '';
+        }
+    }
+
+    // UI Component Creation
+    function createImageComparison(image) {
+        loadingOverlay.classList.add('active');
+
+        const container = document.createElement('div');
+        container.id = `comparison-${image.id}`;
+        container.className = 'twentytwenty-container';
+
+        // Create and load images first
+        const originalImg = new Image();
+        const enhancedImg = new Image();
+
+        // Promise to ensure both images are loaded
+        const loadImages = new Promise((resolve) => {
+            let loadedImages = 0;
+
+            function imageLoaded() {
+                loadedImages++;
+                if (loadedImages === 2) {
+                    setTimeout(resolve, 500);
+                }
+            }
+
+            originalImg.onload = imageLoaded;
+            enhancedImg.onload = imageLoaded;
+            originalImg.onerror = () => {
+                console.error('Error loading original image');
+                loadingOverlay.classList.remove('active');
+            }
+            enhancedImg.onerror = () => {
+                console.error('Error loading enhanced image');
+                loadingOverlay.classList.remove('active');
+            }
+
+            originalImg.src = image.original;
+            originalImg.alt = "Original";
+            enhancedImg.src = image.enhanced;
+            enhancedImg.alt = "Enhanced";
+        });
+
+        container.appendChild(originalImg);
+        container.appendChild(enhancedImg);
+
+        imageContainer.insertBefore(container, imageContainer.firstChild);
+
+        loadImages.then(() => {
+            $(container).twentytwenty({
+                default_offset_pct: 0.5,
+                before_label: 'Original',
+                after_label: 'Amélioré',
+                no_overlay: false,
+                move_slider_on_hover: true,
+                move_with_handle_only: false,
+                click_to_move: true
+            });
+
+            // Force à recalculer les dimensions
+            window.dispatchEvent(new Event('resize'));
+
+            // Attendez que TwentyTwenty soit complètement initialisé
+            setTimeout(() => {
+                loadingOverlay.classList.remove('active');
+                container.classList.add('visible');
+            }, 300);
+        });
+
+        const downloadSection = document.createElement('div');
+        downloadSection.className = 'download-section';
+        downloadSection.innerHTML = `
+        <button class="btn-download">Télécharger l'image</button>
+        <div class="format-dropdown">
+            ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format =>
+            `<div class="format-option" data-format="${format.toLowerCase()}">${format}</div>`
+        ).join('')}
+        </div>
+    `;
+        container.after(downloadSection);
+
+        loadImages.then(() => {
+            setTimeout(() => {
+                $(container).twentytwenty({
+                    default_offset_pct: 0.5,
+                    before_label: 'before',
+                    after_label: 'after',
+                    no_overlay: false,
+                    move_slider_on_hover: true,
+                    move_with_handle_only: false,
+                    click_to_move: true
+                });
+
+                window.dispatchEvent(new Event('resize'));
+
+                loadingOverlay.classList.remove('active');
+            }, 100);
+
+        });
+    }
+
+
+        // Fonction pour charger l'historique
+    async function loadHistory(page = 1, append = false) {
+        const historyLoader = document.getElementById('history-sidebar');
+        const historyContent = document.getElementById('history-sidebar');
+
+        if (!historyContent) {
+            console.error('History content not found.')
+            return;
+        }
+        console.log(`Fetching history for page ${page}...`);
+        if (isLoading || (!append && !hasMore)) return;
+
+
+        isLoading = true;
+        if (historyLoader) historyLoader.classList.remove('d-none');
+
+        try {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
+            const response = await fetch(`/api/chat/history/enhanced?page=${page}&token=${encodeURIComponent(token)}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+
+            if (!response.ok) {
+                if (response.status === 401 || response.status === 403) {
+                    window.location.href = LOGIN_URL;
+                    return;
+                }
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            const data = await response.json();
+            console.log('Fetched data:', data);
+
+            if (!append) {
+                historyContent.innerHTML = '';
+            }
+
+            const items = data.data?.items || [];
+
+            if (items.length > 0) {
+                items.forEach((item, index) => {
+                    const delay = index * 100;
+                    const historyItem = createHistoryItem(item, delay);
+                    historyContent.appendChild(historyItem);
+                });
+
+                hasMore = data.data?.pagination?.has_more || false;
+                currentPage = page;
+            } else {
+                if (!append) {
+                    historyContent.innerHTML = '<p class="text-center">Aucun historique disponible</p>';
+                }
+                hasMore = false;
+            }
+
+        } catch (error) {
+            console.error('Error loading history:', error);
+            if (historyContent) {
+                historyContent.innerHTML += '<p class="text-center text-danger">Erreur lors du chargement de l\'historique</p>';
+            }
+        } finally {
+            isLoading = false;
+            if (historyLoader) historyLoader.classList.add('d-none');
+        }
+    }
+
+    // Fonction pour créer un élément d'historique
+    function createHistoryItem(item, delay) {
+        const listItem = document.createElement('li');
+        listItem.className = 'fn__gl_item';
+
+        listItem.innerHTML = `
+           <div class="fn__gl__item">
+               <div class="abs_item">
+                   <img src="${item.url}" alt="Enhanced image" loading="lazy">
+                   <div class="all_options">
+                       <div class="fn__icon_options medium_size">
+                           <div class="dropdown">
+                               <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                   <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
+                                </button>                                <ul class="dropdown-menu dropdown-menu-dark">
+                                   <li class="dropdown-item" data-format="png" data-url="${item.url}">PNG</li>
+                                   <li class="dropdown-item" data-format="jpg" data-url="${item.url}">JPG</li>
+                                   <li class="dropdown-item" data-format="jpeg" data-url="${item.url}">JPEG</li>
+                                   <li class="dropdown-item" data-format="gif" data-url="${item.url}">GIF</li>
+                               </ul>
+                           </div>
+                       </div>
+                   </div>
+               </div>
+           </div>
+       `;
+
+        // Gestion des événements
+        const downloadButtons = listItem.querySelectorAll('.dropdown-item');
+        downloadButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                e.stopPropagation();
+                const format = button.getAttribute('data-format');
+                const imageUrl = button.getAttribute('data-url');
+                if (format && imageUrl) {
+                    downloadImage(imageUrl, format);
+                }
+            });
+        });
+
+        listItem.style.animationDelay = `${delay}ms`;
+        return listItem;
+    }
+
+    // 1. Fonction de configuration de la comparaison d'images
+    function setupImageComparison(container) {
+        $(container).twentytwenty({
+            default_offset_pct: 0.5,
+            before_label: 'Original',
+            after_label: 'Amélioré',
+            no_overlay: false,
+            move_slider_on_hover: true,
+            move_with_handle_only: false,
+            click_to_move: true
+        });
+    }
+
+    // Configuration du file input
+    fileInput.setAttribute('accept', 'image/png, image/jpeg, image/jpg, image/gif');
+    console.error('Required elements not found:', {
+        fileInput: !!fileInput,
+        addButton: !!addButton,
+        navSidebar: !!navSidebar,
+        closeSidebarButton: !!closeSidebarButton
+    });
+
+
+    addButton.style.pointerEvents = 'auto';
+    addButton.style.cursor = 'pointer';
+
+    // Test du hover
+    addButton.addEventListener('mouseover', () => {
+        console.log('Button hover detected');
+    });
+
+
     loadHistory(1, false);
     console.error('History load succesfully ')
 });
@@ -881,13 +1324,6 @@ if (!isAuthError)
     }, 5000);
 }
 
-document.addEventListener('DOMContentLoaded', () => {
-const containers = document.querySelectorAll('.comparison-container');
-containers.forEach(container => {
-    setupImageComparison(container);
-    setupEntranceAnimation(container);
-});
-});
 
 function setupEntranceAnimation(container) {
 const observer = new IntersectionObserver((entries) => {
@@ -972,254 +1408,6 @@ if (selectedElement) {
         inline: 'nearest'
     });
 }
-}
-
-// Image Upload and Processing
-async function handleFileUpload(file) {
-    if (!file) {
-        console.error('No file selected')
-        return;
-    }
-    console.log('File Dtails:', {
-        name: file.name,
-        type: file.type,
-        size: file.size,
-        sizeInMB: (file.size / (1024 * 1024)).toFixed(2) + 'MB'
-    });
-
-// Check file size before uploading
-    if (file.size > MAX_FILE_SIZE) {
-        const infoText = document.createElement('p');
-        infoText.className = 'text-muted small file-size-info';
-        infoText.textContent = `Le fichier fait ${(file.size / (1024 * 1024)).toFixed(2)} MB. La taille maximum autorisée est de 20 MB`;
-
-        const oldInfo = document.querySelector('.file-size-info');
-        if (oldInfo) {
-            oldInfo.remove();
-        }
-        document.querySelector('.container').insertBefore(infoText, document.getElementById('image-container'));
-
-        console.log('File size exceeds client-side limit:', {
-            fileSize: file.size,
-            maxSize: MAX_FILE_SIZE,
-            fileSizeMB: (file.size / (1024 * 1024)).toFixed(2),
-            maxSizeMB: (MAX_FILE_SIZE / (1024 * 1024)).toFixed(2)
-        });
-
-        showErrorOverlay(
-            'Fichier trop volumineux',
-            'Le fichier ne doit pas dépasser 20 MB'
-        );
-        return;
-    }
-    loadingOverlay.classList.add('active');
-
-    const infoText = document.querySelector('.file-size-info');
-    if (infoText) {
-        infoText.remove();
-    }
-
-    console.log('Files details:', {
-        name: file.name,
-        type: file.type,
-        size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`
-    });
-
-// Validate file format
-    const acceptedFormats = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
-    console.log('Checking file format:', file.type);
-    if (!acceptedFormats.includes(file.type)) {
-        console.error('Invalid file format');
-        showErrorOverlay(
-            'Format non supporté',
-            'Veuillez importer un fichier en PNG, JPEG, JPG, ou GIF.'
-        );
-        return;
-    }
-
-// Show loading state
-    loadingOverlay.classList.add('active');
-
-    try {
-        await progressBar.simulateProgress();
-
-        // Get token and prepare form data
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-        console.log('Token present:', !!token)
-        const formData = new FormData();
-        formData.append('file', file);
-        console.log('FormData created with file');
-
-        console.log('Sending request with:', {
-            fileSize: file.size,
-            fileName: file.name,
-            token: token ? 'Present' : 'Missing'
-        });
-
-
-        // Upload and get enhanced image
-        console.log('Starting fetch request...')
-        const response = await fetch(`/upload-enhance?token=${encodeURIComponent(token)}`, {
-            method: 'POST',
-            body: formData,
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest',
-                'Accept': 'application/json'
-            },
-        });
-        console.log('fetch response received:', response.status);
-        console.log('Response headers:', Object.fromEntries([...response.headers]));
-
-
-        if (!response.ok) {
-            const errorText = await response.text();
-            console.error('Response error:', {
-                status: response.status,
-                statusText: response.statusText,
-                errorText: errorText
-            });
-
-            let errorMessage = 'Une erreur est survenue lors du traitement de l\'image.';
-
-            if (response.status === 413) {
-                errorMessage = 'Le fichier est trop volumineux pour le serveur. Limite: 20 MB';
-                console.error('file too large error:', {
-                    fileSize: file.size,
-                    fileSizeMB: (file.size / (1024 * 1024)).toFixed(2)
-                });
-            }
-
-            showErrorOverlay('Erreur', errorMessage);
-            loadingOverlay.classList.remove('active');
-            return;
-        }
-        const result = await handleApiResponse(response);
-        console.log('Response parsed successfully:', result);
-        if (!result) return;
-
-        // Create image objects and update UI
-        const imageId = Date.now();
-        const newImage = {
-            id: imageId,
-            original: URL.createObjectURL(file),
-            enhanced: result.image_url,
-            sliderValue: 50
-        };
-
-        enhancedImages.unshift(newImage);
-        addImageToSidebar(newImage);
-        createImageComparison(newImage);
-        selectImage(imageId);
-        sidebar.classList.add('open');
-
-    } catch (error) {
-        console.error('Error:', error);
-        showErrorOverlay(
-            'Erreur',
-            'Une erreur est survenue lors du traitement de l\'image.'
-        );
-    } finally {
-        progressBar.hide();
-        fileInput.value = '';
-    }
-}
-
-// UI Component Creation
-function createImageComparison(image) {
-loadingOverlay.classList.add('active');
-
-const container = document.createElement('div');
-container.id = `comparison-${image.id}`;
-container.className = 'twentytwenty-container';
-
-// Create and load images first
-const originalImg = new Image();
-const enhancedImg = new Image();
-
-// Promise to ensure both images are loaded
-const loadImages = new Promise((resolve) => {
-    let loadedImages = 0;
-
-    function imageLoaded() {
-        loadedImages++;
-        if (loadedImages === 2) {
-            setTimeout(resolve, 500);
-        }
-    }
-    originalImg.onload = imageLoaded;
-    enhancedImg.onload = imageLoaded;
-    originalImg.onerror = () => {
-        console.error('Error loading original image');
-        loadingOverlay.classList.remove('active');
-    }
-    enhancedImg.onerror = () => {
-        console.error('Error loading enhanced image');
-        loadingOverlay.classList.remove('active');
-    }
-
-    originalImg.src = image.original;
-    originalImg.alt = "Original";
-    enhancedImg.src = image.enhanced;
-    enhancedImg.alt = "Enhanced";
-});
-
-container.appendChild(originalImg);
-container.appendChild(enhancedImg);
-
-imageContainer.insertBefore(container, imageContainer.firstChild);
-
-loadImages.then(() => {
-    $(container).twentytwenty({
-        default_offset_pct: 0.5,
-        before_label: 'Original',
-        after_label: 'Amélioré',
-        no_overlay: false,
-        move_slider_on_hover: true,
-        move_with_handle_only: false,
-        click_to_move: true
-    });
-
-    // Force à recalculer les dimensions
-    window.dispatchEvent(new Event('resize'));
-
-    // Attendez que TwentyTwenty soit complètement initialisé
-    setTimeout(() => {
-        loadingOverlay.classList.remove('active');
-        container.classList.add('visible');
-    }, 300);
-});
-
-const downloadSection = document.createElement('div');
-downloadSection.className = 'download-section';
-downloadSection.innerHTML = `
-    <button class="btn-download">Télécharger l'image</button>
-    <div class="format-dropdown">
-        ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format =>
-            `<div class="format-option" data-format="${format.toLowerCase()}">${format}</div>`
-        ).join('')}
-    </div>
-`;
-container.after(downloadSection);
-
-loadImages.then(() => {
-    setTimeout(() => {
-        $(container).twentytwenty({
-            default_offset_pct: 0.5,
-            before_label: 'before',
-            after_label: 'after',
-            no_overlay: false,
-            move_slider_on_hover: true,
-            move_with_handle_only: false,
-            click_to_move: true
-        });
-
-        window.dispatchEvent(new Event('resize'));
-
-        loadingOverlay.classList.remove('active');
-    }, 100);
-
-});
 
 // Gérer le téléchargement
 const downloadButton = downloadSection.querySelector('.btn-download');
@@ -1264,131 +1452,16 @@ document.addEventListener('click', (e) => {
 });
 }
 
-// Fonction pour charger l'historique
-async function loadHistory(page = 1, append = false) {
-    const historyLoader = document.getElementById('history-sidebar');
-    const historyContent = document.getElementById('history-sidebar');
-
-    if (!historyContent) {
-        console.error('History content not found.')
-        return;
-    }
-    console.log(`Fetching history for page ${page}...`);
-    if (isLoading || (!append && !hasMore)) return;
 
 
-    isLoading = true;
-    if (historyLoader) historyLoader.classList.remove('d-none');
-
-    try {
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-
-        const response = await fetch(`/api/chat/history/enhanced?page=${page}&token=${encodeURIComponent(token)}`, {
-            headers: {
-                'X-Requested-With': 'XMLHttpRequest'
-            }
-        });
-
-        if (!response.ok) {
-            if (response.status === 401 || response.status === 403) {
-                window.location.href = LOGIN_URL;
-                return;
-            }
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-
-        const data = await response.json();
-        console.log('Fetched data:', data);
-
-        if (!append) {
-            historyContent.innerHTML = '';
-        }
-
-        const items = data.data?.items || [];
-
-        if (items.length > 0) {
-            items.forEach((item, index) => {
-                const delay = index * 100;
-                const historyItem = createHistoryItem(item, delay);
-                historyContent.appendChild(historyItem);
-            });
-
-            hasMore = data.data?.pagination?.has_more || false;
-            currentPage = page;
-        } else {
-            if (!append) {
-                historyContent.innerHTML = '<p class="text-center">Aucun historique disponible</p>';
-            }
-            hasMore = false;
-        }
-
-    } catch (error) {
-        console.error('Error loading history:', error);
-        if (historyContent) {
-            historyContent.innerHTML += '<p class="text-center text-danger">Erreur lors du chargement de l\'historique</p>';
-        }
-    } finally {
-        isLoading = false;
-        if (historyLoader) historyLoader.classList.add('d-none');
-    }
-}
-
-// Fonction pour créer un élément d'historique
-function createHistoryItem(item, delay) {
-    const listItem = document.createElement('li');
-    listItem.className = 'fn__gl_item';
-
-    listItem.innerHTML = `
-        <div class="fn__gl__item">
-            <div class="abs_item">
-                <img src="${item.url}" alt="Enhanced image" loading="lazy">
-                <div class="all_options">
-                    <div class="fn__icon_options medium_size">
-                        <div class="dropdown">
-                            <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
-                            </button>
-                            <ul class="dropdown-menu dropdown-menu-dark">
-                                <li class="dropdown-item" data-format="png" data-url="${item.url}">PNG</li>
-                                <li class="dropdown-item" data-format="jpg" data-url="${item.url}">JPG</li>
-                                <li class="dropdown-item" data-format="jpeg" data-url="${item.url}">JPEG</li>
-                                <li class="dropdown-item" data-format="gif" data-url="${item.url}">GIF</li>
-                            </ul>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Gestion des événements
-    const downloadButtons = listItem.querySelectorAll('.dropdown-item');
-    downloadButtons.forEach(button => {
-        button.addEventListener('click', (e) => {
-            e.stopPropagation();
-            const format = button.getAttribute('data-format');
-            const imageUrl = button.getAttribute('data-url');
-            if (format && imageUrl) {
-                downloadImage(imageUrl, format);
-            }
-        });
-    });
-
-    listItem.style.animationDelay = `${delay}ms`;
-    return listItem;
-}
-
-
-closeSidebarButton.addEventListener('click', () => sidebar.classList.remove('open'));
 
 document.addEventListener('click', function(e) {
-if (!e.target.closest('.sidebar') && !e.target.closest('.add-button')) {
-    const sidebar = document.querySelector('.sidebar');
-    if (sidebar.classList.contains('open')) {
-        sidebar.classList.remove('open');
+    if (!e.target.closest('.sidebar') && !e.target.closest('.add-button')) {
+        const sidebar = document.querySelector('.sidebar');
+        if (sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+        }
     }
-}
 });
 
 document.addEventListener('click', (e) => {
@@ -1408,44 +1481,6 @@ if (e.key === 'Escape') {
 }
 });
 
-// Initialize authentication check
-document.addEventListener('DOMContentLoaded', async function() {
-const urlParams = new URLSearchParams(window.location.search);
-const token = urlParams.get('token');
-
-if (token) {
-    // Modifier TOUS les liens de navigation
-    document.querySelectorAll('a').forEach(link => {
-        // Ne pas modifier les liens externes
-        if (link.href.startsWith(window.location.origin)) {
-            const url = new URL(link.href);
-            // Préserver les autres paramètres d'URL existants
-            url.searchParams.set('token', token);
-            link.href = url.toString();
-        }
-    });
-    // Modifier tous les formulaires pour inclure le token
-    document.querySelectorAll('form').forEach(form => {
-        if (!form.querySelector('input[name="token"]')) {
-            const input = document.createElement('input');
-            input.type = 'hidden';
-            input.name = 'token';
-            input.value = token;
-            form.appendChild(input);
-        }
-    });
-const addButtonStyle = window.getComputedStyle(addButton);
-    console.error('Add Button Styles:', {
-        backgroundColor: addButtonStyle.backgroundColor,
-        display: addButtonStyle.display,
-        position: addButtonStyle.position,
-        zIndex: addButtonStyle.zIndex,
-        visibility: addButtonStyle.visibility,
-        opacity: addButtonStyle.opacity
-    });
-}
-loadHistory(1, false);
-});
 </script>
 
 
