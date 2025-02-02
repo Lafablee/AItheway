@@ -733,6 +733,59 @@ document.addEventListener('DOMContentLoaded', function() {
     const imageContainer = document.getElementById('image-container');
     const loadingOverlay = document.getElementById('loading-overlay');
 
+    const elements = {
+        fileInput: document.getElementById('file-input'),
+        addButton: document.getElementById('add-button'),
+        navSidebar: document.getElementById('nav-sidebar'),
+        closeSidebarButton: document.getElementById('close-sidebar'),
+        imageContainer: document.getElementById('image-container'),
+        loadingOverlay: document.getElementById('loading-overlay'),
+        historyLoader: document.getElementById('history-sidebar'),
+        historyContent: document.getElementById('history-sidebar')
+    };
+
+    // 2. Logs de vérification
+    console.error('File Input found:', !!elements.fileInput);
+    console.error('Add Button found:', !!elements.addButton);
+    console.error('Nav Sidebar found:', !!elements.navSidebar);
+
+    // 3. Configuration initiale
+    if (elements.fileInput) {
+        elements.fileInput.setAttribute('accept', 'image/png, image/jpeg, image/jpg, image/gif');
+    }
+    // 4. Event Listeners
+    if (elements.addButton) {
+        elements.addButton.style.pointerEvents = 'auto';
+        elements.addButton.style.cursor = 'pointer';
+
+        elements.addButton.addEventListener('click', function(e) {
+            console.error('=== ADD BUTTON CLICKED ===');
+            e.preventDefault();
+            e.stopPropagation();
+            elements.fileInput.click();
+            elements.navSidebar.classList.add('open');
+        });
+
+        elements.addButton.addEventListener('mouseover', () => {
+            console.log('Button hover detected');
+        });
+    }
+    if (elements.fileInput) {
+        elements.fileInput.addEventListener('change', async function(event) {
+            if (event.target.files && event.target.files[0]) {
+                await handleFileUpload(event.target.files[0], elements);
+            }
+        });
+    }
+
+    if (elements.closeSidebarButton) {
+        elements.closeSidebarButton.addEventListener('click', function() {
+            console.error('=== CLOSE BUTTON CLICKED ===');
+            elements.navSidebar.classList.remove('open');
+        });
+    }
+
+
     if (!fileInput || !addButton || !navSidebar || !closeSidebarButton) {
         console.error('Required elements not found');
         return;
@@ -831,12 +884,13 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('No file selected')
             return;
         }
-        console.log('File Dtails:', {
+        const fileDetails = {
             name: file.name,
             type: file.type,
             size: file.size,
-            sizeInMB: (file.size / (1024 * 1024)).toFixed(2) + 'MB'
-        });
+            sizeInMB: (file.size / (1024 * 1024)).toFixed(2)
+        };
+        console.error('File Dtails:', fileDetails)
 
         // Check file size before uploading
         if (file.size > MAX_FILE_SIZE) {
