@@ -787,8 +787,8 @@ document.addEventListener('DOMContentLoaded', function() {
     }, true);  // true pour la phase de capture
     }
     if (elements.fileInput) {
-        console.error('L:790')
         elements.fileInput.addEventListener('change', async function(event) {
+            console.error('L:790')
             if (event.target.files && event.target.files[0]) {
                 await handleFileUpload(event.target.files[0], elements);
                 console.error('await response...', event.target.files[0])
@@ -855,22 +855,19 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
     // Gestionnaire d'événement pour le changement de fichier
-    fileInput.addEventListener('change', async function (event) {
-        console.error('File input changed:', event.target.files)
-        if (event.target.files && event.target.files[0]) {
-            console.log('File selected:', {
-                name: event.target.files[0].name,
-                type: event.target.files[0].type,
-                size: event.target.files[0].size
-            });
-            await handleFileUpload(event.target.files[0]);
-        }
-    });
+    //fileInput.addEventListener('change', async function (event) {
+        //console.error('File input changed:', event.target.files)
+        //if (event.target.files && event.target.files[0]) {
+            //console.log('File selected:', {
+                //name: event.target.files[0].name,
+                //type: event.target.files[0].type,
+                //size: event.target.files[0].size
+            //});
+            //await handleFileUpload(event.target.files[0]);
+       // }
+   // });
 
-    closeSidebarButton.addEventListener('click', function () {
-        console.error('=== CLOSE BUTTON CLICKED ===');
-        navSidebar.classList.remove('open');
-    });
+
     // 5. Gestionnaire pour fermer avec Escape
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
