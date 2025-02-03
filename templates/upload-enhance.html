@@ -198,84 +198,6 @@
             transform: translateX(0);
         }
 
-        /* Sidebar styles */
-        .sidebar {
-            position: fixed;
-            right: 0;
-            top: max(20px, env(safe-area-inset-top));
-            width: 80px;
-            height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
-            background-color:rgba(255, 255, 255, 0.95);
-            box-shadow: -2px 0 10px rgba(0, 0, 0, 0.1);
-            transition: transform 0.3s ease;
-            border-top-left-radius: 12px;
-            border-bottom-left-radius: 12px;
-            backdrop-filter: blur(10px);
-            z-index: 900;
-            padding-top: env(safe-area-inset-top);
-            padding-bottom: env(safe-area-inset-bottom);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            overflow-y: auto;
-            transform: translateX(110%);
-        }
-
-        .sidebar.open {
-            transform: translateX(0);
-            box-shadow: -5px 0 25px rgba(0, 0, 0, 0.15);
-        }
-        .close-sidebar {
-            position: fixed;
-            top: 10px;
-            right: 10px;
-            width: clamp(60px, 15vw, 80px);
-            height: 100vh;
-            border: none;
-            background: #007bff;  /* Couleur principale de votre thème */
-            color: white;
-            border-radius: 50%;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.3s ease;
-            font-size: 18px;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-            z-index: 900;
-            padding: 20px 0;
-            flex-direction: column;
-            overflow-y: auto;
-            transform: translateX(100%);
-        }
-        .close-sidebar:hover {
-            background: #0056b3;
-            transform: scale(1.1);
-        }
-
-        .sidebar img {
-            width: 60px;
-            height: 60px;
-            object-fit: cover;
-            border-radius: 8px;
-            margin: 10px auto;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-        }
-
-        .sidebar img:hover {
-            transform: scale(1.1);
-            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2);
-        }
-
-        .sidebar img.selected {
-            border: 3px solid #007bff;
-            transform: scale(1.05);
-            position: relative;
-            z-index: 1;
-        }
-
         .error-overlay {
             backdrop-filter: blur(8px);
             position: fixed;
@@ -495,7 +417,7 @@
             -webkit-text-fill-color: transparent;
         }
         /* Style pour le sidebar de navigation */
-#nav-sidebar {
+/*#nav-sidebar {
     position: fixed;
     right: 0;
     top: max(20px, env(safe-area-inset-top));
@@ -503,18 +425,18 @@
     height: calc(100vh - env(safe-area-inset-top) - env(safe-area-inset-bottom));
     background-color: rgba(255, 255, 255, 0.95);
     /* ... reste des propriétés ... */
-}
+/*} */
 
 /* Style pour le sidebar d'historique */
-#history-sidebar {
+/*#history-sidebar {
     /* Propriétés spécifiques pour l'historique */
-    display: flex;
+    /*display: flex;
     flex-direction: column;
     width: 100%;
     height: auto;
     /* ... autres propriétés ... */
 
-}
+/*} */
         @keyframes shine {
             0% {
                 transform: translateX(-100%);
@@ -588,14 +510,6 @@
                 padding: 10px;
             }
 
-            .sidebar {
-                width: 60px;
-            }
-
-            .sidebar img {
-                width: 45px;
-                height: 45px;
-            }
 
             .sidebar.open img {
                 opacity: 1;
@@ -648,17 +562,9 @@
                         <div class="title_holder">
                             <h2 class="prompt_title">Images History</h2>
                         </div>
-                        <div class="item_options">
-                            <div class="fn__icon_options medium_size align_right">
-                                <a href="javascript:;" class="fn__icon_button" onclick="createNewInstance()">
-                                    <img src="{{ url_for('static', filename='assets/svg/plus.svg') }}" alt="" class="fn__svg">
-                                </a>
-                            </div>
-                        </div>
                     </div>
-
                     <div class="item_list">
-                        <ul class="fn__generation_list sidebar" id="history-sidebar">
+                        <ul class="fn__generation_list" id="history-content">
                             <!-- Les images de l'historique seront chargées ici -->
                         </ul>
                     </div>
@@ -683,11 +589,7 @@
                 
                 <button class="add-button" id="add-button">+</button>
                 <input type="file" id="file-input" accept="image/png, image/jpeg, image/jpg, image/gif" style="display: none;">
-            
-                <div class="sidebar" id="nav-sidebar">
-                    <button class="close-sidebar" id="close-sidebar">×</button>
-                    <div class="sidebar-content" id="sidebar-content"></div>
-                </div>
+
             
                 <div class="loading-overlay" id="loading-overlay">
                     <div class="loading-spinner"></div>
@@ -738,18 +640,18 @@ document.addEventListener('DOMContentLoaded', function() {
         addButton.style.backgroundColor = '#0056b3';  // Change de couleur au hover
     });
 
-    const navSidebar = document.getElementById('nav-sidebar');
-    console.error('Nav Sidebar found:', !!navSidebar);
+    //const navSidebar = document.getElementById('nav-sidebar');
+    //console.error('Nav Sidebar found:', !!navSidebar);
 
-    const closeSidebarButton = document.getElementById('close-sidebar');
+    //const closeSidebarButton = document.getElementById('close-sidebar');
     const imageContainer = document.getElementById('image-container');
     const loadingOverlay = document.getElementById('loading-overlay');
 
     const elements = {
         fileInput: document.getElementById('file-input'),
         addButton: document.getElementById('add-button'),
-        navSidebar: document.getElementById('nav-sidebar'),
-        closeSidebarButton: document.getElementById('close-sidebar'),
+        //navSidebar: document.getElementById('nav-sidebar'),
+        //closeSidebarButton: document.getElementById('close-sidebar'),
         imageContainer: document.getElementById('image-container'),
         loadingOverlay: document.getElementById('loading-overlay'),
         historyLoader: document.getElementById('history-sidebar'),
@@ -797,15 +699,15 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    if (elements.closeSidebarButton) {
-        elements.closeSidebarButton.addEventListener('click', function() {
-            console.error('=== CLOSE BUTTON CLICKED ===');
-            elements.navSidebar.classList.remove('open');
-        });
-    }
+    //if (elements.closeSidebarButton) {
+      //  elements.closeSidebarButton.addEventListener('click', function() {
+      //      console.error('=== CLOSE BUTTON CLICKED ===');
+      //      elements.navSidebar.classList.remove('open');
+      //  });
+    //}
 
 
-    if (!fileInput || !addButton || !navSidebar || !closeSidebarButton) {
+    if (!fileInput || !addButton) {
         console.error('Required elements not found');
         return;
     }
@@ -870,7 +772,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 5. Gestionnaire pour fermer avec Escape
     document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') {
-            navSidebar.classList.remove('open');
+            //navSidebar.classList.remove('open');
             document.querySelectorAll('.format-dropdown').forEach(dropdown =>
                 dropdown.classList.remove('show')
             );
@@ -1011,11 +913,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 sliderValue: 50
             };
             console.error('L1013')
-            enhancedImages.unshift(newImage);
-            addImageToSidebar(newImage);
+            //enhancedImages.unshift(newImage);
+            //addImageToSidebar(newImage);
             createImageComparison(newImage);
-            selectImage(imageId);
-            sidebar.classList.add('open');
+            //selectImage(imageId);
+            //sidebar.classList.add('open');
 
         } catch (error) {
             console.error('Error:', error);
@@ -1130,8 +1032,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Fonction pour charger l'historique
     async function loadHistory(page = 1, append = false) {
-        const historyLoader = document.getElementById('history-sidebar');
-        const historyContent = document.getElementById('history-sidebar');
+        const historyLoader = document.getElementById('historyloader');
+        const historyContent = document.getElementById('history-content');
 
         if (!historyContent) {
             console.error('History content not found.')
@@ -1174,7 +1076,11 @@ document.addEventListener('DOMContentLoaded', function() {
             if (items.length > 0) {
                 items.forEach((item, index) => {
                     const delay = index * 100;
-                    const historyItem = createHistoryItem(item, delay);
+                    const historyItem = createHistoryItem({
+                        original_url: `/image/${item.original_key}`,
+                        enhanced_url: `/image/${item.enhanced_key}`,
+                        timestamp: item.timestamp
+                    }, delay);
                     historyContent.appendChild(historyItem);
                 });
 
@@ -1205,8 +1111,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
         listItem.innerHTML = `
            <div class="fn__gl__item">
-               <div class="abs_item">
-                   <img src="${item.url}" alt="Enhanced image" loading="lazy">
+               <div class="comparison-container">
+                   <img src="${item.original_url}" alt="Original image" class="image original-image">
+                   <img src="${item.enhanced_url}" alt="Enhanced Image" class="image enhanced-image">
+                       <div class="comparison-labels">
+                        <div class="label label-before">Original</div>
+                        <div class="label label-after">Amélioré</div>
+                   </div>
                    <div class="all_options">
                        <div class="fn__icon_options medium_size">
                            <div class="dropdown">
@@ -1224,6 +1135,18 @@ document.addEventListener('DOMContentLoaded', function() {
                </div>
            </div>
        `;
+
+        // Initialiser le slider TwentyTwenty pour chaque élément
+        const comparisonContainer = listItem.querySelector('.comparison-container');
+        $(comparisonContainer).twentytwenty({
+            default_offset_pct: 0.5,
+            before_label: 'Original',
+            after_label: 'Amélioré',
+            no_overlay: false,
+            move_slider_on_hover: true,
+            move_with_handle_only: false,
+            click_to_move: true
+        });
 
         // Gestion des événements
         const downloadButtons = listItem.querySelectorAll('.dropdown-item');
@@ -1264,6 +1187,7 @@ document.addEventListener('DOMContentLoaded', function() {
         );
         console.log('Elements au-dessus du bouton:', elements);
     }
+
 
     // Appelons-la pour voir ce qui pourrait bloquer le bouton
     checkForOverlays();
@@ -1425,55 +1349,44 @@ return response.json();
 }
 
 async function downloadImage(url, format) {
-try {
-    const response = await fetch(url, { headers });
-    if (!response.ok) {
-        throw new Error('Download failed');
+    try {
+        const response = await fetch(url, {headers});
+        if (!response.ok) {
+            throw new Error('Download failed');
+        }
+        const blob = await response.blob();
+        const downloadUrl = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = downloadUrl;
+        link.download = `image-amelioree.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+        console.error('Download error:', error);
+        showErrorOverlay(
+            'Erreur de téléchargement',
+            'Impossible de télécharger l\'image. Veuillez réessayer.'
+        );
     }
-    const blob = await response.blob();
-    const downloadUrl = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = downloadUrl;
-    link.download = `image-amelioree.${format}`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(downloadUrl);
-} catch (error) {
-    console.error('Download error:', error);
-    showErrorOverlay(
-        'Erreur de téléchargement',
-        'Impossible de télécharger l\'image. Veuillez réessayer.'
-    );
-}
-}
 
-function addImageToSidebar(image) {
-const thumbnail = document.createElement('img');
-thumbnail.src = image.enhanced;
-thumbnail.dataset.id = image.id;
-thumbnail.addEventListener('click', () => selectImage(image.id));
 
-if (selectedImageId) {
-    thumbnail.classList.add('selected');
-}
-sidebar.querySelector('.sidebar-content').appendChild(thumbnail);
-}
-function selectImage(imageId) {
-selectedImageId = imageId;
+//function selectImage(imageId) {
+//selectedImageId = imageId;
 
-document.querySelectorAll('.sidebar img').forEach(img => {
-    img.classList.toggle('selected', img.dataset.id == imageId);
-});
+//document.querySelectorAll('.sidebar img').forEach(img => {
+    //  img.classList.toggle('selected', img.dataset.id == imageId);
+//});
 
-const selectedElement = document.getElementById(`comparison-${imageId}`);
-if (selectedElement) {
-    selectedElement.scrollIntoView({
-        behavior: 'smooth',
-        block: 'center', //changé de start à slider
-        inline: 'nearest'
-    });
-}
+//const selectedElement = document.getElementById(`comparison-${imageId}`);
+//if (selectedElement) {
+    //selectedElement.scrollIntoView({
+    //   behavior: 'smooth',
+    // block: 'center', //changé de start à slider
+    // inline: 'nearest'
+    //});
+//}
 
 // Gérer le téléchargement
 const downloadButton = downloadSection.querySelector('.btn-download');
@@ -1521,14 +1434,14 @@ document.addEventListener('click', (e) => {
 
 
 
-document.addEventListener('click', function(e) {
-    if (!e.target.closest('.sidebar') && !e.target.closest('.add-button')) {
-        const sidebar = document.querySelector('.sidebar');
-        if (sidebar.classList.contains('open')) {
-            sidebar.classList.remove('open');
-        }
-    }
-});
+    //document.addEventListener('click', function(e) {
+    //if (!e.target.closest('.sidebar') && !e.target.closest('.add-button')) {
+    //    const sidebar = document.querySelector('.sidebar');
+    //    if (sidebar.classList.contains('open')) {
+    //        sidebar.classList.remove('open');
+    //    }
+    //}
+//});
 
 document.addEventListener('click', (e) => {
 if (!e.target.closest('.download-section')) {
