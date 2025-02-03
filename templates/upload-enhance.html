@@ -661,7 +661,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // 2. Logs de vérification
     console.error('File Input found:', !!elements.fileInput);
     console.error('Add Button found:', !!elements.addButton);
-    console.error('Nav Sidebar found:', !!elements.navSidebar);
+    //console.error('Nav Sidebar found:', !!elements.navSidebar);
 
     // 3. Configuration initiale
     if (elements.fileInput) {
@@ -1453,7 +1453,7 @@ if (!e.target.closest('.download-section')) {
 
 document.addEventListener('keydown', (e) => {
 if (e.key === 'Escape') {
-    sidebar.classList.remove('open');
+    //sidebar.classList.remove('open');
     document.querySelectorAll('.format-dropdown').forEach(dropdown =>
         dropdown.classList.remove('show')
     );
