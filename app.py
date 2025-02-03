@@ -1034,6 +1034,7 @@ def upload_enhance(wp_user_id):
     token = request.args.get('token')
     is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
     app.logger.error(f"Is AJAX request: {is_ajax}")
+
     if not token:
         app.logger.error("Token not found!")
         if is_ajax:
@@ -1114,8 +1115,10 @@ def upload_enhance(wp_user_id):
                     image_data,
                     original_metadata
                 )
+                # Create BytesIO object from the file
+                file_object = BytesIO(image_data)
+                enhanced_url = enhance_image_quality(file_object)
 
-                enhanced_url = enhance_image_quality(BytesIO(image_data))
                 if enhanced_url:
                     # Télécharger l'image améliorée
                     enhanced_response = requests.get(enhanced_url)
@@ -1142,6 +1145,8 @@ def upload_enhance(wp_user_id):
                         })
                 return jsonify({'error': 'Failed to enhance image'}), 500
 
+            return jsonify({'error': 'Invalid file type'}), 400
+
         return jsonify({"error": "Method not allowed"}), 405
 
     except Exception as e:
@@ -1154,7 +1159,14 @@ def enhance_image_quality(file_path):
             app.logger.error("DeepAI API key is not set")
             return None
 
-        with open(file_path, 'rb') as image_file:
+        # If file_path is BytesIO, read it directly
+        if isinstance(file_path, BytesIO):
+            image_file = file_path
+        else:
+            # If it's a path, open the file
+            image_file = open(file_path, 'rb')
+
+        try:
             app.logger.error("Attempting to contact DeepAI API...")
             response = requests.post(
                 'https://api.deepai.org/api/waifu2x',
@@ -1172,10 +1184,12 @@ def enhance_image_quality(file_path):
 
             result = response.json()
             app.logger.debug(f"Response from DeepAI: {result}")
-            if 'output_url' not in result:
-                app.logger.error(f"No output URL in response: {result}")
-                return None
             return result.get('output_url')
+
+        finally:
+            # Close the file if it was opened from a path
+            if not isinstance(file_path, BytesIO) and image_file:
+                image_file.close()
 
     except requests.exceptions.RequestException as e:
         app.logger.error(f"Network error contacting DeepAI: {str(e)}")
