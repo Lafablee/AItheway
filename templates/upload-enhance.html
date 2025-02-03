@@ -933,6 +933,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // UI Component Creation
     function createImageComparison(image) {
+        console.error('Image data received:', {
+            original_key: image.original_key,
+            enhanced_key: image.enhanced_key,
+            original_url: image.original_url,
+            enhanced_url: image.enhanced_url
+        });
+
         loadingOverlay.classList.add('active');
 
         const container = document.createElement('div');
@@ -965,17 +972,17 @@ document.addEventListener('DOMContentLoaded', function() {
             originalImg.onload = imageLoaded;
             enhancedImg.onload = imageLoaded;
             originalImg.onerror = () => {
-                console.error('Error loading original image', fullOriginalUrl);
+                console.error('Error loading original image', originalImg.src);
                 loadingOverlay.classList.remove('active');
             }
             enhancedImg.onerror = () => {
-                console.error('Error loading enhanced image', fullEnhancedUrl);
+                console.error('Error loading enhanced image', enhancedImg.src);
                 loadingOverlay.classList.remove('active');
             }
 
-            originalImg.src = fullOriginalUrl;
+            originalImg.src = `/image/${image.original_key}`;
             originalImg.alt = "Original";
-            enhancedImg.src = fullEnhancedUrl;
+            enhancedImg.src = `/image/${image.enhanced_key}`;
             enhancedImg.alt = "Enhanced";
 
             // Logs détaillés de débogage
