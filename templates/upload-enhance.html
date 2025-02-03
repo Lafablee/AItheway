@@ -943,6 +943,9 @@ document.addEventListener('DOMContentLoaded', function() {
         const originalImg = new Image();
         const enhancedImg = new Image();
 
+        const fullOriginalUrl = window.location.origin + image.original_url;
+        const fullEnhancedUrl = window.location.origin + image.enhanced_url;
+
         // Promise to ensure both images are loaded
         const loadImages = new Promise((resolve) => {
             let loadedImages = 0;
@@ -957,18 +960,24 @@ document.addEventListener('DOMContentLoaded', function() {
             originalImg.onload = imageLoaded;
             enhancedImg.onload = imageLoaded;
             originalImg.onerror = () => {
-                console.error('Error loading original image');
+                console.error('Error loading original image', fullOriginalUrl);
                 loadingOverlay.classList.remove('active');
             }
             enhancedImg.onerror = () => {
-                console.error('Error loading enhanced image');
+                console.error('Error loading enhanced image', fullEnhancedUrl);
                 loadingOverlay.classList.remove('active');
             }
 
-            originalImg.src = image.original;
+            originalImg.src = fullOriginalUrl;
             originalImg.alt = "Original";
-            enhancedImg.src = image.enhanced;
+            enhancedImg.src = fullEnhancedUrl;
             enhancedImg.alt = "Enhanced";
+
+            // Logs détaillés de débogage
+            console.log('Image URLs:', {
+                original: fullOriginalUrl,
+                enhanced: fullEnhancedUrl
+            });
         });
 
         container.appendChild(originalImg);
@@ -1340,12 +1349,19 @@ observer.observe(container);
 }
 
 async function handleApiResponse(response) {
+    console.error('Full response:', response);
+    console.error('Response headers:', Object.fromEntries(response.headers));
+    console.error('Response status:', response.status);
+
 if (!response.ok) {
     const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+    console.error('API Error:', errorData)
     showErrorOverlay('Erreur', errorData.message || 'Une erreur est survenue');
     return null;
 }
-return response.json();
+const result = await response.json();
+console.error('Passed result:', result)
+return result;
 }
 
 async function downloadImage(url, format) {
