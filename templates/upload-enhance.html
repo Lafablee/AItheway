@@ -943,8 +943,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const originalImg = new Image();
         const enhancedImg = new Image();
 
-        const fullOriginalUrl = window.location.origin + image.original_url;
-        const fullEnhancedUrl = window.location.origin + image.enhanced_url;
+        const fullOriginalUrl = (image.original_url || '').startsWith('/')
+        ? `${window.location.protocol}//${window.location.host}${image.original_url}`
+        : image.original_url;
+
+        const fullEnhancedUrl = (image.enhanced_url || '').startsWith('/')
+        ? `${window.location.protocol}//${window.location.host}${image.enhanced_url}`
+        : image.enhanced_url;
 
         // Promise to ensure both images are loaded
         const loadImages = new Promise((resolve) => {
