@@ -323,8 +323,8 @@
         .add-button {
             /* background: linear-gradient(135deg, #007bff, #0056b3); */
             position: fixed;
-            left: 20px;
-            bottom: 100px;
+            /*left: 20px; */
+            bottom: 50px;
             width: 56px;
             height: 56px;
             background-color: #6e6e76;
@@ -332,18 +332,22 @@
             border: none;
             border-radius: 50%;
             font-size: 24px;
-            cursor: pointer;
+            cursor: pointer !important;
             display: flex;
             align-items: center;
             justify-content: center;
+            pointer-events: auto !important;  /* Force les événements de souris */
+            user-select: none;  /* Empêche la sélection de texte */
+            -webkit-tap-highlight-color: transparent;  /* Pour les appareils tactiles */
             box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
             transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-            z-index: 1000;
+            z-index: 9999;
         }
 
         .add-button:hover {
             transform: scale(1.1) rotate(90deg);
             background-color: #0056b3;
+            transition: all 0.3s ease;
         }
 
         .twentytwenty-container {
@@ -725,11 +729,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const addButton = document.getElementById('add-button');
     console.error('Add Button found:', !!addButton);
+    addButton.disabled = false;
+    addButton.style.pointerEvents = 'auto';
 
-    // Logs de débogage
-    console.log('Button exists:', !!addButton);
-    console.log('Button style:', window.getComputedStyle(addButton));
-    console.log('Button position:', addButton.getBoundingClientRect());
+    // Test pour voir si les événements atteignent le bouton
+    addButton.addEventListener('mouseover', () => {
+        console.log('Hover test');
+        addButton.style.backgroundColor = '#0056b3';  // Change de couleur au hover
+    });
 
     const navSidebar = document.getElementById('nav-sidebar');
     console.error('Nav Sidebar found:', !!navSidebar);
@@ -774,6 +781,11 @@ document.addEventListener('DOMContentLoaded', function() {
         elements.addButton.addEventListener('mouseover', () => {
             console.log('Button hover detected');
         });
+        // Ajout d'un gestionnaire sur le document pour voir où les clics arrivent
+    document.addEventListener('click', (e) => {
+        console.log('Click target:', e.target);
+        console.log('Click coordinates:', e.clientX, e.clientY);
+    }, true);  // true pour la phase de capture
     }
     if (elements.fileInput) {
         elements.fileInput.addEventListener('change', async function(event) {
@@ -1260,6 +1272,19 @@ document.addEventListener('DOMContentLoaded', function() {
             click_to_move: true
         });
     }
+    // Ajoutons cette fonction dans votre DOMContentLoaded
+    function checkForOverlays() {
+        const button = document.getElementById('add-button');
+        const rect = button.getBoundingClientRect();
+        const elements = document.elementsFromPoint(
+            rect.left + rect.width/2,
+             rect.top + rect.height/2
+        );
+        console.log('Elements au-dessus du bouton:', elements);
+    }
+
+    // Appelons-la pour voir ce qui pourrait bloquer le bouton
+    checkForOverlays();
 
     // Configuration du file input
     fileInput.setAttribute('accept', 'image/png, image/jpeg, image/jpg, image/gif');
