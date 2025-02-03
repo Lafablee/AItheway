@@ -791,9 +791,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('L:790')
             if (event.target.files && event.target.files[0]) {
                 await handleFileUpload(event.target.files[0], elements);
-                console.error('await response...', event.target.files[0])
             } else {
-                console.error('FAIL', event.target.files[0], ':', event.target.files)
+                console.error('FAIL File Upload')
             }
         });
     }
@@ -929,10 +928,10 @@ document.addEventListener('DOMContentLoaded', function() {
             type: file.type,
             size: `${(file.size / (1024 * 1024)).toFixed(2)} MB`
         });
-
+        console.error('L:929')
         // Validate file format
         const acceptedFormats = ['image/png', 'image/jpeg', 'image/jpg', 'image/gif'];
-        console.log('Checking file format:', file.type);
+        console.error('Checking file format:', file.type);
         if (!acceptedFormats.includes(file.type)) {
             console.error('Invalid file format');
             showErrorOverlay(
@@ -964,7 +963,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
 
             // Upload and get enhanced image
-            console.log('Starting fetch request...')
+            console.error('Starting fetch request...')
             const response = await fetch(`/upload-enhance?token=${encodeURIComponent(token)}`, {
                 method: 'POST',
                 body: formData,
@@ -973,8 +972,8 @@ document.addEventListener('DOMContentLoaded', function() {
                     'Accept': 'application/json'
                 },
             });
-            console.log('fetch response received:', response.status);
-            console.log('Response headers:', Object.fromEntries([...response.headers]));
+            console.error('fetch response received:', response.status);
+            console.error('Response headers:', Object.fromEntries([...response.headers]));
 
 
             if (!response.ok) {
@@ -1000,7 +999,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             const result = await handleApiResponse(response);
-            console.log('Response parsed successfully:', result);
+            console.error('Response parsed successfully:', result);
             if (!result) return;
 
             // Create image objects and update UI
@@ -1011,7 +1010,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 enhanced: result.image_url,
                 sliderValue: 50
             };
-
+            console.error('L1013')
             enhancedImages.unshift(newImage);
             addImageToSidebar(newImage);
             createImageComparison(newImage);
