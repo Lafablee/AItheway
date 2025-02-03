@@ -775,7 +775,6 @@ document.addEventListener('DOMContentLoaded', function() {
             e.preventDefault();
             e.stopPropagation();
             elements.fileInput.click();
-            elements.navSidebar.classList.add('open');
         });
 
         elements.addButton.addEventListener('mouseover', () => {
@@ -788,9 +787,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }, true);  // true pour la phase de capture
     }
     if (elements.fileInput) {
+        console.error('L:790')
         elements.fileInput.addEventListener('change', async function(event) {
             if (event.target.files && event.target.files[0]) {
                 await handleFileUpload(event.target.files[0], elements);
+                console.error('await response...', event.target.files[0])
+            } else {
+                console.error('FAIL', event.target.files[0], ':', event.target.files)
             }
         });
     }
@@ -850,23 +853,6 @@ document.addEventListener('DOMContentLoaded', function() {
         setupEntranceAnimation(container);
     });
 
-
-    // Gestionnaire d'événement pour le bouton +
-    addButton.addEventListener('click', function (e) {
-        console.error('=== ADD BUTTON CLICKED ===');
-        console.error('Event:', e.type);
-        console.error('Target:', e.target);
-
-        e.preventDefault();
-        e.stopPropagation();
-        console.error('Before fileInput.click()');
-        fileInput.click();
-        console.error('After fileInput.click()');
-
-        console.error('Before navSidebar.classList.add()');
-        navSidebar.classList.add('open');
-        console.error('After navSidebar.classList.add()');
-    });
 
     // Gestionnaire d'événement pour le changement de fichier
     fileInput.addEventListener('change', async function (event) {
