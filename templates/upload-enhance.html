@@ -945,14 +945,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const originalImg = new Image();
         const enhancedImg = new Image();
 
-        const fullOriginalUrl = (image.original || '').startsWith('/')
-        ? `${window.location.protocol}//${window.location.host}${image.original}`
-        : image.original;
-
-        const fullEnhancedUrl = (image.enhanced || '').startsWith('/')
-        ? `${window.location.protocol}//${window.location.host}${image.enhanced}`
-        : image.enhanced;
-
         // Promise to ensure both images are loaded
         const loadImages = new Promise((resolve) => {
             let loadedImages = 0;
@@ -975,16 +967,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 loadingOverlay.classList.remove('active');
             }
 
-            originalImg.src = `/image/${image.original_key}`;
+            originalImg.src = image.original;
             originalImg.alt = "Original";
-            enhancedImg.src = `/image/${image.enhanced_key}`;
+            enhancedImg.src = image.enhanced;
             enhancedImg.alt = "Enhanced";
 
-            // Logs détaillés de débogage
-            console.log('Image URLs:', {
-                original: fullOriginalUrl,
-                enhanced: fullEnhancedUrl
-            });
         });
 
         container.appendChild(originalImg);
