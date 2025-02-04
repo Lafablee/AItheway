@@ -933,12 +933,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // UI Component Creation
     function createImageComparison(image) {
-        console.error('Image data received:', {
-            original_key: image.original_key,
-            enhanced_key: image.enhanced_key,
-            original_url: image.original,
-            enhanced_url: image.enhanced
-        });
+        console.error('Image data received:', image)
 
         loadingOverlay.classList.add('active');
 
