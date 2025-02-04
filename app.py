@@ -1172,7 +1172,7 @@ def enhance_image_quality(file_path):
                 'https://api.deepai.org/api/waifu2x',
                 files={'image': image_file},
                 headers={'api-key': deep_ai_api_key},
-                timeout=35
+                timeout=60
             )
             app.logger.error(f"DeepAI API Status Code: {response.status_code}")
             app.logger.error(f"DeepAI API Response Headers: {response.headers}")
@@ -1186,14 +1186,21 @@ def enhance_image_quality(file_path):
             app.logger.debug(f"Response from DeepAI: {result}")
             return result.get('output_url')
 
+        except requests.exceptions.Timeout:
+            app.logger.error("Timeout lors de la connexion à DeepAI")
+            return None
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f"Erreur de requête DeepAI: {str(e)}")
+            return None
+        except Exception as e:
+            app.logger.error(f"Erreur inattendue: {str(e)}")
+            return None
+
         finally:
             # Close the file if it was opened from a path
             if not isinstance(file_path, BytesIO) and image_file:
                 image_file.close()
 
-    except requests.exceptions.RequestException as e:
-        app.logger.error(f"Network error contacting DeepAI: {str(e)}")
-        return None
     except Exception as e:
         app.logger.error(f"Unexpected error contacting DeepAI: {str(e)}")
         return None
