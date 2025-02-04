@@ -954,6 +954,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 if (loadedImages === 2) {
                     setTimeout(resolve, 500);
                 }
+                console.error('imageLoaded:', loadedImages)
             }
 
             originalImg.onload = imageLoaded;
@@ -966,6 +967,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 console.error('Error loading enhanced image', enhancedImg.src);
                 loadingOverlay.classList.remove('active');
             }
+
 
             originalImg.src = image.original;
             originalImg.alt = "Original";
