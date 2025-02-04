@@ -936,8 +936,8 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Image data received:', {
             original_key: image.original_key,
             enhanced_key: image.enhanced_key,
-            original_url: image.original_url,
-            enhanced_url: image.enhanced_url
+            original_url: image.original,
+            enhanced_url: image.enhanced
         });
 
         loadingOverlay.classList.add('active');
@@ -950,13 +950,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const originalImg = new Image();
         const enhancedImg = new Image();
 
-        const fullOriginalUrl = (image.original_url || '').startsWith('/')
-        ? `${window.location.protocol}//${window.location.host}${image.original_url}`
-        : image.original_url;
+        const fullOriginalUrl = (image.original || '').startsWith('/')
+        ? `${window.location.protocol}//${window.location.host}${image.original}`
+        : image.original;
 
-        const fullEnhancedUrl = (image.enhanced_url || '').startsWith('/')
-        ? `${window.location.protocol}//${window.location.host}${image.enhanced_url}`
-        : image.enhanced_url;
+        const fullEnhancedUrl = (image.enhanced || '').startsWith('/')
+        ? `${window.location.protocol}//${window.location.host}${image.enhanced}`
+        : image.enhanced;
 
         // Promise to ensure both images are loaded
         const loadImages = new Promise((resolve) => {
