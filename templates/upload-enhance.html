@@ -982,11 +982,11 @@ document.addEventListener('DOMContentLoaded', function() {
         imageContainer.insertBefore(container, imageContainer.firstChild);
 
         loadImages.then(() => {
-            console.error('VF');
+            console.error('VO');
             $(container).twentytwenty({
                 default_offset_pct: 0.5,
-                before_label: 'Original',
-                after_label: 'Amélioré',
+                before_label: 'before',
+                after_label: 'after',
                 no_overlay: false,
                 move_slider_on_hover: true,
                 move_with_handle_only: false,
@@ -1016,25 +1016,6 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('After')
         container.after(downloadSection);
 
-        loadImages.then(() => {
-            console.error('VO');
-            setTimeout(() => {
-                $(container).twentytwenty({
-                    default_offset_pct: 0.5,
-                    before_label: 'before',
-                    after_label: 'after',
-                    no_overlay: false,
-                    move_slider_on_hover: true,
-                    move_with_handle_only: false,
-                    click_to_move: true
-                });
-
-                window.dispatchEvent(new Event('resize'));
-
-                loadingOverlay.classList.remove('active');
-            }, 1000);
-
-        });
     }
 
 
