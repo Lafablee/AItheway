@@ -982,6 +982,7 @@ document.addEventListener('DOMContentLoaded', function() {
         imageContainer.insertBefore(container, imageContainer.firstChild);
 
         loadImages.then(() => {
+            console.error('VF');
             $(container).twentytwenty({
                 default_offset_pct: 0.5,
                 before_label: 'Original',
@@ -999,7 +1000,7 @@ document.addEventListener('DOMContentLoaded', function() {
             setTimeout(() => {
                 loadingOverlay.classList.remove('active');
                 container.classList.add('visible');
-            }, 300);
+            }, 1000);
         });
 
         const downloadSection = document.createElement('div');
@@ -1016,6 +1017,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.after(downloadSection);
 
         loadImages.then(() => {
+            console.error('VO');
             setTimeout(() => {
                 $(container).twentytwenty({
                     default_offset_pct: 0.5,
@@ -1030,7 +1032,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 window.dispatchEvent(new Event('resize'));
 
                 loadingOverlay.classList.remove('active');
-            }, 100);
+            }, 1000);
 
         });
     }
