@@ -1006,7 +1006,8 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 1000);
         });
 
-
+        console.error('After')
+        container.after(downloadSection);
 
         loadImages.then(() => {
             setTimeout(() => {
@@ -1427,8 +1428,7 @@ function adjustDropdownPosition(dropdown) {
         ).join('')}
         </div>
     `;
-        console.error('After')
-        container.after(downloadSection);
+
         // Gérer le téléchargement
         const downloadButton = downloadSection.querySelector('.btn-download');
         const formatDropdown = downloadSection.querySelector('.format-dropdown');
@@ -1448,7 +1448,7 @@ function adjustDropdownPosition(dropdown) {
     formatDropdown.addEventListener('click', (e) => {
         console.error('click e for show format')
         if (e.target.classList.contains('format-option')) {
-            downloadImage(image.enhanced, e.target.dataset.format);
+            //downloadImage(image.enhanced, e.target.dataset.format);
             formatDropdown.classList.remove('show');
         }
     });
