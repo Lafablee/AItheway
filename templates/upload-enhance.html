@@ -96,13 +96,15 @@
         .download-section {
             background: linear-gradient(to right, #f8f9fa, white);
             border-radius: 0 0 12px 12px;
-            position: relative;
+            top: 10%;
+            left: 50%;
+            /*position: relative;*/
             margin: 20px auto;
             padding: 15px;
             text-align: center;
             width: 100%;
             max-width: 300px;
-            z-index: 1000;
+            z-index: 9999;
         }
 
         .btn-download {
@@ -1007,7 +1009,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         console.error('After')
-        container.after(downloadSection);
+        //ontainer.after(downloadSection);
 
         loadImages.then(() => {
             setTimeout(() => {
