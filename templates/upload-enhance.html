@@ -915,7 +915,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 sliderValue: 50
             };
             console.error('new Image', newImage)
-            //enhancedImages.unshift(newImage);
+            enhancedImages.unshift(newImage);
             //addImageToSidebar(newImage);
             createImageComparison(newImage);
             //selectImage(imageId);
@@ -981,7 +981,6 @@ document.addEventListener('DOMContentLoaded', function() {
         container.appendChild(originalImg);
         container.appendChild(enhancedImg);
 
-        const imageContainer = document.getElementById('image-container');
         imageContainer.insertBefore(container, imageContainer.firstChild);
 
         loadImages.then(() => {
@@ -1019,7 +1018,22 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('After')
         container.after(downloadSection);
 
-    return container;
+        loadImages.then(() => {
+            setTimeout(() => {
+                $(container).twentytwenty({
+                    default_offset_pct: 0.5,
+                    before_label: 'before',
+                    after_label: 'after',
+                    no_overlay: false,
+                    move_slider_on_hover: true,
+                    move_with_handle_only: false,
+                    click_to_move: true
+                });
+                window.dispatchEvent(new Event('resize'));
+                loadingOverlay.classList.remove('active');
+            }, 100);
+        });
+
     }
 
 
@@ -1407,6 +1421,7 @@ function adjustDropdownPosition(dropdown) {
 
 downloadButton.addEventListener('click', (e) => {
     e.stopPropagation();
+    console.error('Click');
     document.querySelectorAll('.format-dropdown').forEach(dropdown => {
         if (dropdown !== formatDropdown) {
             dropdown.classList.remove('show');
@@ -1425,6 +1440,7 @@ formatDropdown.addEventListener('click', (e) => {
 
 // Fermer le menu quand on clique ailleurs
 document.addEventListener('click', (e) => {
+    console.error('Close folder input')
     if (!e.target.closest('.download-section')) {
         formatDropdown.classList.remove('show');
     }
@@ -1443,13 +1459,7 @@ document.addEventListener('click', (e) => {
     //}
 //});
 
-document.addEventListener('click', (e) => {
-if (!e.target.closest('.download-section')) {
-    document.querySelectorAll('.format-dropdown').forEach(dropdown =>
-        dropdown.classList.remove('show')
-    );
-}
-});
+
 
 document.addEventListener('keydown', (e) => {
 if (e.key === 'Escape') {
