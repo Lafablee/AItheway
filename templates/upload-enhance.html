@@ -1022,6 +1022,34 @@ document.addEventListener('DOMContentLoaded', function() {
         const downloadButton = downloadSection.querySelector('.btn-download');
         const formatDropdown = downloadSection.querySelector('.format-dropdown');
 
+        downloadButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        console.error('Click');
+        document.querySelectorAll('.format-dropdown').forEach(dropdown => {
+            if (dropdown !== formatDropdown) {
+                dropdown.classList.remove('show');
+            }
+        });
+        formatDropdown.classList.toggle('show');
+        adjustDropdownPosition(formatDropdown);
+    });
+
+    formatDropdown.addEventListener('click', (e) => {
+        console.error('click e for show format')
+        if (e.target.classList.contains('format-option')) {
+            downloadImage(image.enhanced, e.target.dataset.format);
+            formatDropdown.classList.remove('show');
+        }
+    });
+
+    // Fermer le menu quand on clique ailleurs
+    document.addEventListener('click', (e) => {
+        console.error('Close folder input')
+        if (!e.target.closest('.download-section')) {
+            formatDropdown.classList.remove('show');
+        }
+    });
+
 
         loadImages.then(() => {
             setTimeout(() => {
@@ -1422,33 +1450,6 @@ function adjustDropdownPosition(dropdown) {
     }
 }
 
-downloadButton.addEventListener('click', (e) => {
-    e.stopPropagation();
-    console.error('Click');
-    document.querySelectorAll('.format-dropdown').forEach(dropdown => {
-        if (dropdown !== formatDropdown) {
-            dropdown.classList.remove('show');
-        }
-    });
-    formatDropdown.classList.toggle('show');
-    adjustDropdownPosition(formatDropdown);
-});
-
-formatDropdown.addEventListener('click', (e) => {
-    console.error('click e for show format')
-    if (e.target.classList.contains('format-option')) {
-        downloadImage(image.enhanced, e.target.dataset.format);
-        formatDropdown.classList.remove('show');
-    }
-});
-
-// Fermer le menu quand on clique ailleurs
-document.addEventListener('click', (e) => {
-    console.error('Close folder input')
-    if (!e.target.closest('.download-section')) {
-        formatDropdown.classList.remove('show');
-    }
-});
 
 
 
