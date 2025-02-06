@@ -1402,9 +1402,11 @@ async function downloadImage(url, format) {
     //});
 //}
 
-// Gérer le téléchargement
-const downloadButton = downloadSection.querySelector('.btn-download');
-const formatDropdown = downloadSection.querySelector('.format-dropdown');
+    // Gérer le téléchargement
+    const downloadButton = downloadSection.querySelector('.btn-download');
+    const formatDropdown = downloadSection.querySelector('.format-dropdown');
+
+}
 
 function adjustDropdownPosition(dropdown) {
     const rect = dropdown.getBoundingClientRect();
@@ -1446,7 +1448,7 @@ document.addEventListener('click', (e) => {
         formatDropdown.classList.remove('show');
     }
 });
-}
+
 
 
 
@@ -1470,7 +1472,7 @@ if (!e.target.closest('.download-section')) {
 });
 
 document.addEventListener('keydown', (e) => {
-    console.error('click e.key')
+    console.error( e.key)
 if (e.key === 'Escape') {
     //sidebar.classList.remove('open');
     document.querySelectorAll('.format-dropdown').forEach(dropdown =>
