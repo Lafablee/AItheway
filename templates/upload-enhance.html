@@ -1432,6 +1432,7 @@ downloadButton.addEventListener('click', (e) => {
 });
 
 formatDropdown.addEventListener('click', (e) => {
+    console.error('click e for show format')
     if (e.target.classList.contains('format-option')) {
         downloadImage(image.enhanced, e.target.dataset.format);
         formatDropdown.classList.remove('show');
@@ -1459,9 +1460,17 @@ document.addEventListener('click', (e) => {
     //}
 //});
 
-
+document.addEventListener('click', (e) => {
+    console.error('click e')
+if (!e.target.closest('.download-section')) {
+    document.querySelectorAll('.format-dropdown').forEach(dropdown =>
+        dropdown.classList.remove('show')
+    );
+}
+});
 
 document.addEventListener('keydown', (e) => {
+    console.error('click e.key')
 if (e.key === 'Escape') {
     //sidebar.classList.remove('open');
     document.querySelectorAll('.format-dropdown').forEach(dropdown =>
