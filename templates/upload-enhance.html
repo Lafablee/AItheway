@@ -1018,6 +1018,10 @@ document.addEventListener('DOMContentLoaded', function() {
     `;
         console.error('After')
         container.after(downloadSection);
+        // Gérer le téléchargement
+        const downloadButton = downloadSection.querySelector('.btn-download');
+        const formatDropdown = downloadSection.querySelector('.format-dropdown');
+
 
         loadImages.then(() => {
             setTimeout(() => {
@@ -1403,10 +1407,6 @@ async function downloadImage(url, format) {
     //});
 //}
 }
-    // Gérer le téléchargement
-    const downloadButton = downloadSection.querySelector('.btn-download');
-    const formatDropdown = downloadSection.querySelector('.format-dropdown');
-
 
 
 function adjustDropdownPosition(dropdown) {
