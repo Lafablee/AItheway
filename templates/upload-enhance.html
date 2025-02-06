@@ -1006,49 +1006,6 @@ document.addEventListener('DOMContentLoaded', function() {
             }, 1000);
         });
 
-        const downloadSection = document.createElement('div');
-        downloadSection.className = 'download-section';
-        downloadSection.innerHTML = `
-        <button class="btn-download">Télécharger l'image</button>
-        <div class="format-dropdown">
-            ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format =>
-            `<div class="format-option" data-format="${format.toLowerCase()}">${format}</div>`
-        ).join('')}
-        </div>
-    `;
-        console.error('After')
-        container.after(downloadSection);
-        // Gérer le téléchargement
-        const downloadButton = downloadSection.querySelector('.btn-download');
-        const formatDropdown = downloadSection.querySelector('.format-dropdown');
-
-        downloadButton.addEventListener('click', (e) => {
-        e.stopPropagation();
-        console.error('Click');
-        document.querySelectorAll('.format-dropdown').forEach(dropdown => {
-            if (dropdown !== formatDropdown) {
-                dropdown.classList.remove('show');
-            }
-        });
-        formatDropdown.classList.toggle('show');
-        adjustDropdownPosition(formatDropdown);
-    });
-
-    formatDropdown.addEventListener('click', (e) => {
-        console.error('click e for show format')
-        if (e.target.classList.contains('format-option')) {
-            downloadImage(image.enhanced, e.target.dataset.format);
-            formatDropdown.classList.remove('show');
-        }
-    });
-
-    // Fermer le menu quand on clique ailleurs
-    document.addEventListener('click', (e) => {
-        console.error('Close folder input')
-        if (!e.target.closest('.download-section')) {
-            formatDropdown.classList.remove('show');
-        }
-    });
 
 
         loadImages.then(() => {
@@ -1451,10 +1408,6 @@ function adjustDropdownPosition(dropdown) {
 }
 
 
-
-
-
-
     //document.addEventListener('click', function(e) {
     //if (!e.target.closest('.sidebar') && !e.target.closest('.add-button')) {
     //    const sidebar = document.querySelector('.sidebar');
@@ -1463,6 +1416,50 @@ function adjustDropdownPosition(dropdown) {
     //    }
     //}
 //});
+
+    const downloadSection = document.createElement('div');
+        downloadSection.className = 'download-section';
+        downloadSection.innerHTML = `
+        <button class="btn-download">Télécharger l'image</button>
+        <div class="format-dropdown">
+            ${['PNG', 'JPG', 'JPEG', 'GIF'].map(format =>
+            `<div class="format-option" data-format="${format.toLowerCase()}">${format}</div>`
+        ).join('')}
+        </div>
+    `;
+        console.error('After')
+        container.after(downloadSection);
+        // Gérer le téléchargement
+        const downloadButton = downloadSection.querySelector('.btn-download');
+        const formatDropdown = downloadSection.querySelector('.format-dropdown');
+
+        downloadButton.addEventListener('click', (e) => {
+        e.stopPropagation();
+        console.error('Click');
+        document.querySelectorAll('.format-dropdown').forEach(dropdown => {
+            if (dropdown !== formatDropdown) {
+                dropdown.classList.remove('show');
+            }
+        });
+        formatDropdown.classList.toggle('show');
+        adjustDropdownPosition(formatDropdown);
+    });
+
+    formatDropdown.addEventListener('click', (e) => {
+        console.error('click e for show format')
+        if (e.target.classList.contains('format-option')) {
+            downloadImage(image.enhanced, e.target.dataset.format);
+            formatDropdown.classList.remove('show');
+        }
+    });
+
+    // Fermer le menu quand on clique ailleurs
+    document.addEventListener('click', (e) => {
+        console.error('Close folder input')
+        if (!e.target.closest('.download-section')) {
+            formatDropdown.classList.remove('show');
+        }
+    });
 
 document.addEventListener('click', (e) => {
     console.error('click e')
