@@ -651,6 +651,10 @@ document.addEventListener('DOMContentLoaded', function() {
     console.error('Image Container found:', !!imageContainer)
     const loadingOverlay = document.getElementById('loading-overlay');
 
+    // Create and load images first
+    const originalImg = new Image();
+    const enhancedImg = new Image();
+
     const elements = {
         fileInput: document.getElementById('file-input'),
         addButton: document.getElementById('add-button'),
@@ -935,9 +939,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Create and load images first
-        const originalImg = new Image();
-        const enhancedImg = new Image();
 
     // UI Component Creation
     function createImageComparison(image) {
