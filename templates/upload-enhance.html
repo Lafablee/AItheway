@@ -935,6 +935,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Create and load images first
+        const originalImg = new Image();
+        const enhancedImg = new Image();
+
     // UI Component Creation
     function createImageComparison(image) {
         console.error('Image data received:', image)
@@ -946,8 +950,8 @@ document.addEventListener('DOMContentLoaded', function() {
         container.className = 'twentytwenty-container';
 
         // Create and load images first
-        const originalImg = new Image();
-        const enhancedImg = new Image();
+        //const originalImg = new Image();
+        //const enhancedImg = new Image();
 
         // Promise to ensure both images are loaded
         const loadImages = new Promise((resolve) => {
@@ -1450,7 +1454,7 @@ function adjustDropdownPosition(dropdown) {
     formatDropdown.addEventListener('click', (e) => {
         console.error('click e for show format')
         if (e.target.classList.contains('format-option')) {
-            console.error('Calling Download with:', enhancedImg.src)
+            console.error('Calling Download')
             downloadImage(image.enhanced, e.target.dataset.format);
             console.error('Back from dowmload')
             formatDropdown.classList.remove('show');
