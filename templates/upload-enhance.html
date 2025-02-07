@@ -990,7 +990,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.appendChild(originalImg);
         container.appendChild(enhancedImg);
 
-        container.insertBefore(imageContainer, imageContainer.firstChild);
+        container.insertBefore(imageContainer, container.firstChild);
 
         loadImages.then(() => {
             console.error('VO');
