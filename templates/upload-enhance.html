@@ -1449,7 +1449,7 @@ function adjustDropdownPosition(dropdown) {
     formatDropdown.addEventListener('click', (e) => {
         console.error('click e for show format')
         if (e.target.classList.contains('format-option')) {
-            //downloadImage(image.enhanced, e.target.dataset.format);
+            downloadImage(image.enhanced, e.target.dataset.format);
             formatDropdown.classList.remove('show');
         }
     });
