@@ -1450,7 +1450,7 @@ function adjustDropdownPosition(dropdown) {
     formatDropdown.addEventListener('click', (e) => {
         console.error('click e for show format')
         if (e.target.classList.contains('format-option')) {
-            console.error('Calling Download')
+            console.error('Calling Download with:', enhancedImg.src)
             downloadImage(image.enhanced, e.target.dataset.format);
             console.error('Back from dowmload')
             formatDropdown.classList.remove('show');
