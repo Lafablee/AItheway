@@ -96,8 +96,7 @@
         .download-section {
             background: linear-gradient(to right, #f8f9fa, white);
             border-radius: 0 0 12px 12px;
-            /*position: relative;*/
-            position: fixed;
+            position: relative;
             opacity: 0.5;
             margin: 20px auto;
             padding: 15px;
@@ -1009,7 +1008,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         console.error('After')
-        //ontainer.after(downloadSection);
+        container.after(downloadSection);
 
         loadImages.then(() => {
             setTimeout(() => {
