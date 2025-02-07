@@ -1355,6 +1355,7 @@ return result;
 }
 
 async function downloadImage(url, format) {
+    console.error('Download Start')
     try {
         const response = await fetch(url, {headers});
         if (!response.ok) {
@@ -1449,7 +1450,9 @@ function adjustDropdownPosition(dropdown) {
     formatDropdown.addEventListener('click', (e) => {
         console.error('click e for show format')
         if (e.target.classList.contains('format-option')) {
+            console.error('Calling Download')
             downloadImage(image.enhanced, e.target.dataset.format);
+            console.error('Back from dowmload')
             formatDropdown.classList.remove('show');
         }
     });
