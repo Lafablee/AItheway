@@ -1455,7 +1455,7 @@ function adjustDropdownPosition(dropdown) {
         console.error('click e for show format')
         if (e.target.classList.contains('format-option')) {
             console.error('Calling Download')
-            downloadImage(image.enhanced, e.target.dataset.format);
+            downloadImage(enhancedImg.src, e.target.dataset.format);
             console.error('Back from dowmload')
             formatDropdown.classList.remove('show');
         }
