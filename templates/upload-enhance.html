@@ -55,8 +55,8 @@
         .image, .enhanced-image {
             width: 100%;
             height: auto;
-            min-height: 300px;
-            max-height: 500px;
+            min-height: 600px;
+            max-height: 1000px;
             object-fit: contain;
             background-color: #f8f9fa;
         }
@@ -990,7 +990,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container.appendChild(originalImg);
         container.appendChild(enhancedImg);
 
-        container.insertBefore(imageContainer, container.firstChild);
+        imageContainer.insertBefore(container, imageContainer.firstChild);
 
         loadImages.then(() => {
             console.error('VO');
