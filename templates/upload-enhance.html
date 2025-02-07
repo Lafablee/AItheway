@@ -622,6 +622,10 @@ const headers = {
 // DOM Elements
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 10 MB in bytes
 
+// Create and load images first
+const originalImg = new Image();
+const enhancedImg = new Image();
+
 let currentPage = 1;
 let isLoading = false;
 let hasMore = true;
@@ -651,9 +655,6 @@ document.addEventListener('DOMContentLoaded', function() {
     console.error('Image Container found:', !!imageContainer)
     const loadingOverlay = document.getElementById('loading-overlay');
 
-    // Create and load images first
-    const originalImg = new Image();
-    const enhancedImg = new Image();
 
     const elements = {
         fileInput: document.getElementById('file-input'),
