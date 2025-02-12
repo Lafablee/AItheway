@@ -236,6 +236,8 @@
 </div>
 
 <script>
+const LOGIN_URL = "{{ LOGIN_URL }}";
+
     document.querySelectorAll('.neltar_fn_wrapper').forEach(element => {
     element.classList.add('fn__has_sidebar');
 });
@@ -270,13 +272,14 @@
 
     document.getElementById('generate-image-form').addEventListener('submit', async function(event) {
         event.preventDefault();
-        console.error('Current Model:', currentModel);
-        console.error('Prompt:', promptInput.value);
         const promptInput = document.getElementById('prompt');
         const spinner = document.getElementById('spinner');
         const generateText = document.getElementById('generate-text');
         const downloadSection = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
         const imageDiv = document.getElementById('generated-image');
+
+        console.error('Current Model:', currentModel);
+        console.error('Prompt:', promptInput.value);
 
         // Get the token from URL
         const urlParams = new URLSearchParams(window.location.search);
@@ -440,6 +443,11 @@ function updateLoadingState(state) {
             spinner.style.display = 'none';
             generateText.style.display = 'inline';
     }
+}
+
+function showErrorOverlay(title, message) {
+    console.error(title, message);
+    alert(`${title}: ${message}`);
 }
 
     function saveInstance(prompt, imageUrl) {

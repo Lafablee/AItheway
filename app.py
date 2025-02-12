@@ -930,7 +930,7 @@ def generate_image(wp_user_id):
         if request.method == 'GET':
             app.logger.error("Returning template...")
             history = image_manager.get_user_history(wp_user_id, "generated")
-            return render_template('generate-image.html', history=history)
+            return render_template('generate-image.html', history=history, LOGIN_URL=LOGIN_URL)
 
         # POST request - generate image
         if request.method == 'POST':
