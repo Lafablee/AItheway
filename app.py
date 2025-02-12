@@ -1343,11 +1343,13 @@ def get_enhanced_history(wp_user_id):
 
 @app.route('/check_midjourney_status/<task_id>')
 @token_required
-def check_midjourney_status(wp_user_id, task_id):
+def check_midjourney_status(wp_user_id, task_id):  # ✅ Ordre correct des paramètres
     app.logger.error(f"Checking status for task: {task_id}")
     try:
         metadata_key = f"midjourney_task:{task_id}"
         status = redis_client.hget(metadata_key, 'status')
+
+        app.logger.error(f"Status from Redis: {status}")  # Log pour debug
 
         if not status:
             return jsonify({
@@ -1356,6 +1358,7 @@ def check_midjourney_status(wp_user_id, task_id):
 
         # Vérification explicite du type
         status = status.decode('utf-8') if isinstance(status, bytes) else status
+        app.logger.error(f"Decoded status: {status}")  # Log pour debug
 
         if status == 'completed':
             image_key = redis_client.hget(metadata_key, 'image_key')
@@ -1371,9 +1374,8 @@ def check_midjourney_status(wp_user_id, task_id):
         })
 
     except Exception as e:
-        app.logger.error(f"Error checking status: {str(e)}")
+        app.logger.error(f"Error checking status for task {task_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
 @app.route('/midjourney_callback', methods=['POST'])
 def midjourney_callback():
     try:
