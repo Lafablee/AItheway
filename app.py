@@ -1343,8 +1343,19 @@ def get_enhanced_history(wp_user_id):
 
 @app.route('/check_midjourney_status/<task_id>')
 @token_required
-def check_midjourney_status(wp_user_id, task_id):  # ✅ Ordre correct des paramètres
-    app.logger.error(f"Checking status for task: {task_id}")
+def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id optionnel avec une valeur par défaut
+    app.logger.error(f"=== Starting Midjourney Status Check ===")
+    app.logger.error(f"User ID: {wp_user_id}")
+    app.logger.error(f"Task ID: {task_id}")
+
+    # Récupérer task_id des kwargs si nécessaire
+    if task_id is None:
+        task_id = request.view_args.get('task_id')
+        app.logger.error(f"Retrieved task_id from view_args: {task_id}")
+
+    if not task_id:
+        return jsonify({"error": "No task_id provided"}), 400
+
     try:
         metadata_key = f"midjourney_task:{task_id}"
         status = redis_client.hget(metadata_key, 'status')
