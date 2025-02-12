@@ -1343,39 +1343,84 @@ def get_enhanced_history(wp_user_id):
 
 @app.route('/check_midjourney_status/<task_id>')
 @token_required
-def check_midjourney_status(wp_user_id, task_id):  # ✅ Ordre correct des paramètres
-    app.logger.error(f"Checking status for task: {task_id}")
+def check_midjourney_status(wp_user_id, task_id):
+    app.logger.error(f"=== Starting Midjourney Status Check ===")
+    app.logger.error(f"User ID: {wp_user_id}")
+    app.logger.error(f"Task ID: {task_id}")
+
     try:
         metadata_key = f"midjourney_task:{task_id}"
-        status = redis_client.hget(metadata_key, 'status')
+        app.logger.error(f"Looking up metadata key: {metadata_key}")
 
-        app.logger.error(f"Status from Redis: {status}")  # Log pour debug
-
-        if not status:
+        # Vérifie si la clé existe dans Redis
+        if not redis_client.exists(metadata_key):
+            app.logger.error(f"No metadata found for key: {metadata_key}")
             return jsonify({
-                "status": "processing"
+                "status": "processing",
+                "message": "Task is being processed"
             })
 
-        # Vérification explicite du type
+        # Récupère toutes les métadonnées pour debug
+        all_metadata = redis_client.hgetall(metadata_key)
+        app.logger.error(f"All metadata for task: {all_metadata}")
+
+        status = redis_client.hget(metadata_key, 'status')
+        app.logger.error(f"Raw status from Redis: {status}")
+
+        if not status:
+            app.logger.error("Status field not found in metadata")
+            return jsonify({
+                "status": "processing",
+                "message": "Status not yet available"
+            })
+
+        # Log le type pour debugging
+        app.logger.error(f"Status type: {type(status)}")
         status = status.decode('utf-8') if isinstance(status, bytes) else status
-        app.logger.error(f"Decoded status: {status}")  # Log pour debug
+        app.logger.error(f"Decoded status: {status}")
 
         if status == 'completed':
+            app.logger.error("Status is completed, looking for image key")
             image_key = redis_client.hget(metadata_key, 'image_key')
+
             if image_key:
                 image_key = image_key.decode('utf-8') if isinstance(image_key, bytes) else image_key
-                return jsonify({
-                    "status": "completed",
-                    "image_url": f"/image/{image_key}"
-                })
+                app.logger.error(f"Found image key: {image_key}")
 
+                # Vérifie si l'image existe vraiment
+                if image_manager.get_image(image_key):
+                    app.logger.error("Image found in storage")
+                    return jsonify({
+                        "status": "completed",
+                        "image_url": f"/image/{image_key}"
+                    })
+                else:
+                    app.logger.error("Image key exists but image not found in storage")
+                    return jsonify({
+                        "status": "error",
+                        "message": "Image not found in storage"
+                    }), 404
+            else:
+                app.logger.error("No image key found for completed status")
+
+        app.logger.error(f"Returning current status: {status}")
         return jsonify({
-            "status": status
+            "status": status,
+            "message": f"Current task status: {status}"
         })
 
     except Exception as e:
-        app.logger.error(f"Error checking status for task {task_id}: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        app.logger.error(f"=== Error in check_midjourney_status ===")
+        app.logger.error(f"Error type: {type(e)}")
+        app.logger.error(f"Error message: {str(e)}")
+        app.logger.error(f"Task ID: {task_id}")
+        import traceback
+        app.logger.error(f"Traceback: {traceback.format_exc()}")
+        return jsonify({
+            "error": str(e),
+            "status": "error",
+            "message": "Internal server error checking task status"
+        }), 500
 @app.route('/midjourney_callback', methods=['POST'])
 def midjourney_callback():
     try:
