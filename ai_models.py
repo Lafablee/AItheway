@@ -62,11 +62,11 @@ class MidjourneyGenerator(AIModelGenerator):
 
             # Envoi au webhook Make
             payload = {
-                'content': f"/imagine prompt: {prompt}"
+                 "prompt": prompt
             }
 
             # Log pour debug
-            app.logger.info(f"Sending to Make webhook: {payload}")
+            app.logger.error(f"Sending to Make/Userapi.AI: {payload}")
 
             response = requests.post(
                 self.webhook_url,
