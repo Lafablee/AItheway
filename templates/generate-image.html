@@ -240,7 +240,7 @@
     element.classList.add('fn__has_sidebar');
 });
 
-
+    let currentModel = 'dall-e';
     let generatedImageUrl = '';
     const instances = [];
 
@@ -249,8 +249,29 @@
     let isLoading = false;
     let hasMore = true;
 
+    // Écouteur pour le changement de modèle
+    document.querySelectorAll('.all_models a').forEach(modelLink => {
+        modelLink.addEventListener('click', function(e) {
+            e.preventDefault();
+            const modelName = this.textContent.toLowerCase();
+            currentModel = modelName.includes('gpt') ? 'dall-e' : 'midjourney';
+            console.error('model en question:', modelName)
+
+            // Mise à jour visuelle
+            document.querySelectorAll('.all_models a').forEach(link => {
+                link.classList.remove('selected');
+            });
+            this.classList.add('selected');
+
+            // Mise à jour du titre affiché
+            document.querySelector('.model_open .title').textContent = this.textContent;
+        });
+    });
+
     document.getElementById('generate-image-form').addEventListener('submit', async function(event) {
         event.preventDefault();
+        console.error('Current Model:', currentModel);
+        console.error('Prompt:', promptInput.value);
         const promptInput = document.getElementById('prompt');
         const spinner = document.getElementById('spinner');
         const generateText = document.getElementById('generate-text');
@@ -267,13 +288,14 @@
         downloadSection.style.display = 'none';
 
         try {
+            updateLoadingState('loading');
             const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-Requested-With': 'XMLHttpRequest'  // This identifies it as an AJAX request
                 },
-                body: `prompt=${encodeURIComponent(promptInput.value)}`
+                body: `prompt=${encodeURIComponent(promptInput.value)}&model=${encodeURIComponent(currentModel)}`
             });
 
             const result = await response.json();
@@ -289,51 +311,136 @@
                  }, 3000);
                  return;
             }
-            if (result.image_url) {
-                generatedImageUrl = result.image_url;
-                imageDiv.innerHTML = `
-                    <div class="abs_item">
-                        <img src="${generatedImageUrl}" class="img-fluid mt-3" alt="Generated Image">
-                        <div class="all_options">
-                            <div class="fn__icon_options medium_size">
-                                <div class="dropdown">
-                                    <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
-                                    </button>
-                                    <ul class="dropdown-menu dropdown-menu-dark">
-                                        <li class="dropdown-item" data-format="png" data-url="${generatedImageUrl}">PNG</li>
-                                        <li class="dropdown-item" data-format="jpg" data-url="${generatedImageUrl}">JPG</li>
-                                        <li class="dropdown-item" data-format="jpeg" data-url="${generatedImageUrl}">JPEG</li>
-                                        <li class="dropdown-item" data-format="gif" data-url="${generatedImageUrl}">GIF</li>
-                                    </ul>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                `;
-                downloadSection.style.display = 'block';
-
-                saveInstance(promptInput.value, generatedImageUrl);
-                addImageToSidebar(generatedImageUrl, instances.length - 1);
-
-                loadHistory(1, false);
-
-                generateText.textContent = 'Générer une nouvelle image';
+            if (result.success) {
+                if (currentModel === 'midjourney' && result.status === 'processing') {
+                    console.error('Starting Midjourney processing with task_id:', result.task_id);
+                    // Cas Midjourney : attente du résultat
+                    handleMidjourneyProcessing(result.task_id, token);
+                } else {
+                    // Cas DALL-E ou réponse immédiate
+                    console.error('Displaying generated image:', result.image_url);
+                    displayGeneratedImage(result.image_url);
+                }
             } else {
                 showErrorOverlay('Erreur', result.error || 'Une erreur est survenue');
             }
-
-
-
         } catch (error) {
+            console.error('Error:', error);
             showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
-            console.error('Error:', error); // Added for debugging
         } finally {
+            // Réactive l'interface
             spinner.style.display = 'none';
             generateText.style.display = 'inline';
             promptInput.disabled = false;
         }
     });
+
+    // Fonction de gestion du traitement Midjourney
+async function handleMidjourneyProcessing(taskId, token) {
+    console.error('=== Starting Midjourney Polling ===');
+    console.error('Task ID:', taskId);
+    const generateText = document.getElementById('generate-text');
+    generateText.textContent = 'Génération en cours...';
+
+    const maxAttempts = 30; // 5 minutes maximum (10 secondes * 30)
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+        console.error(`Polling attempt ${attempts + 1}/${maxAttempts}`);
+        try {
+            console.error('Sending request with model:', currentModel);
+            const statusResponse = await fetch(`/check_midjourney_status/${taskId}?token=${token}`, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            });
+            console.error('Status response:', statusResponse.status);
+
+            if (!statusResponse.ok) {
+                throw new Error('Erreur lors de la vérification du statut');
+            }
+
+            const statusResult = await statusResponse.json();
+            console.error('Status data:', statusResult);
+
+            if (statusResult.status === 'completed') {
+                displayGeneratedImage(statusResult.image_url);
+                return;
+            } else if (statusResult.status === 'failed') {
+                showErrorOverlay('Erreur', 'La génération a échoué');
+                return;
+            }
+
+            // Attendre 10 secondes avant la prochaine vérification
+            await new Promise(resolve => setTimeout(resolve, 10000));
+            attempts++;
+        } catch (error) {
+            console.error('Error polling status:', error);
+            showErrorOverlay('Erreur', 'Erreur lors de la vérification du statut');
+            return;
+        }
+    }
+
+    showErrorOverlay('Erreur', 'Le délai de génération a été dépassé');
+}
+
+// Fonction d'affichage de l'image générée
+function displayGeneratedImage(imageUrl) {
+    generatedImageUrl = imageUrl;
+    const imageDiv = document.getElementById('generated-image');
+    const downloadSection = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
+
+    imageDiv.innerHTML = `
+        <div class="abs_item">
+            <img src="${imageUrl}" class="img-fluid mt-3" alt="Generated Image">
+            <div class="all_options">
+                <div class="fn__icon_options medium_size">
+                    <div class="dropdown">
+                        <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                            <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li class="dropdown-item" data-format="png" data-url="${imageUrl}">PNG</li>
+                            <li class="dropdown-item" data-format="jpg" data-url="${imageUrl}">JPG</li>
+                            <li class="dropdown-item" data-format="jpeg" data-url="${imageUrl}">JPEG</li>
+                            <li class="dropdown-item" data-format="gif" data-url="${imageUrl}">GIF</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>`;
+
+    downloadSection.style.display = 'block';
+    document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+
+    // Recharge l'historique
+    loadHistory(1, false);
+}
+
+function updateLoadingState(state) {
+    const generateText = document.getElementById('generate-text');
+    const spinner = document.getElementById('spinner');
+
+    switch(state) {
+        case 'loading':
+            spinner.style.display = 'inline-block';
+            generateText.style.display = 'none';
+            break;
+        case 'processing':
+            spinner.style.display = 'inline-block';
+            generateText.textContent = 'Génération en cours...';
+            generateText.style.display = 'inline';
+            break;
+        case 'complete':
+            spinner.style.display = 'none';
+            generateText.textContent = 'Générer une nouvelle image';
+            generateText.style.display = 'inline';
+            break;
+        default:
+            spinner.style.display = 'none';
+            generateText.style.display = 'inline';
+    }
+}
 
     function saveInstance(prompt, imageUrl) {
         instances.push({ prompt, imageUrl });

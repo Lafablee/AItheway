@@ -18,6 +18,8 @@ from urllib.parse import quote
 import redis
 import json
 
+from ai_models import create_ai_manager
+import uuid
 from config import redis_client, TEMP_STORAGE_DURATION, PERMANENT_STORAGE_DURATION
 
 
@@ -40,7 +42,8 @@ app = Flask(__name__)
 
 app.jinja_loader.searchpath = [template_dir, template_temp_dir]  # Ajouter les deux dossiers
 
-
+# Création du gestionnaire de modèles AI
+ai_manager = create_ai_manager()
 
 # Configuration des fichiers uploadés
 UPLOAD_FOLDER = 'static/uploads/'
@@ -387,6 +390,7 @@ class ChatManager:
 
 # Initialisation
 chat_manager = ChatManager(redis_client)
+
 
 def get_paginated_history(wp_user_id, history_type):
     """
@@ -931,63 +935,106 @@ def generate_image(wp_user_id):
         # POST request - generate image
         if request.method == 'POST':
             prompt = request.form.get('prompt')
+            model = request.form.get('model', 'dall-e')  # Default to DALL-E if not specified
+            app.logger.error(f"Processing request - Model: {model}, Prompt: {prompt}")
+
             if not prompt:
                 return jsonify({"message": "Create what inspires you!"}), 400
 
             try:
-                response = openai.images.generate(
-                    model="dall-e-3",
-                    prompt=prompt,
-                    n=1,
-                    size="1024x1024"
-                )
-
-                image_url = response.data[0].url
-                image_response = requests.get(image_url)
-
-                if image_response.status_code == 200:
-                    app.logger.error(f"Preparing to store generated image for user {wp_user_id}")
-                    # Préparer les métadonnées
-                    metadata = {
-                        'type': b'generated',
-                        'prompt': prompt.encode('utf-8'),
-                        'timestamp': datetime.now().isoformat().encode('utf-8'),
-                        'parameters': json.dumps({
-                            'model': 'dall-e-3',
-                            'size': '1024x1024'
-                        }).encode('utf-8'),
-                    }
-                    app.logger.error(f"Preparing metadata: {metadata}")
-
-                    # Stockage de l'image avec ses métadonnées
-                    image_key = image_manager.store_temp_image(
-                        wp_user_id,
-                        image_response.content,
-                        metadata
+                # Configuration spécifique au modèle
+                if model == 'dall-e':
+                    app.logger.error("Using DALL-E model...")
+                    response = openai.images.generate(
+                        model="dall-e-3",
+                        prompt=prompt,
+                        n=1,
+                        size="1024x1024"
                     )
-                    app.logger.error(f"Storing image with key: {image_key}")
+                    image_url = response.data[0].url
 
-                    stored_image = image_manager.get_image(image_key)
-                    app.logger.error(f"Image retrieval verification: {'Success' if stored_image else 'Failed'}")
+                    # Téléchargement de l'image
+                    image_response = requests.get(image_url)
 
-                    stored_metadata = image_manager.redis.hgetall(f"{image_key}:meta")
-                    app.logger.error(f"Verified stored metadata: {stored_metadata}")
+                    if image_response.status_code == 200:
+                        app.logger.error(f"Preparing to store generated image for user {wp_user_id}")
 
-                    return jsonify({
-                        'success': True,
-                        'image_key': image_key,
-                        'image_url': f"/image/{image_key}"
-                    })
-                else:
-                    return jsonify({'error': 'Failed to download image'}), 500
+                        # Préparation des métadonnées
+                        metadata = {
+                            'type': b'generated',
+                            'prompt': prompt.encode('utf-8'),
+                            'timestamp': datetime.now().isoformat().encode('utf-8'),
+                            'model': model.encode('utf-8'),
+                            'parameters': json.dumps({
+                                'model': model,
+                                'size': '1024x1024'
+                            }).encode('utf-8'),
+                        }
+                        app.logger.error(f"Preparing metadata: {metadata}")
+
+                        # Stockage de l'image avec ses métadonnées
+                        image_key = image_manager.store_temp_image(
+                            wp_user_id,
+                            image_response.content,
+                            metadata
+                        )
+                        app.logger.error(f"Storing image with key: {image_key}")
+
+                        # Vérification du stockage
+                        stored_image = image_manager.get_image(image_key)
+                        app.logger.error(f"Image retrieval verification: {'Success' if stored_image else 'Failed'}")
+
+                        stored_metadata = image_manager.redis.hgetall(f"{image_key}:meta")
+                        app.logger.error(f"Verified stored metadata: {stored_metadata}")
+
+                        return jsonify({
+                            'success': True,
+                            'image_key': image_key,
+                            'image_url': f"/image/{image_key}"
+                        })
+                    else:
+                        return jsonify({'error': 'Failed to download image'}), 500
+
+                elif model == 'midjourney':
+                    app.logger.error("Using Midjourney model...")
+
+                    try:
+                        # Utilisation du gestionnaire de modèles
+                        result = ai_manager.generate_image('midjourney', prompt)
+                        app.logger.error(f"Midjourney generation result: {result}")
+
+                        if result['success']:
+                            if result.get('status') == 'processing':
+                                # Pour Midjourney, on retourne juste le statut et le task_id
+                                # L'image sera récupérée plus tard via le webhook de callback
+                                return jsonify({
+                                    'success': True,
+                                    'status': 'processing',
+                                    'task_id': result['task_id']
+                                })
+                            else:
+                                # Si on a directement une URL d'image
+                                return jsonify({
+                                    'success': True,
+                                    'image_url': result['image_url']
+                                })
+                        else:
+                            return jsonify({'error': result.get('error', 'Failed to generate image')}), 500
+
+                    except Exception as e:
+                        app.logger.error(f"Midjourney generation error: {str(e)}")
+                        return jsonify({'error': str(e)}), 500
 
             except openai.OpenAIError as e:
                 error_message = str(e)
                 if "billing_hard_limit_reached" in error_message:
                     error_message = "Billing limit reached. Please check your OpenAI account."
                 return jsonify({'error': error_message}), 500
+            except requests.RequestException as e:
+                app.logger.error(f"Request error: {str(e)}")
+                return jsonify({'error': 'Failed to connect to image service'}), 500
 
-        # If somehow we get here without returning
+                # If somehow we get here without returning
         return jsonify({"error": "Invalid request method"}), 400
 
     except Exception as e:
@@ -1292,6 +1339,54 @@ def get_enhanced_history(wp_user_id):
     # Utilise la fonction utilitaire pour les images améliorées
     response, status_code = get_paginated_history(wp_user_id, "enhanced")
     return jsonify(response), status_code
+
+@app.route('/midjourney_callback', methods=['POST'])
+def midjourney_callback():
+    try:
+        data = request.get_json()
+        app.logger.error(f"Received callback data: {data}")
+
+        if not data or 'image_url' not in data:
+            return jsonify({"error": "Invalid callback data"}), 400
+
+        image_url = data['image_url']
+        prompt = data.get('prompt', '')
+        task_id = data.get('task_id')
+
+        # Télécharger l'image
+        image_response = requests.get(image_url)
+        if image_response.status_code != 200:
+            return jsonify({"error": "Failed to download image"}), 500
+
+        # Stockage dans Redis via ImageManager
+        metadata = {
+            'type': b'generated',
+            'prompt': prompt.encode('utf-8'),
+            'timestamp': datetime.now().isoformat().encode('utf-8'),
+            'model': 'midjourney'.encode('utf-8'),
+            'status': 'completed'.encode('utf-8'),
+            'task_id': task_id.encode('utf-8') if task_id else b'',
+            'parameters': json.dumps({
+                'model': 'midjourney',
+                'size': '1024x1024'
+            }).encode('utf-8'),
+        }
+
+        image_key = image_manager.store_temp_image(
+            'midjourney',  # ou un user_id si disponible
+            image_response.content,
+            metadata
+        )
+
+        return jsonify({
+            'success': True,
+            'image_key': image_key,
+            'image_url': f"/image/{image_key}"
+        })
+
+    except Exception as e:
+        app.logger.error(f"Midjourney callback error: {str(e)}")
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/download-enhanced-image', methods=['POST'])
 def download_enhanced_image():
