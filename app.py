@@ -1369,6 +1369,17 @@ def after_request(response):
     return response
 
 
+@app.route('/debug_task/<task_id>', methods=['GET'])
+def debug_task(task_id):
+    metadata_key = f"midjourney_task:{task_id}"
+    all_data = redis_client.hgetall(metadata_key)
+    return jsonify({
+        "task_data": {k.decode('utf-8'): v.decode('utf-8')
+                     for k, v in all_data.items()},
+        "exists": redis_client.exists(metadata_key),
+        "ttl": redis_client.ttl(metadata_key)
+    })
+
 
 #---- END TEMP!----
 
@@ -1399,7 +1410,7 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
                 "status": "processing"
             })
 
-        # Vérification explicite du type
+        # Décodage sécurisé du status
         status = status.decode('utf-8') if isinstance(status, bytes) else status
         app.logger.error(f"Decoded status: {status}")  # Log pour debug
 
@@ -1407,11 +1418,13 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
             image_key = redis_client.hget(metadata_key, 'image_key')
             if image_key:
                 image_key = image_key.decode('utf-8') if isinstance(image_key, bytes) else image_key
+                app.logger.error(f"Found image key: {image_key}")
                 return jsonify({
                     "status": "completed",
                     "image_url": f"/image/{image_key}"
                 })
 
+        # Si l'image n'est pas encore disponible
         return jsonify({
             "status": status
         })
@@ -1419,62 +1432,54 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
     except Exception as e:
         app.logger.error(f"Error checking status for task {task_id}: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
 @app.route('/midjourney_callback', methods=['POST'])
 def midjourney_callback():
-    app.logger.error("=== Midjourney Callback Start - Debug ===")
-    app.logger.error(f"Request Method: {request.method}")
-    app.logger.error(f"Request Path: {request.path}")
-    app.logger.error(f"Full URL: {request.url}")
-    app.logger.error(f"Query String: {request.query_string}")
-    app.logger.error(f"Headers: {dict(request.headers)}")
-    app.logger.error(f"Raw Data: {request.get_data()}")
-    app.logger.error("=== Request Debug End ===")
-    if request.method == 'OPTIONS':
-        app.logger.error("OPTIONS request to midjourney_callback")
-        # Handle CORS preflight request
-        response = jsonify({'status': 'ok'})
-        response.headers['Access-Control-Allow-Origin'] = 'https://www.aitheway.com'
-        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
-        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
-        return response
-
+    app.logger.error("=== Midjourney Callback Started ===")
     try:
         data = request.get_json()
         app.logger.error(f"Received callback data: {data}")
 
-        if not data or 'image_url' not in data:
+        if not data:
             app.logger.error("No data received in callback")
             return jsonify({"error": "Invalid callback data"}), 400
 
-        image_url = data['image_url']
+        # Extraction des données essentielles
         task_id = data.get('task_hash')
-        prompt = data.get('prompt', '')
+        image_url = data.get('image_url')
+        status = data.get('status')
 
+        if not all([task_id, image_url, status]):
+            app.logger.error("Missing required fields in callback data")
+            return jsonify({"error": "Missing required fields"}), 400
 
-        # Télécharger l'image
+        # Clé Redis pour la tâche Midjourney
+        metadata_key = f"midjourney_task:{task_id}"
+
+        # Vérifier si la tâche existe
+        if not redis_client.exists(metadata_key):
+            app.logger.error(f"No task found for task_id: {task_id}")
+            return jsonify({"error": "Task not found"}), 404
+
         app.logger.error(f"Attempting to download image from: {image_url}")
-        app.logger.error(f"Extracted data - task_id: {task_id}, prompt: {prompt}")
+        app.logger.error(f"Extracted data - task_id: {task_id}")
 
-        if task_id:
-            metadata_key = f"midjourney_task:{task_id}"
-            redis_client.hset(metadata_key, 'status', 'completed')
-
+        # Téléchargement de l'image
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0'  # Parfois nécessaire pour Discord
+                'User-Agent': 'Mozilla/5.0'  # Nécessaire pour Discord
             }
             image_response = requests.get(image_url, headers=headers, timeout=30)
             app.logger.error(f"Download response status: {image_response.status_code}")
 
             if image_response.status_code != 200:
                 app.logger.error(f"Failed to download image. Status: {image_response.status_code}")
-                app.logger.error(f"Response content: {image_response.text[:200]}")  # Log les premiers 200 caractères
                 return jsonify({
                     "error": "Failed to download image",
                     "status_code": image_response.status_code
                 }), 500
 
-            # Vérifie le content-type
+            # Vérifier le content-type
             content_type = image_response.headers.get('content-type', '')
             if not content_type.startswith('image/'):
                 app.logger.error(f"Invalid content type: {content_type}")
@@ -1486,6 +1491,62 @@ def midjourney_callback():
             if content_length == 0:
                 return jsonify({"error": "Empty image content"}), 400
 
+            # Générer une nouvelle clé pour l'image
+            image_key = f"img:temp:image:midjourney:{datetime.now().timestamp()}"
+            app.logger.error(f"Generated key for image: {image_key}")
+
+            # Préparer les métadonnées
+            metadata = {
+                'type': b'generated',
+                'prompt': redis_client.hget(metadata_key, 'prompt') or b'',
+                'timestamp': datetime.now().isoformat().encode('utf-8'),
+                'model': b'midjourney',
+                'status': b'completed',
+                'task_id': task_id.encode('utf-8'),
+                'parameters': json.dumps({
+                    'model': 'midjourney',
+                    'size': '1024x1024'
+                }).encode('utf-8')
+            }
+
+            # Log des métadonnées pour debug
+            for key, value in metadata.items():
+                app.logger.error(f"Metadata {key}: {value} (type: {type(value)})")
+
+            # Utiliser un pipeline Redis pour les opérations atomiques
+            pipe = redis_client.pipeline()
+
+            # Stocker l'image
+            pipe.setex(
+                image_key,
+                TEMP_STORAGE_DURATION,
+                image_response.content
+            )
+
+            # Stocker les métadonnées de l'image
+            metadata_image_key = f"{image_key}:meta"
+            pipe.hmset(metadata_image_key, metadata)
+            pipe.expire(metadata_image_key, TEMP_STORAGE_DURATION)
+
+            # Mettre à jour le statut de la tâche et lier l'image
+            pipe.hmset(metadata_key, {
+                'status': b'completed',
+                'image_key': image_key.encode('utf-8')
+            })
+
+            # Exécuter toutes les opérations
+            results = pipe.execute()
+            app.logger.error(f"Pipeline execution results: {results}")
+
+            # Vérification immédiate du stockage
+            stored_metadata = redis_client.hgetall(metadata_image_key)
+            app.logger.error(f"Immediate verification - stored metadata: {stored_metadata}")
+
+            return jsonify({
+                'success': True,
+                'image_key': image_key,
+                'image_url': f"/image/{image_key}"
+            })
 
         except requests.exceptions.Timeout:
             app.logger.error("Request timed out while downloading image")
@@ -1494,37 +1555,9 @@ def midjourney_callback():
             app.logger.error(f"Request error: {str(e)}")
             return jsonify({"error": f"Request error: {str(e)}"}), 500
 
-
-        # Stockage dans Redis via ImageManager
-        metadata = {
-            'type': b'generated',
-            'prompt': prompt.encode('utf-8'),
-            'timestamp': datetime.now().isoformat().encode('utf-8'),
-            'model': 'midjourney'.encode('utf-8'),
-            'status': 'completed'.encode('utf-8'),
-            'task_id': task_id.encode('utf-8') if task_id else b'',
-            'parameters': json.dumps({
-                'model': 'midjourney',
-                'size': '1024x1024'
-            }).encode('utf-8'),
-        }
-
-        image_key = image_manager.store_temp_image(
-            'midjourney',  # ou un user_id si disponible
-            image_response.content,
-            metadata
-        )
-
-        return jsonify({
-            'success': True,
-            'image_key': image_key,
-            'image_url': f"/image/{image_key}"
-        })
-
     except Exception as e:
         app.logger.error(f"Midjourney callback error: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
 @app.route('/download-enhanced-image', methods=['POST'])
 def download_enhanced_image():
     image_url = request.form['image_url']
