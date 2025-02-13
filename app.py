@@ -1389,11 +1389,13 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
         return jsonify({"error": str(e)}), 500
 @app.route('/midjourney_callback', methods=['POST'])
 def midjourney_callback():
+    app.logger.error("=== Midjourney Callback Started ===")
     try:
         data = request.get_json()
         app.logger.error(f"Received callback data: {data}")
 
         if not data or 'image_url' not in data:
+            app.logger.error("No data received in callback")
             return jsonify({"error": "Invalid callback data"}), 400
 
         image_url = data['image_url']
@@ -1401,9 +1403,44 @@ def midjourney_callback():
         task_id = data.get('task_id')
 
         # Télécharger l'image
-        image_response = requests.get(image_url)
-        if image_response.status_code != 200:
-            return jsonify({"error": "Failed to download image"}), 500
+        app.logger.error(f"Processing callback for task_id: {task_id}")
+        app.logger.error(f"Attempting to download image from: {image_url}")
+
+        try:
+            headers = {
+                'User-Agent': 'Mozilla/5.0'  # Parfois nécessaire pour Discord
+            }
+            image_response = requests.get(image_url, headers=headers, timeout=30)
+            app.logger.error(f"Download response status: {image_response.status_code}")
+
+            if image_response.status_code != 200:
+                app.logger.error(f"Failed to download image. Status: {image_response.status_code}")
+                app.logger.error(f"Response content: {image_response.text[:200]}")  # Log les premiers 200 caractères
+                return jsonify({
+                    "error": "Failed to download image",
+                    "status_code": image_response.status_code
+                }), 500
+
+            # Vérifie le content-type
+            content_type = image_response.headers.get('content-type', '')
+            if not content_type.startswith('image/'):
+                app.logger.error(f"Invalid content type: {content_type}")
+                return jsonify({"error": f"Invalid content type: {content_type}"}), 400
+
+            # Vérification de la taille de l'image
+            content_length = len(image_response.content)
+            app.logger.error(f"Image size: {content_length} bytes")
+            if content_length == 0:
+                return jsonify({"error": "Empty image content"}), 400
+
+
+        except requests.exceptions.Timeout:
+            app.logger.error("Request timed out while downloading image")
+            return jsonify({"error": "Request timed out"}), 504
+        except requests.exceptions.RequestException as e:
+            app.logger.error(f"Request error: {str(e)}")
+            return jsonify({"error": f"Request error: {str(e)}"}), 500
+
 
         # Stockage dans Redis via ImageManager
         metadata = {
