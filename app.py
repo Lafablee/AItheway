@@ -1399,12 +1399,17 @@ def midjourney_callback():
             return jsonify({"error": "Invalid callback data"}), 400
 
         image_url = data['image_url']
+        task_id = data.get('task_hash')
         prompt = data.get('prompt', '')
-        task_id = data.get('task_id')
+
 
         # Télécharger l'image
-        app.logger.error(f"Processing callback for task_id: {task_id}")
         app.logger.error(f"Attempting to download image from: {image_url}")
+        app.logger.error(f"Extracted data - task_id: {task_id}, prompt: {prompt}")
+
+        if task_id:
+            metadata_key = f"midjourney_task:{task_id}"
+            redis_client.hset(metadata_key, 'status', 'completed')
 
         try:
             headers = {
