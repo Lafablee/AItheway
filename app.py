@@ -1341,6 +1341,38 @@ def get_enhanced_history(wp_user_id):
     return jsonify(response), status_code
 
 
+# ----TEMP----
+
+@app.before_request
+def log_all_requests():
+    app.logger.error("=== Global Request Interceptor ===")
+    app.logger.error(f"Endpoint: {request.endpoint}")
+    app.logger.error(f"URL Rule: {request.url_rule}")
+    app.logger.error(f"View Args: {request.view_args}")
+    app.logger.error(f"Method: {request.method}")
+    app.logger.error(f"Path: {request.path}")
+    app.logger.error(f"Full URL: {request.url}")
+    if request.method == 'OPTIONS':
+        app.logger.error("OPTIONS request detected!")
+
+@app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
+def catch_all(path):
+    app.logger.error(f"=== Catch-all route hit ===")
+    app.logger.error(f"Path: {path}")
+    app.logger.error(f"Method: {request.method}")
+    return jsonify({"error": "Route not found"}), 404
+
+@app.after_request
+def after_request(response):
+    app.logger.error("=== CORS Headers Debug ===")
+    app.logger.error(f"Response Headers: {dict(response.headers)}")
+    return response
+
+
+
+#---- END TEMP!----
+
+
 @app.route('/check_midjourney_status/<task_id>')
 @token_required
 def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id optionnel avec une valeur par défaut
@@ -1389,7 +1421,23 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
         return jsonify({"error": str(e)}), 500
 @app.route('/midjourney_callback', methods=['POST'])
 def midjourney_callback():
-    app.logger.error("=== Midjourney Callback Started ===")
+    app.logger.error("=== Midjourney Callback Start - Debug ===")
+    app.logger.error(f"Request Method: {request.method}")
+    app.logger.error(f"Request Path: {request.path}")
+    app.logger.error(f"Full URL: {request.url}")
+    app.logger.error(f"Query String: {request.query_string}")
+    app.logger.error(f"Headers: {dict(request.headers)}")
+    app.logger.error(f"Raw Data: {request.get_data()}")
+    app.logger.error("=== Request Debug End ===")
+    if request.method == 'OPTIONS':
+        app.logger.error("OPTIONS request to midjourney_callback")
+        # Handle CORS preflight request
+        response = jsonify({'status': 'ok'})
+        response.headers['Access-Control-Allow-Origin'] = 'https://www.aitheway.com'
+        response.headers['Access-Control-Allow-Methods'] = 'POST, OPTIONS'
+        response.headers['Access-Control-Allow-Headers'] = 'Content-Type'
+        return response
+
     try:
         data = request.get_json()
         app.logger.error(f"Received callback data: {data}")
