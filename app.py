@@ -1448,17 +1448,23 @@ def midjourney_callback():
         app.logger.error(f"All existing task keys in Redis: {all_tasks}")
 
         metadata_key = f"midjourney_task:{task_id}"
-        if not redis_client.exists(metadata_key):
-            app.logger.error(f"Task not found in Redis. Key: {metadata_key}")
-            app.logger.error("Available tasks:")
+        task_exists = redis_client.exists(metadata_key)
+        app.logger.error(f"Task {task_id} exists in Redis: {task_exists}")
+
+        if not task_exists:
+            app.logger.error(f"Task not found, checking all tasks content:")
             for task_key in all_tasks:
                 task_data = redis_client.hgetall(task_key)
                 app.logger.error(f"Task {task_key}: {task_data}")
+                # Vérifier si le task_id est dans les metadata
+                stored_task_id = task_data.get(b'task_id', b'').decode('utf-8')
+                if stored_task_id == task_id:
+                    metadata_key = task_key
+                    task_exists = True
+                    app.logger.error(f"Found task under different key: {task_key}")
+                    break
+        if not task_exists:
             return jsonify({"error": "Task not found"}), 404
-
-        if not data:
-            app.logger.error("No data received in callback")
-            return jsonify({"error": "Invalid callback data"}), 400
 
         # Extraction des données essentielles
         image_url = data.get('image_url')
