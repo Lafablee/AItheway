@@ -79,11 +79,19 @@ class MidjourneyGenerator(AIModelGenerator):
                 }).encode('utf-8')
             }
 
+            app.logger.error(f"About to store metadata in Redis with key: {metadata_key}")
+            app.logger.error(f"Metadata to store: {metadata}")
+
             # Stockage dans Redis avec expiration
             pipe = self.redis.pipeline()
             pipe.hmset(metadata_key, metadata)
             pipe.expire(metadata_key, 3600)  # expire après 1h
-            pipe.execute()
+            results = pipe.execute()
+            app.logger.error(f"Redis storage results: {results}")
+
+            # Vérification immédiate
+            stored = self.redis.exists(metadata_key)
+            app.logger.error(f"Task exists in Redis after creation: {stored}")
 
             app.logger.error(f"Initial Redis storage - key: {metadata_key}")
             app.logger.error(f"Stored metadata: {metadata}")
