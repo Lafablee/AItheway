@@ -1343,8 +1343,6 @@ def get_enhanced_history(wp_user_id):
 
 @app.route('/check_midjourney_status/<task_id>')
 @token_required
-@app.route('/check_midjourney_status/<task_id>')
-@token_required
 def check_midjourney_status(wp_user_id, task_id=None):
     app.logger.error("=== Starting Midjourney Status Check ===")
     app.logger.error(f"User ID: {wp_user_id}")
