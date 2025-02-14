@@ -1341,49 +1341,6 @@ def get_enhanced_history(wp_user_id):
     return jsonify(response), status_code
 
 
-# ----TEMP----
-
-@app.before_request
-def log_all_requests():
-    app.logger.error("=== Global Request Interceptor ===")
-    app.logger.error(f"Endpoint: {request.endpoint}")
-    app.logger.error(f"URL Rule: {request.url_rule}")
-    app.logger.error(f"View Args: {request.view_args}")
-    app.logger.error(f"Method: {request.method}")
-    app.logger.error(f"Path: {request.path}")
-    app.logger.error(f"Full URL: {request.url}")
-    if request.method == 'OPTIONS':
-        app.logger.error("OPTIONS request detected!")
-
-@app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
-def catch_all(path):
-    app.logger.error(f"=== Catch-all route hit ===")
-    app.logger.error(f"Path: {path}")
-    app.logger.error(f"Method: {request.method}")
-    return jsonify({"error": "Route not found"}), 404
-
-@app.after_request
-def after_request(response):
-    app.logger.error("=== CORS Headers Debug ===")
-    app.logger.error(f"Response Headers: {dict(response.headers)}")
-    return response
-
-
-@app.route('/debug_task/<task_id>', methods=['GET'])
-def debug_task(task_id):
-    metadata_key = f"midjourney_task:{task_id}"
-    all_data = redis_client.hgetall(metadata_key)
-    return jsonify({
-        "task_data": {k.decode('utf-8'): v.decode('utf-8')
-                     for k, v in all_data.items()},
-        "exists": redis_client.exists(metadata_key),
-        "ttl": redis_client.ttl(metadata_key)
-    })
-
-
-#---- END TEMP!----
-
-
 @app.route('/check_midjourney_status/<task_id>')
 @token_required
 def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id optionnel avec une valeur par défaut
@@ -1437,12 +1394,11 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
 def midjourney_callback():
     app.logger.error("=== Midjourney Callback Started ===")
     try:
+        # Get callback data from Make/userapi.ai
         data = request.get_json()
         app.logger.error(f"Received callback data: {data}")
 
-        make_task_id = data.get('task_hash')
-
-        # Récupérer le task_id de Make
+        # Extract Make task ID
         make_task_id = data.get('task_hash')
         if not make_task_id:
             app.logger.error("No task_hash found in callback data")
@@ -1450,12 +1406,15 @@ def midjourney_callback():
 
         app.logger.error(f"Make task_id received: {make_task_id}")
 
-        # Liste toutes les clés Redis contenant "midjourney_task"
+        # Find matching task in Redis
         all_tasks = redis_client.keys("midjourney_task:*")
         app.logger.error(f"All existing task keys in Redis: {all_tasks}")
 
-        # Chercher notre ID via le mapping
+        # Find task that's in processing state
         our_task_id = None
+        metadata_key = None
+        original_prompt = None
+
         for task_key in all_tasks:
             task_data = redis_client.hgetall(task_key)
             if task_data.get(b'status') == b'processing':
@@ -1469,16 +1428,16 @@ def midjourney_callback():
             app.logger.error("No active task found")
             return jsonify({"error": "No active task found"}), 404
 
-        # Extraire les données essentielles
+        # Get image URL from callback data
         image_url = data.get('image_url')
         if not image_url:
             app.logger.error("No image URL in callback data")
             return jsonify({"error": "No image URL provided"}), 400
 
-        # Téléchargement de l'image
+        # Download the image
         try:
             headers = {
-                'User-Agent': 'Mozilla/5.0'  # Nécessaire pour Discord
+                'User-Agent': 'Mozilla/5.0'  # Required for Discord
             }
             image_response = requests.get(image_url, headers=headers, timeout=30)
             app.logger.error(f"Download response status: {image_response.status_code}")
@@ -1490,24 +1449,23 @@ def midjourney_callback():
                     "status_code": image_response.status_code
                 }), 500
 
-            # Vérifier le content-type
+            # Verify content type
             content_type = image_response.headers.get('content-type', '')
             if not content_type.startswith('image/'):
                 app.logger.error(f"Invalid content type: {content_type}")
                 return jsonify({"error": f"Invalid content type: {content_type}"}), 400
 
-            # Vérification de la taille de l'image
+            # Verify image size
             content_length = len(image_response.content)
             app.logger.error(f"Image size: {content_length} bytes")
             if content_length == 0:
                 return jsonify({"error": "Empty image content"}), 400
 
-            # Générer une nouvelle clé pour l'image
+            # Generate new image key
             image_key = f"img:temp:image:midjourney:{datetime.now().timestamp()}"
             app.logger.error(f"Generated key for image: {image_key}")
 
-
-            # Préparer les métadonnées
+            # Prepare metadata for the generated image
             metadata = {
                 'type': b'generated',
                 'prompt': original_prompt.encode('utf-8'),
@@ -1522,42 +1480,44 @@ def midjourney_callback():
                 }).encode('utf-8')
             }
 
-            # Log des métadonnées pour debug
+            # Log metadata for debugging
             for key, value in metadata.items():
                 app.logger.error(f"Metadata {key}: {value} (type: {type(value)})")
 
-            # Utiliser un pipeline Redis pour les opérations atomiques
+            # Use Redis pipeline for atomic operations
             pipe = redis_client.pipeline()
 
-            # Stocker l'image
+            # Store the image
             pipe.setex(
                 image_key,
                 TEMP_STORAGE_DURATION,
                 image_response.content
             )
 
-            # Stocker les métadonnées de l'image
+            # Store image metadata
             metadata_image_key = f"{image_key}:meta"
             pipe.hmset(metadata_image_key, metadata)
             pipe.expire(metadata_image_key, TEMP_STORAGE_DURATION)
 
-            # Mettre à jour le statut de la tâche et lier l'image
+            # Update task status and link image
             pipe.hmset(metadata_key, {
                 'status': b'completed',
                 'image_key': image_key.encode('utf-8'),
                 'make_task_id': make_task_id.encode('utf-8')
             })
 
-            # 4. Créer le mapping Make ID -> Notre ID
-            pipe.setex(f"midjourney_mapping:{make_task_id}",
-                       TEMP_STORAGE_DURATION,
-                       our_task_id)
+            # Create Make ID to Our ID mapping
+            pipe.setex(
+                f"midjourney_mapping:{make_task_id}",
+                TEMP_STORAGE_DURATION,
+                our_task_id
+            )
 
-            # Exécuter toutes les opérations
+            # Execute all Redis operations
             results = pipe.execute()
             app.logger.error(f"Pipeline execution results: {results}")
 
-            # Vérification immédiate du stockage
+            # Verify stored metadata
             stored_metadata = redis_client.hgetall(metadata_image_key)
             app.logger.error(f"Stored metadata verification: {stored_metadata}")
 
@@ -1596,6 +1556,50 @@ def download_enhanced_image():
         return send_file(img_io, mimetype=f'image/{img_format.lower()}', download_name=f'enhanced_image.{img_format.lower()}')
 
     return jsonify({'error': 'Enhanced image not found'}), 404
+
+
+# ---- TEMP ----
+
+
+@app.before_request
+def log_all_requests():
+    app.logger.error("=== Global Request Interceptor ===")
+    app.logger.error(f"Endpoint: {request.endpoint}")
+    app.logger.error(f"URL Rule: {request.url_rule}")
+    app.logger.error(f"View Args: {request.view_args}")
+    app.logger.error(f"Method: {request.method}")
+    app.logger.error(f"Path: {request.path}")
+    app.logger.error(f"Full URL: {request.url}")
+    if request.method == 'OPTIONS':
+        app.logger.error("OPTIONS request detected!")
+
+@app.route('/<path:path>', methods=['GET', 'POST', 'OPTIONS'])
+def catch_all(path):
+    app.logger.error(f"=== Catch-all route hit ===")
+    app.logger.error(f"Path: {path}")
+    app.logger.error(f"Method: {request.method}")
+    return jsonify({"error": "Route not found"}), 404
+
+@app.after_request
+def after_request(response):
+    app.logger.error("=== CORS Headers Debug ===")
+    app.logger.error(f"Response Headers: {dict(response.headers)}")
+    return response
+
+
+@app.route('/debug_task/<task_id>', methods=['GET'])
+def debug_task(task_id):
+    metadata_key = f"midjourney_task:{task_id}"
+    all_data = redis_client.hgetall(metadata_key)
+    return jsonify({
+        "task_data": {k.decode('utf-8'): v.decode('utf-8')
+                     for k, v in all_data.items()},
+        "exists": redis_client.exists(metadata_key),
+        "ttl": redis_client.ttl(metadata_key)
+    })
+
+
+#---- END TEMP!----
 
 if __name__ == '__main__':
     app.run(debug=True, host='127.0.0.1', port=5432)
