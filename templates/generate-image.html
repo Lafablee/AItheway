@@ -363,49 +363,49 @@ async function handleMidjourneyProcessing(taskId, token) {
                 throw new Error('Erreur lors de la vérification du statut');
             }
 
+            // CHANGEMENT 1: Déplacer le parse JSON avant le .text()
             const statusResult = await statusResponse.json();
             console.error('Status data:', statusResult);
 
-            if (statusResult.status === 'completed') {
-                // Vérification supplémentaire pour l'URL de l'image
-                if (!statusResult.image_url) {
-                    console.error('Status completed but no image_url found, continuing polling...');
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    attempts++;
-                    continue;
-                }
+             // CHANGEMENT 2: Vérifier d'abord l'image_url avant le status
+            if (statusResult.image_url) {
+                console.error('Image URL found:', statusResult.image_url);
 
-                // Vérifier que l'image est accessible
+                // CHANGEMENT 3: Vérification de l'image simplifiée
                 try {
                     const imageCheck = await fetch(`${statusResult.image_url}?token=${token}`, {
                         method: 'HEAD'
                     });
+
                     if (!imageCheck.ok) {
                         console.error('Image not yet accessible, continuing polling...');
-                        await new Promise(resolve => setTimeout(resolve, 2000));
-                        attempts++;
-                        continue;
+                        displayGeneratedImage(statusResult.image_url);
+                        return;
+                    } else {
+                        console.error('Image check failed:', imageCheck.status);
                     }
                 } catch (imageError) {
                     console.error('Error checking image:', imageError);
-                    await new Promise(resolve => setTimeout(resolve, 2000));
-                    attempts++;
-                    continue;
                 }
-                //image vérifiée et accessible
-                displayGeneratedImage(statusResult.image_url);
-                return;
-            } else if (statusResult.status === 'failed') {
+            }
+            if (statusResult.status === 'failed') {
                 showErrorOverlay('Erreur', 'La génération a échoué');
                 return;
             }
 
-            // Attendre 10 secondes avant la prochaine vérification
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            // CHANGEMENT 5: Délai dynamique basé sur le nombre de tentatives
+            const delay = attempts < 5 ? 5000 : 10000; // Plus rapide au début
+            console.error(`Waiting ${delay}ms before next attempt...`);
+            await new Promise(resolve => setTimeout(resolve, delay));
             attempts++;
+
         } catch (error) {
             console.error('Error polling status:', error);
-            if (attempts === maxAttempts - 1) {
+
+            if (error.name === 'SyntaxError') {
+                console.error('Invalid JSON response');
+                await new Promise(resolve => setTimeout(resolve, 2000));
+            } else if (attempts === maxAttempts - 1) {
                 showErrorOverlay('Erreur', 'Erreur lors de la vérification du statut');
                 return;
             }

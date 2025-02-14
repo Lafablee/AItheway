@@ -1343,8 +1343,10 @@ def get_enhanced_history(wp_user_id):
 
 @app.route('/check_midjourney_status/<task_id>')
 @token_required
-def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id optionnel avec une valeur par défaut
-    app.logger.error(f"=== Starting Midjourney Status Check ===")
+@app.route('/check_midjourney_status/<task_id>')
+@token_required
+def check_midjourney_status(wp_user_id, task_id=None):
+    app.logger.error("=== Starting Midjourney Status Check ===")
     app.logger.error(f"User ID: {wp_user_id}")
     app.logger.error(f"Task ID: {task_id}")
 
@@ -1354,42 +1356,60 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
         app.logger.error(f"Retrieved task_id from view_args: {task_id}")
 
     if not task_id:
-        return jsonify({"error": "No task_id provided"}), 400
+        return jsonify({
+            "success": False,
+            "status": "error",
+            "error": "No task_id provided"
+        }), 400
 
     try:
         metadata_key = f"midjourney_task:{task_id}"
-        status = redis_client.hget(metadata_key, 'status')
+        task_data = redis_client.hgetall(metadata_key)
+        app.logger.error(f"Task data from Redis: {task_data}")
 
-        app.logger.error(f"Status from Redis: {status}")  # Log pour debug
-
-        if not status:
+        # Si aucune donnée trouvée pour ce task_id
+        if not task_data:
             return jsonify({
                 "success": True,
                 "task_id": task_id,
                 "status": "processing"
             })
 
-        # Décodage sécurisé du status
-        status = status.decode('utf-8') if isinstance(status, bytes) else status
-        app.logger.error(f"Decoded status: {status}")  # Log pour debug
+        # Décoder le status
+        status = task_data.get(b'status', b'processing').decode('utf-8')
+        app.logger.error(f"Decoded status: {status}")
 
-        if status == 'completed':
-            image_key = redis_client.hget(metadata_key, 'image_key')
-            if image_key:
-                image_key = image_key.decode('utf-8') if isinstance(image_key, bytes) else image_key
-                app.logger.error(f"Found image key: {image_key}")
-                return jsonify({
-                    "success": True,
-                    "task_id": task_id,
-                    "status": "completed",  # ICI: on renvoie "completed" et pas "processing"
-                    "image_url": f"/image/{image_key}"
-                })
-        # Si l'image n'est pas encore disponible
-        return  jsonify({
+        # Préparer la réponse de base
+        response = {
             "success": True,
             "task_id": task_id,
             "status": status
-        })
+        }
+
+        # Si le status est complété, vérifier l'image
+        if status == 'completed':
+            if b'image_key' in task_data:
+                image_key = task_data[b'image_key'].decode('utf-8')
+                if redis_client.exists(image_key):
+                    response["image_url"] = f"/image/{image_key}"
+                    app.logger.error(f"Found image key: {image_key}")
+                else:
+                    app.logger.error(f"Image key exists but image not found: {image_key}")
+                    # Réinitialiser le status si l'image n'existe pas
+                    response["status"] = "processing"
+            else:
+                app.logger.error("Status is completed but no image_key found")
+                response["status"] = "processing"
+
+        # Si le status est en cours mais qu'on a déjà une image
+        elif b'image_key' in task_data:
+            image_key = task_data[b'image_key'].decode('utf-8')
+            if redis_client.exists(image_key):
+                response["image_url"] = f"/image/{image_key}"
+                app.logger.error(f"Found image key while processing: {image_key}")
+
+        app.logger.error(f"Sending response: {response}")
+        return jsonify(response)
 
     except Exception as e:
         app.logger.error(f"Error checking status for task {task_id}: {str(e)}")
