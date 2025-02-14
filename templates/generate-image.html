@@ -419,15 +419,21 @@ async function handleMidjourneyProcessing(taskId, token) {
 
 // Fonction d'affichage de l'image générée
 function displayGeneratedImage(imageUrl) {
+    console.error('Starting displayGeneratedImage with imageUrl:', imageUrl);
 
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
+    console.error('Token retrieved:', token ? 'Token found' : 'No token');
 
     const fullImageUrl = `${imageUrl}?token=${encodeURIComponent(token)}`;
+    console.error('Full image URL constructed:', fullImageUrl);
 
     generatedImageUrl = fullImageUrl;
     const imageDiv = document.getElementById('generated-image');
+    console.error('Image div found:', imageDiv ? 'Yes' : 'No');
+
     const downloadSection = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
+    console.error('Download section found:', downloadSection ? 'Yes' : 'No');
 
     imageDiv.innerHTML = `
         <div class="abs_item">
@@ -449,7 +455,13 @@ function displayGeneratedImage(imageUrl) {
             </div>
         </div>`;
 
+    console.error('Image element present:', !!imageDiv.querySelector('img'));
+    console.error('Image src set:', imageDiv.querySelector('img')?.src);
+
+    console.error('Download section display style:', downloadSection.style.display);
     downloadSection.style.display = 'block';
+    console.error('Download section display style after change:', downloadSection.style.display);
+
     document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
 
     // Recharge l'historique
