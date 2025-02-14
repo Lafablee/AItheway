@@ -377,12 +377,12 @@ async function handleMidjourneyProcessing(taskId, token) {
                         method: 'HEAD'
                     });
 
-                    if (!imageCheck.ok) {
-                        console.error('Image not yet accessible, continuing polling...');
+                    if (imageCheck.status === 200) {
+                        console.error('Image is accessible, status:', imageCheck.status);
                         displayGeneratedImage(statusResult.image_url);
                         return;
                     } else {
-                        console.error('Image check failed:', imageCheck.status);
+                        console.error('Image not yet accessible, status:', imageCheck.status);
                     }
                 } catch (imageError) {
                     console.error('Error checking image:', imageError);
