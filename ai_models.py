@@ -59,24 +59,25 @@ class MidjourneyGenerator(AIModelGenerator):
     def generate(self, prompt, additional_params=None):
         metadata_key = None
         try:
-            task_id = str(uuid.uuid4())
+            our_task_id = str(uuid.uuid4())
             app.logger.error(f"=== Starting Midjourney Generation ===")
-            app.logger.error(f"Generated task_id: {task_id}")
+            app.logger.error(f"Generated task_id: {our_task_id}")
             app.logger.error(f"Prompt: {prompt}")
 
             # Stockage initial dans Redis avec toutes les métadonnées nécessaires
-            metadata_key = f"midjourney_task:{task_id}"
+            metadata_key = f"midjourney_task:{our_task_id}"
             metadata = {
                 'type': b'generated',
                 'prompt': prompt.encode('utf-8'),
                 'timestamp': datetime.now().isoformat().encode('utf-8'),
                 'model': b'midjourney',
                 'status': b'processing',
-                'task_id': task_id.encode('utf-8'),
+                'task_id': our_task_id.encode('utf-8'),
                 'parameters': json.dumps({
                     'model': 'midjourney',
                     'size': '1024x1024'
-                }).encode('utf-8')
+                }).encode('utf-8'),
+                'make_task_id': b''  # Champ vide qui sera rempli dans le callback
             }
 
             app.logger.error(f"About to store metadata in Redis with key: {metadata_key}")
@@ -86,8 +87,7 @@ class MidjourneyGenerator(AIModelGenerator):
             pipe = self.redis.pipeline()
             pipe.hmset(metadata_key, metadata)
             pipe.expire(metadata_key, 3600)  # expire après 1h
-            results = pipe.execute()
-            app.logger.error(f"Redis storage results: {results}")
+            pipe.execute()
 
             # Vérification immédiate
             stored = self.redis.exists(metadata_key)
@@ -113,7 +113,7 @@ class MidjourneyGenerator(AIModelGenerator):
                 return {
                     "success": True,
                     "status": "processing",
-                    "task_id": task_id
+                    "task_id": our_task_id
                 }
             else:
                 # En cas d'erreur, supprimer la tâche de Redis
@@ -123,7 +123,7 @@ class MidjourneyGenerator(AIModelGenerator):
         except Exception as e:
             app.logger.error(f"Midjourney generation error: {str(e)}")
             # En cas d'erreur, on s'assure de nettoyer Redis
-            if 'metadata_key' in locals():
+            if metadata_key:
                 self.redis.delete(metadata_key)
             return {"success": False, "error": str(e)}
 

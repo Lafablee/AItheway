@@ -1440,50 +1440,40 @@ def midjourney_callback():
         data = request.get_json()
         app.logger.error(f"Received callback data: {data}")
 
-        task_id = data.get('task_hash')
-        app.logger.error(f"Looking for task: {task_id}")
+        make_task_id = data.get('task_hash')
+
+        # Récupérer le task_id de Make
+        make_task_id = data.get('task_hash')
+        if not make_task_id:
+            app.logger.error("No task_hash found in callback data")
+            return jsonify({"error": "No task_hash provided"}), 400
+
+        app.logger.error(f"Make task_id received: {make_task_id}")
 
         # Liste toutes les clés Redis contenant "midjourney_task"
         all_tasks = redis_client.keys("midjourney_task:*")
         app.logger.error(f"All existing task keys in Redis: {all_tasks}")
 
-        metadata_key = f"midjourney_task:{task_id}"
-        task_exists = redis_client.exists(metadata_key)
-        app.logger.error(f"Task {task_id} exists in Redis: {task_exists}")
+        # Chercher notre ID via le mapping
+        our_task_id = None
+        for task_key in all_tasks:
+            task_data = redis_client.hgetall(task_key)
+            if task_data.get(b'status') == b'processing':
+                our_task_id = task_data.get(b'task_id').decode('utf-8')
+                metadata_key = task_key
+                original_prompt = task_data.get(b'prompt', b'').decode('utf-8')
+                app.logger.error(f"Found matching task: {our_task_id}")
+                break
 
-        if not task_exists:
-            app.logger.error(f"Task not found, checking all tasks content:")
-            for task_key in all_tasks:
-                task_data = redis_client.hgetall(task_key)
-                app.logger.error(f"Task {task_key}: {task_data}")
-                # Vérifier si le task_id est dans les metadata
-                stored_task_id = task_data.get(b'task_id', b'').decode('utf-8')
-                if stored_task_id == task_id:
-                    metadata_key = task_key
-                    task_exists = True
-                    app.logger.error(f"Found task under different key: {task_key}")
-                    break
-        if not task_exists:
-            return jsonify({"error": "Task not found"}), 404
+        if not our_task_id:
+            app.logger.error("No active task found")
+            return jsonify({"error": "No active task found"}), 404
 
-        # Extraction des données essentielles
+        # Extraire les données essentielles
         image_url = data.get('image_url')
-        status = data.get('status')
-
-        if not all([task_id, image_url, status]):
-            app.logger.error("Missing required fields in callback data")
-            return jsonify({"error": "Missing required fields"}), 400
-
-        # Clé Redis pour la tâche Midjourney
-        metadata_key = f"midjourney_task:{task_id}"
-
-        # Vérifier si la tâche existe
-        if not redis_client.exists(metadata_key):
-            app.logger.error(f"No task found for task_id: {task_id}")
-            return jsonify({"error": "Task not found"}), 404
-
-        app.logger.error(f"Attempting to download image from: {image_url}")
-        app.logger.error(f"Extracted data - task_id: {task_id}")
+        if not image_url:
+            app.logger.error("No image URL in callback data")
+            return jsonify({"error": "No image URL provided"}), 400
 
         # Téléchargement de l'image
         try:
@@ -1516,14 +1506,16 @@ def midjourney_callback():
             image_key = f"img:temp:image:midjourney:{datetime.now().timestamp()}"
             app.logger.error(f"Generated key for image: {image_key}")
 
+
             # Préparer les métadonnées
             metadata = {
                 'type': b'generated',
-                'prompt': redis_client.hget(metadata_key, 'prompt') or b'',
+                'prompt': original_prompt.encode('utf-8'),
                 'timestamp': datetime.now().isoformat().encode('utf-8'),
                 'model': b'midjourney',
                 'status': b'completed',
-                'task_id': task_id.encode('utf-8'),
+                'task_id': our_task_id.encode('utf-8'),
+                'make_task_id': make_task_id.encode('utf-8'),
                 'parameters': json.dumps({
                     'model': 'midjourney',
                     'size': '1024x1024'
@@ -1552,8 +1544,14 @@ def midjourney_callback():
             # Mettre à jour le statut de la tâche et lier l'image
             pipe.hmset(metadata_key, {
                 'status': b'completed',
-                'image_key': image_key.encode('utf-8')
+                'image_key': image_key.encode('utf-8'),
+                'make_task_id': make_task_id.encode('utf-8')
             })
+
+            # 4. Créer le mapping Make ID -> Notre ID
+            pipe.setex(f"midjourney_mapping:{make_task_id}",
+                       TEMP_STORAGE_DURATION,
+                       our_task_id)
 
             # Exécuter toutes les opérations
             results = pipe.execute()
@@ -1561,8 +1559,9 @@ def midjourney_callback():
 
             # Vérification immédiate du stockage
             stored_metadata = redis_client.hgetall(metadata_image_key)
-            app.logger.error(f"Immediate verification - stored metadata: {stored_metadata}")
+            app.logger.error(f"Stored metadata verification: {stored_metadata}")
 
+            app.logger.error("Successfully processed callback")
             return jsonify({
                 'success': True,
                 'image_key': image_key,
