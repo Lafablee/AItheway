@@ -1362,15 +1362,12 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
 
         app.logger.error(f"Status from Redis: {status}")  # Log pour debug
 
-        # Structure de base de la réponse
-        response = {
-            "success": True,
-            "task_id": task_id,
-            "status": "processing"  # valeur par défaut
-        }
-
         if not status:
-            return jsonify(response)
+            return jsonify({
+                "success": True,
+                "task_id": task_id,
+                "status": "processing"
+            })
 
         # Décodage sécurisé du status
         status = status.decode('utf-8') if isinstance(status, bytes) else status
@@ -1381,14 +1378,18 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
             if image_key:
                 image_key = image_key.decode('utf-8') if isinstance(image_key, bytes) else image_key
                 app.logger.error(f"Found image key: {image_key}")
-                if redis_client.exists(image_key):
-                     response["image_url"] = f"/image/{image_key}"
-                else:
-                    # L'image n'est pas encore disponible
-                    response["status"] = "processing"
-
+                return jsonify({
+                    "success": True,
+                    "task_id": task_id,
+                    "status": "completed",  # ICI: on renvoie "completed" et pas "processing"
+                    "image_url": f"/image/{image_key}"
+                })
         # Si l'image n'est pas encore disponible
-        return jsonify(response)
+        return  jsonify({
+            "success": True,
+            "task_id": task_id,
+            "status": status
+        })
 
     except Exception as e:
         app.logger.error(f"Error checking status for task {task_id}: {str(e)}")
