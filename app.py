@@ -1362,10 +1362,15 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
 
         app.logger.error(f"Status from Redis: {status}")  # Log pour debug
 
+        # Structure de base de la réponse
+        response = {
+            "success": True,
+            "task_id": task_id,
+            "status": "processing"  # valeur par défaut
+        }
+
         if not status:
-            return jsonify({
-                "status": "processing"
-            })
+            return jsonify(response)
 
         # Décodage sécurisé du status
         status = status.decode('utf-8') if isinstance(status, bytes) else status
@@ -1376,19 +1381,23 @@ def check_midjourney_status(wp_user_id, task_id=None):  # ✅ Rendre task_id opt
             if image_key:
                 image_key = image_key.decode('utf-8') if isinstance(image_key, bytes) else image_key
                 app.logger.error(f"Found image key: {image_key}")
-                return jsonify({
-                    "status": "completed",
-                    "image_url": f"/image/{image_key}"
-                })
+                if redis_client.exists(image_key):
+                     response["image_url"] = f"/image/{image_key}"
+                else:
+                    # L'image n'est pas encore disponible
+                    response["status"] = "processing"
 
         # Si l'image n'est pas encore disponible
-        return jsonify({
-            "status": status
-        })
+        return jsonify(response)
 
     except Exception as e:
         app.logger.error(f"Error checking status for task {task_id}: {str(e)}")
-        return jsonify({"error": str(e)}), 500
+        return jsonify({
+            "success": False,
+            "task_id": task_id,
+            "status": "error",
+            "error": str(e)
+        }), 500
 
 @app.route('/midjourney_callback', methods=['POST'])
 def midjourney_callback():

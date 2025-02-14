@@ -367,6 +367,32 @@ async function handleMidjourneyProcessing(taskId, token) {
             console.error('Status data:', statusResult);
 
             if (statusResult.status === 'completed') {
+                // Vérification supplémentaire pour l'URL de l'image
+                if (!statusResult.image_url) {
+                    console.error('Status completed but no image_url found, continuing polling...');
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    attempts++;
+                    continue;
+                }
+
+                // Vérifier que l'image est accessible
+                try {
+                    const imageCheck = await fetch(`${statusResult.image_url}?token=${token}`, {
+                        method: 'HEAD'
+                    });
+                    if (!imageCheck.ok) {
+                        console.error('Image not yet accessible, continuing polling...');
+                        await new Promise(resolve => setTimeout(resolve, 2000));
+                        attempts++;
+                        continue;
+                    }
+                } catch (imageError) {
+                    console.error('Error checking image:', imageError);
+                    await new Promise(resolve => setTimeout(resolve, 2000));
+                    attempts++;
+                    continue;
+                }
+                //image vérifiée et accessible
                 displayGeneratedImage(statusResult.image_url);
                 return;
             } else if (statusResult.status === 'failed') {
@@ -379,8 +405,12 @@ async function handleMidjourneyProcessing(taskId, token) {
             attempts++;
         } catch (error) {
             console.error('Error polling status:', error);
-            showErrorOverlay('Erreur', 'Erreur lors de la vérification du statut');
-            return;
+            if (attempts === maxAttempts - 1) {
+                showErrorOverlay('Erreur', 'Erreur lors de la vérification du statut');
+                return;
+            }
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            attempts++;
         }
     }
 
@@ -389,13 +419,19 @@ async function handleMidjourneyProcessing(taskId, token) {
 
 // Fonction d'affichage de l'image générée
 function displayGeneratedImage(imageUrl) {
-    generatedImageUrl = imageUrl;
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    const fullImageUrl = `${imageUrl}?token=${encodeURIComponent(token)}`;
+
+    generatedImageUrl = fullImageUrl;
     const imageDiv = document.getElementById('generated-image');
     const downloadSection = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
 
     imageDiv.innerHTML = `
         <div class="abs_item">
-            <img src="${imageUrl}" class="img-fluid mt-3" alt="Generated Image">
+            <img src="${fullImageUrl}" class="img-fluid mt-3" alt="Generated Image">
             <div class="all_options">
                 <div class="fn__icon_options medium_size">
                     <div class="dropdown">
@@ -403,10 +439,10 @@ function displayGeneratedImage(imageUrl) {
                             <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
                         </button>
                         <ul class="dropdown-menu dropdown-menu-dark">
-                            <li class="dropdown-item" data-format="png" data-url="${imageUrl}">PNG</li>
-                            <li class="dropdown-item" data-format="jpg" data-url="${imageUrl}">JPG</li>
-                            <li class="dropdown-item" data-format="jpeg" data-url="${imageUrl}">JPEG</li>
-                            <li class="dropdown-item" data-format="gif" data-url="${imageUrl}">GIF</li>
+                            <li class="dropdown-item" data-format="png" data-url="${fullImageUrl}">PNG</li>
+                            <li class="dropdown-item" data-format="jpg" data-url="${fullImageUrl}">JPG</li>
+                            <li class="dropdown-item" data-format="jpeg" data-url="${fullImageUrl}">JPEG</li>
+                            <li class="dropdown-item" data-format="gif" data-url="${fullImageUrl}">GIF</li>
                         </ul>
                     </div>
                 </div>
@@ -536,13 +572,16 @@ function showErrorOverlay(title, message) {
     }
 
     function createHistoryItem(item, delay) {
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const fullImageUrl = `${item.url}?token=${encodeURIComponent(token)}`;
             const listItem = document.createElement('li');
             listItem.className = 'fn__gl_item';
 
             listItem.innerHTML = `
                 <div class="fn__gl__item">
                     <div class="abs_item">
-                        <img src="${item.url}" alt="Generated image" loading="lazy">
+                        <img src="${fullImageUrl}" alt="Generated image" loading="lazy">
                         <div class="prompt">${item.prompt}</div>
                         <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
                         <!-- Ajout du bouton de téléchargement similaire à celui des nouvelles images -->
@@ -553,10 +592,10 @@ function showErrorOverlay(title, message) {
                                         <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
                                     </button>
                                     <ul class="dropdown-menu dropdown-menu-dark">
-                                        <li class="dropdown-item" data-format="png" data-url="${item.url}">PNG</li>
-                                        <li class="dropdown-item" data-format="jpg" data-url="${item.url}">JPG</li>
-                                        <li class="dropdown-item" data-format="jpeg" data-url="${item.url}">JPEG</li>
-                                        <li class="dropdown-item" data-format="gif" data-url="${item.url}">GIF</li>
+                                        <li class="dropdown-item" data-format="png" data-url="${fullImageUrl}">PNG</li>
+                                        <li class="dropdown-item" data-format="jpg" data-url="${fullImageUrl}">JPG</li>
+                                        <li class="dropdown-item" data-format="jpeg" data-url="${fullImageUrl}">JPEG</li>
+                                        <li class="dropdown-item" data-format="gif" data-url="${fullImageUrl}">GIF</li>
                                     </ul>
                                 </div>
                             </div>
@@ -583,10 +622,10 @@ function showErrorOverlay(title, message) {
             img.addEventListener('click', () => {
                 const mainImageContainer = document.getElementById('generated-image');
                 const downloadSection = document.getElementById('download-section');
-                mainImageContainer.innerHTML = `<img src="${item.url}" class="img-fluid mt-3" alt="Generated Image">`;
+                mainImageContainer.innerHTML = `<img src="${fullImageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
                 document.getElementById('prompt').value = item.prompt;
                 downloadSection.style.display = 'block';
-                generatedImageUrl = item.url;
+                generatedImageUrl = fullImageUrl;
             });
 
              // Ajouter le délai d'animation
