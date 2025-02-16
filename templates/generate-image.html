@@ -345,7 +345,7 @@ async function handleMidjourneyProcessing(taskId, token) {
     const generateText = document.getElementById('generate-text');
     generateText.textContent = 'Génération en cours...';
 
-    const maxAttempts = 30; // 5 minutes maximum (10 secondes * 30)
+    const maxAttempts = 30;
     let attempts = 0;
 
     while (attempts < maxAttempts) {
@@ -363,15 +363,12 @@ async function handleMidjourneyProcessing(taskId, token) {
                 throw new Error('Erreur lors de la vérification du statut');
             }
 
-            // CHANGEMENT 1: Déplacer le parse JSON avant le .text()
             const statusResult = await statusResponse.json();
             console.error('Status data:', statusResult);
 
-             // CHANGEMENT 2: Vérifier d'abord l'image_url avant le status
             if (statusResult.image_url) {
                 console.error('Image URL found:', statusResult.image_url);
 
-                // CHANGEMENT 3: Vérification de l'image simplifiée
                 try {
                     const imageCheck = await fetch(`${statusResult.image_url}?token=${token}`, {
                         method: 'HEAD'
@@ -379,36 +376,43 @@ async function handleMidjourneyProcessing(taskId, token) {
 
                     if (imageCheck.status === 200) {
                         console.error('Image is accessible, status:', imageCheck.status);
-                        displayGeneratedImage(statusResult.image_url);
-                        return;
+                        // Si l'image est accessible et le status est completed
+                        if (statusResult.status === 'completed') {
+                            displayGeneratedImage(statusResult.image_url);
+                            return;
+                        }
                     } else {
-                        console.error('Image not yet accessible, status:', imageCheck.status);
+                        console.error('Image check failed:', imageCheck.status);
                     }
                 } catch (imageError) {
                     console.error('Error checking image:', imageError);
                 }
             }
+
+            // Gestion des erreurs de génération
             if (statusResult.status === 'failed') {
                 showErrorOverlay('Erreur', 'La génération a échoué');
                 return;
+            } else if (statusResult.status === 'error') {
+                showErrorOverlay('Erreur', statusResult.error || 'Une erreur est survenue');
+                return;
             }
 
-            // CHANGEMENT 5: Délai dynamique basé sur le nombre de tentatives
-            const delay = attempts < 5 ? 5000 : 10000; // Plus rapide au début
+            // Délai dynamique
+            const delay = attempts < 5 ? 5000 : 10000;
             console.error(`Waiting ${delay}ms before next attempt...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             attempts++;
 
         } catch (error) {
-            console.error('Error polling status:', error);
+            console.error('Error in polling:', error);
 
-            if (error.name === 'SyntaxError') {
-                console.error('Invalid JSON response');
-                await new Promise(resolve => setTimeout(resolve, 2000));
-            } else if (attempts === maxAttempts - 1) {
+            if (attempts === maxAttempts - 1) {
                 showErrorOverlay('Erreur', 'Erreur lors de la vérification du statut');
                 return;
             }
+
+            // Délai plus court en cas d'erreur
             await new Promise(resolve => setTimeout(resolve, 2000));
             attempts++;
         }
@@ -432,40 +436,73 @@ function displayGeneratedImage(imageUrl) {
     const imageDiv = document.getElementById('generated-image');
     console.error('Image div found:', imageDiv ? 'Yes' : 'No');
 
-    const downloadSection = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
-    console.error('Download section found:', downloadSection ? 'Yes' : 'No');
+    // Utiliser le bon sélecteur pour cibler la liste qui contient l'image
+    const downloadSection = document.getElementById('download-section');
+    const imageContainer = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
 
-    imageDiv.innerHTML = `
-        <div class="abs_item">
-            <img src="${fullImageUrl}" class="img-fluid mt-3" alt="Generated Image">
-            <div class="all_options">
-                <div class="fn__icon_options medium_size">
-                    <div class="dropdown">
-                        <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
-                            <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-dark">
-                            <li class="dropdown-item" data-format="png" data-url="${fullImageUrl}">PNG</li>
-                            <li class="dropdown-item" data-format="jpg" data-url="${fullImageUrl}">JPG</li>
-                            <li class="dropdown-item" data-format="jpeg" data-url="${fullImageUrl}">JPEG</li>
-                            <li class="dropdown-item" data-format="gif" data-url="${fullImageUrl}">GIF</li>
-                        </ul>
+    console.error('Containers found:', {
+        imageDiv: !!imageDiv,
+        imageContainer: !!imageContainer,
+        downloadSection: !!downloadSection
+    });
+
+
+    if (!imageDiv || !downloadSection || !imageContainer) {
+        console.error('Image container missing');
+        return;
+    }
+    const newImage = new Image();
+    newImage.onload = function () {
+        console.error('Test image loaded successfully');
+
+        imageDiv.innerHTML = `
+                <div class="abs_item" >
+                    <img src="${fullImageUrl}" class="img-fluid mt-3" alt="Generated Image">
+                    <div class="all_options">
+                        <div class="fn__icon_options medium_size">
+                            <div class="dropdown">
+                                <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                    <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
+                                </button>
+                                <ul class="dropdown-menu dropdown-menu-dark">
+                                    <li class="dropdown-item" data-format="png" data-url="${fullImageUrl}">PNG</li>
+                                    <li class="dropdown-item" data-format="jpg" data-url="${fullImageUrl}">JPG</li>
+                                    <li class="dropdown-item" data-format="jpeg" data-url="${fullImageUrl}">JPEG</li>
+                                    <li class="dropdown-item" data-format="gif" data-url="${fullImageUrl}">GIF</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
-                </div>
-            </div>
-        </div>`;
+                </div>`;
 
-    console.error('Image element present:', !!imageDiv.querySelector('img'));
-    console.error('Image src set:', imageDiv.querySelector('img')?.src);
+        console.error('Image element present:', !!imageDiv.querySelector('img'));
+        console.error('Image src set:', imageDiv.querySelector('img')?.src);
 
-    console.error('Download section display style:', downloadSection.style.display);
-    downloadSection.style.display = 'block';
-    console.error('Download section display style after change:', downloadSection.style.display);
+        downloadSection.style.display = 'block';
+        imageContainer.style.display = 'block';
 
-    document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+        console.error('Download section display style:', downloadSection.style.display);
+        console.error('Image container display style:', imageContainer.style.display);
 
-    // Recharge l'historique
-    loadHistory(1, false);
+        // 4. Vérifier que l'image est bien visible
+        const insertedImg = imageDiv.querySelector('img');
+        if (insertedImg) {
+            console.error('Image inserted successfully');
+            insertedImg.onload = () => console.error('Inserted image loaded')
+            insertedImg.onerror = () => console.error('Inserted image failed to load');
+        } else {
+            console.error('Failed to insert image element');
+        }
+
+        document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+
+        loadHistory(1, false);
+    };
+    newImage.onerror = function() {
+        console.error('Failed to load test image');
+        showErrorOverlay('Error', 'impossible to load the image');
+    };
+    newImage.src = fullImageUrl;
 }
 
 function updateLoadingState(state) {
@@ -667,7 +704,7 @@ function showErrorOverlay(title, message) {
 
     // Fonction pour charger l'historique
         async function loadHistory(page = 1, append = false) {
-            console.log(`Fetching history for page ${page}...`);
+            console.error(`Fetching history for page ${page}...`);
             if (isLoading || (!append && !hasMore)) return;
 
             const historyLoader = document.getElementById('historyLoader');
@@ -680,7 +717,11 @@ function showErrorOverlay(title, message) {
                 const urlParams = new URLSearchParams(window.location.search);
                 const token = urlParams.get('token');
 
-                const response = await fetch(`/api/chat/history/generated?page=${page}&token=${encodeURIComponent(token)}`, {
+                // Utiliser l'endpoint approprié pour votre historique
+                const endpoint = '/api/chat/history/generated';
+                const url = `${endpoint}?page=${page}&token=${encodeURIComponent(token)}`;
+
+                const response = await fetch(url, {
                     headers: {
                         'X-Requested-With': 'XMLHttpRequest'
                     }
@@ -695,7 +736,7 @@ function showErrorOverlay(title, message) {
                 }
 
                 const data = await response.json();
-                console.log('Fetched data:', data);
+                console.error('Fetched data:', data);
 
                 if (!append) {
                     historyContent.innerHTML = '';
@@ -705,6 +746,15 @@ function showErrorOverlay(title, message) {
 
                 if (items.length > 0) {
                     items.forEach((item, index) => {
+                        // Vérifier le modèle de l'image
+                        if (item.model) {
+                            console.error('Processing history item:', {
+                                model: item.model,
+                                url: item.url,
+                                timestamp: item.timestamp
+                            });
+                        }
+
                         const delay = index * 100;
                         const historyItem = createHistoryItem(item, delay);
                         historyContent.appendChild(historyItem);
@@ -736,10 +786,29 @@ function showErrorOverlay(title, message) {
 
             } catch (error) {
                 console.error('Error loading history:', error);
-                historyContent.innerHTML += '<p class="text-center text-danger">Erreur lors du chargement de l\'historique</p>';
+                if (!append) {
+                    historyContent.innerHTML = '<p class="text-center text-danger">Erreur lors du chargement de l\'historique</p>';
+                }
             } finally {
                 isLoading = false;
                 historyLoader.classList.add('d-none');
+            }
+        }
+        async function validateImageUrl(imageUrl, token) {
+            try {
+                const fullUrl = `${imageUrl}?token=${encodeURIComponent(token)}`;
+                const response = await fetch(fullUrl, { method: 'HEAD' });
+
+                if (!response.ok) {
+                    console.error('Debug - Image validation failed:', response.status);
+                    return false;
+                }
+
+                const contentType = response.headers.get('content-type');
+                return contentType && contentType.startsWith('image/');
+            } catch (error) {
+                console.error('Debug - Image validation error:', error);
+                return false;
             }
         }
 
