@@ -146,7 +146,7 @@ class ImageManager:
         """Récupère l'historique des images d'un utilisateur"""
         app.logger.error(f"Fetching history for user {user_id} with type {history_type}")
 
-        pattern = f"img:temp:image:{user_id}:*"
+        pattern = f"img:temp:image:{user_id}:{datetime.now().timestamp()}"
 
         all_keys = self.redis.keys(pattern)
         app.logger.error(f"Found all keys: {all_keys}")
