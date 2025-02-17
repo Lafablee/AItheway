@@ -379,6 +379,15 @@ async function handleMidjourneyProcessing(taskId, token) {
                         // Si l'image est accessible et le status est completed
                         if (statusResult.status === 'completed') {
                             displayGeneratedImage(statusResult.image_url);
+                            // Afficher l'image
+                            displayGeneratedImage(statusResult.image_url);
+
+                            // Attendre un peu pour que l'enregistrement soit fait
+                            await new Promise(resolve => setTimeout(resolve, 1000));
+
+                            // Recharger l'historique explicitement
+                            console.error('Reloading history after Midjourney generation');
+                            await loadHistory(1, false);
                             return;
                         }
                     } else {
@@ -749,7 +758,7 @@ function showErrorOverlay(title, message) {
                         console.error('Processing item:', {
                             index,
                             rawItem: item,
-                            model: item.model,
+                            modelFromParams: item.parameters?.model,
                             url: item.url,
                             imageUrl: item.image_url, // Au cas où l'URL serait sous un nom différent
                             prompt: item.prompt,
