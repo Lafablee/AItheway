@@ -147,17 +147,17 @@ class ImageManager:
         app.logger.error(f"Fetching history for user {user_id} with type {history_type}")
 
         pattern = f"img:temp:image:{user_id}:*"
-        images = []
 
-        # Récupérer toutes les clés
         all_keys = self.redis.keys(pattern)
         app.logger.error(f"Found all keys: {all_keys}")
 
-        # Filtrer pour ne garder que les clés d'images (pas les métadonnées)
-        image_keys = [k for k in all_keys if not k.endswith(b':meta')]
-        app.logger.error(f"Filtered image keys: {image_keys}")
+        images = []
 
-        for key in image_keys:
+        # Filtrer pour ne garder que les clés d'images (pas les métadonnées)
+        #image_keys = [k for k in all_keys if not k.endswith(b':meta')]
+        #app.logger.error(f"Filtered image keys: {image_keys}")
+
+        for key in all_keys:
             metadata_key = f"{key.decode('utf-8')}:meta"
             metadata = self.redis.hgetall(metadata_key)
             app.logger.error(f"Checking metadata for key {metadata_key}: {metadata}")
@@ -167,19 +167,24 @@ class ImageManager:
                     # Logique pour les images générées
                     decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
                     decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
+                    model = metadata.get(b'model', b'unknown').decode('utf-8')
 
                     try:
                         parameters = json.loads(metadata.get(b'parameters', b'{}').decode('utf-8'))
                     except (json.JSONDecodeError, TypeError):
                         parameters = {}
 
-                    images.append({
+                    image_data = {
                         'key': key.decode('utf-8'),
                         'prompt': decoded_prompt,
                         'timestamp': decoded_timestamp,
                         'url': f"/image/{key.decode('utf-8')}",
                         'parameters': parameters,
-                    })
+                        'model': model
+                    }
+
+                    app.logger.error(f"Processing generated image: {images.append()}")
+                    images.append(image_data)
 
                 elif history_type == "enhanced" and metadata.get(b'type') == b'enhanced':
                     # Logique pour les images améliorées
