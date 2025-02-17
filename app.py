@@ -146,69 +146,97 @@ class ImageManager:
         """Récupère l'historique des images d'un utilisateur"""
         app.logger.error(f"Fetching history for user {user_id} with type {history_type}")
 
-        pattern = f"img:temp:image:{user_id}:{datetime.now().timestamp()}"
+        pattern = f"img:temp:image:{user_id}:*"
+        images = []
 
         all_keys = self.redis.keys(pattern)
         app.logger.error(f"Found all keys: {all_keys}")
 
-        images = []
 
         # Filtrer pour ne garder que les clés d'images (pas les métadonnées)
-        #image_keys = [k for k in all_keys if not k.endswith(b':meta')]
-        #app.logger.error(f"Filtered image keys: {image_keys}")
+        image_keys = [k for k in all_keys if not k.endswith(b':meta')]
+        app.logger.error(f"Filtered image keys: {image_keys}")
 
-        for key in all_keys:
-            metadata_key = f"{key.decode('utf-8')}:meta"
-            metadata = self.redis.hgetall(metadata_key)
-            app.logger.error(f"Checking metadata for key {metadata_key}: {metadata}")
-
+        for key in image_keys:
             try:
+                # Construire la clé des métadonnées
+                metadata_key = f"{key.decode('utf-8')}:meta"
+                metadata = self.redis.hgetall(metadata_key)
+                app.logger.error(f"Checking metadata for key {metadata_key}: {metadata}")
+
+                # Vérifier si l'image existe toujours
+                if not self.redis.exists(key):
+                    app.logger.error(f"Image {key} no longer exists, skipping")
+                    continue
+
+                # Traitement selon le type d'historique demandé
                 if history_type == "generated" and metadata.get(b'type') == b'generated':
-                    # Logique pour les images générées
-                    decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
-                    decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
-                    model = metadata.get(b'model', b'unknown').decode('utf-8')
-
                     try:
-                        parameters = json.loads(metadata.get(b'parameters', b'{}').decode('utf-8'))
-                    except (json.JSONDecodeError, TypeError):
-                        parameters = {}
+                        # Décoder les métadonnées essentielles
+                        decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
+                        decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
+                        model = metadata.get(b'model', b'unknown').decode('utf-8')
 
-                    image_data = {
-                        'key': key.decode('utf-8'),
-                        'prompt': decoded_prompt,
-                        'timestamp': decoded_timestamp,
-                        'url': f"/image/{key.decode('utf-8')}",
-                        'parameters': parameters,
-                        'model': model
-                    }
+                        # Décoder et parser les paramètres
+                        try:
+                            parameters_str = metadata.get(b'parameters', b'{}').decode('utf-8')
+                            parameters = json.loads(parameters_str)
+                        except (json.JSONDecodeError, TypeError):
+                            app.logger.error(f"Error parsing parameters for key {key}")
+                            parameters = {}
 
-                    app.logger.error(f"Processing generated image: {images.append()}")
-                    images.append(image_data)
+                        # Construire l'objet image
+                        image_data = {
+                            'key': key.decode('utf-8'),
+                            'url': f"/image/{key.decode('utf-8')}",
+                            'prompt': decoded_prompt,
+                            'timestamp': decoded_timestamp,
+                            'parameters': parameters,
+                            'model': model
+                        }
+
+                        # Ajouter des champs spécifiques à Midjourney si présents
+                        if model == 'midjourney':
+                            image_data['task_id'] = metadata.get(b'task_id', b'').decode('utf-8')
+                            image_data['make_task_id'] = metadata.get(b'make_task_id', b'').decode('utf-8')
+
+                        images.append(image_data)
+                        app.logger.error(f"Added generated image to history: {image_data}")
+
+                    except Exception as e:
+                        app.logger.error(f"Error processing generated image metadata: {e}")
+                        continue
 
                 elif history_type == "enhanced" and metadata.get(b'type') == b'enhanced':
-                    # Logique pour les images améliorées
-                    original_key = metadata.get(b'original_key')
                     try:
-                        images.append({
+                        # Traitement spécifique pour les images améliorées
+                        original_key = metadata.get(b'original_key')
+                        timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
+
+                        enhanced_data = {
                             'enhanced_key': key.decode('utf-8'),
                             'original_key': original_key.decode('utf-8') if original_key else None,
-                            'timestamp': metadata.get(b'timestamp', b'').decode('utf-8'),
+                            'timestamp': timestamp,
                             'enhanced_url': f"/image/{key.decode('utf-8')}",
                             'original_url': f"/image/{original_key.decode('utf-8')}" if original_key else None
-                        })
+                        }
+
+                        images.append(enhanced_data)
+                        app.logger.error(f"Added enhanced image to history: {enhanced_data}")
+
                     except Exception as e:
                         app.logger.error(f"Error processing enhanced image metadata: {e}")
+                        continue
 
             except Exception as e:
-                app.logger.error(f"Error processing image metadata: {e}")
+                app.logger.error(f"Error processing image key {key}: {e}")
+                continue
 
-        # Trier et retourner les images
+            # Trier les images par timestamp (plus récent en premier)
         sorted_images = sorted(images, key=lambda x: x['timestamp'], reverse=True)
-        app.logger.error(f"Sorted images: {sorted_images}")
+        app.logger.error(f"Returning {len(sorted_images)} sorted images")
+
         return sorted_images
-
-
     def save_image(self, user_id, image_data):
         """Sauvegarde une image de manière permanente"""
         key = f"user:{user_id}:images:{datetime.now().timestamp()}"
