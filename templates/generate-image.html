@@ -746,17 +746,31 @@ function showErrorOverlay(title, message) {
 
                 if (items.length > 0) {
                     items.forEach((item, index) => {
-                        // Vérifier le modèle de l'image
-                        if (item.model) {
-                            console.error('Processing history item:', {
-                                model: item.model,
-                                url: item.url,
-                                timestamp: item.timestamp
-                            });
+                        console.error('Processing item:', {
+                            index,
+                            rawItem: item,
+                            model: item.model,
+                            url: item.url,
+                            imageUrl: item.image_url, // Au cas où l'URL serait sous un nom différent
+                            prompt: item.prompt,
+                            timestamp: item.timestamp
+                        });
+                       // Normaliser les données selon le modèle
+                        const normalizedItem = {
+                            url: item.url || item.image_url,
+                            prompt: item.prompt,
+                            timestamp: item.timestamp,
+                            model: item.model || currentModel // Utiliser le modèle courant si non spécifié
+                        };
+
+                        // Vérifier que nous avons une URL valide
+                        if (!normalizedItem.url) {
+                            console.error('Missing URL for item:', normalizedItem);
+                            return; // Skip this item
                         }
 
                         const delay = index * 100;
-                        const historyItem = createHistoryItem(item, delay);
+                        const historyItem = createHistoryItem(normalizedItem, delay);
                         historyContent.appendChild(historyItem);
                     });
 
