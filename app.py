@@ -146,12 +146,18 @@ class ImageManager:
         """Récupère l'historique des images d'un utilisateur"""
         app.logger.error(f"Fetching history for user {user_id} with type {history_type}")
 
-        pattern = f"img:temp:image:{user_id}:*"
+        patterns = [
+            f"img:temp:image:{user_id}:*",
+            "img:temp:image:midjourney:*"
+        ]
         images = []
 
-        all_keys = self.redis.keys(pattern)
-        app.logger.error(f"Found all keys: {all_keys}")
+        all_keys = []
+        for pattern in patterns:
+            keys = self.redis.keys(pattern)
+            all_keys.extend(keys)
 
+        app.logger.error(f"Found all keys: {all_keys}")
 
         # Filtrer pour ne garder que les clés d'images (pas les métadonnées)
         image_keys = [k for k in all_keys if not k.endswith(b':meta')]
@@ -176,6 +182,11 @@ class ImageManager:
                         decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
                         decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
                         model = metadata.get(b'model', b'unknown').decode('utf-8')
+
+                        # Vérifier que l'image appartient à l'utilisateur pour les images DALL-E
+                        # Pour Midjourney, on accepte toutes les images car elles sont partagées
+                        if model != 'midjourney' and f"img:temp:image:{user_id}" not in key.decode('utf-8'):
+                            continue
 
                         # Décoder et parser les paramètres
                         try:
@@ -237,6 +248,7 @@ class ImageManager:
         app.logger.error(f"Returning {len(sorted_images)} sorted images")
 
         return sorted_images
+
     def save_image(self, user_id, image_data):
         """Sauvegarde une image de manière permanente"""
         key = f"user:{user_id}:images:{datetime.now().timestamp()}"
