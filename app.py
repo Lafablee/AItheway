@@ -66,6 +66,8 @@ redis_client = redis.Redis(
 TEMP_STORAGE_DURATION = timedelta(hours=24)  # Pour les uploads temporaires
 PERMANENT_STORAGE_DURATION = timedelta(days=30)  # Pour les images sauvegardées
 
+
+
 class ImageManager:
     def __init__(self, redis_client):
         self.redis = redis_client
@@ -151,6 +153,7 @@ class ImageManager:
             "img:temp:image:midjourney:*"
         ]
         images = []
+        processed_groups = set()
 
         all_keys = []
         for pattern in patterns:
@@ -160,6 +163,7 @@ class ImageManager:
         app.logger.error(f"Found all keys: {all_keys}")
 
         # Filtrer pour ne garder que les clés d'images (pas les métadonnées)
+        app.logger.error(f"Found all keys: {all_keys}")
         image_keys = [k for k in all_keys if not k.endswith(b':meta')]
         app.logger.error(f"Filtered image keys: {image_keys}")
 
@@ -177,46 +181,81 @@ class ImageManager:
 
                 # Traitement selon le type d'historique demandé
                 if history_type == "generated" and metadata.get(b'type') == b'generated':
-                    try:
-                        # Décoder les métadonnées essentielles
-                        decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
-                        decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
-                        model = metadata.get(b'model', b'unknown').decode('utf-8')
+                    if metadata.get(b'model', b'').decode('utf-8') == 'midjourney':
+                        task_id = metadata.get(b'task_id', b'').decode('utf-8')
 
-                        # Vérifier que l'image appartient à l'utilisateur pour les images DALL-E
-                        # Pour Midjourney, on accepte toutes les images car elles sont partagées
-                        if model != 'midjourney' and f"img:temp:image:{user_id}" not in key.decode('utf-8'):
+                        # Éviter de traiter plusieurs fois le même groupe
+                        if task_id in processed_groups:
                             continue
 
-                        # Décoder et parser les paramètres
+                        group = self.get_midjourney_group(task_id)
+                        if group and group.get('status') == 'completed':
+                            # S'assurer que le groupe a bien 4 images
+                            if len(group.get('images', [])) == 4:
+                                processed_groups.add(task_id)
+
+                                # Formatage des URLs pour chaque image du groupe
+                                formatted_images = []
+                                for img in group['images']:
+                                    formatted_images.append({
+                                        'url': f"/image/{img['key']}",
+                                        'key': img['key'],
+                                        'number': img['number']
+                                    })
+
+                                image_data = {
+                                    'model': 'midjourney',
+                                    'task_id': task_id,
+                                    'prompt': group['prompt'],
+                                    'timestamp': group['timestamp'],
+                                    'images': formatted_images,
+                                    'status': 'completed'
+                                }
+                                images.append(image_data)
+                                app.logger.error(f"Added Midjourney group: {image_data}")
+
+                    else:
+
                         try:
-                            parameters_str = metadata.get(b'parameters', b'{}').decode('utf-8')
-                            parameters = json.loads(parameters_str)
-                        except (json.JSONDecodeError, TypeError):
-                            app.logger.error(f"Error parsing parameters for key {key}")
-                            parameters = {}
+                            # Décoder les métadonnées essentielles
+                            decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
+                            decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
+                            model = metadata.get(b'model', b'unknown').decode('utf-8')
 
-                        # Construire l'objet image
-                        image_data = {
-                            'key': key.decode('utf-8'),
-                            'url': f"/image/{key.decode('utf-8')}",
-                            'prompt': decoded_prompt,
-                            'timestamp': decoded_timestamp,
-                            'parameters': parameters,
-                            'model': model
-                        }
+                            # Vérifier que l'image appartient à l'utilisateur pour les images DALL-E
+                            # Pour Midjourney, on accepte toutes les images car elles sont partagées
+                            if model != 'midjourney' and f"img:temp:image:{user_id}" not in key.decode('utf-8'):
+                                continue
 
-                        # Ajouter des champs spécifiques à Midjourney si présents
-                        if model == 'midjourney':
-                            image_data['task_id'] = metadata.get(b'task_id', b'').decode('utf-8')
-                            image_data['make_task_id'] = metadata.get(b'make_task_id', b'').decode('utf-8')
+                            # Décoder et parser les paramètres
+                            try:
+                                parameters_str = metadata.get(b'parameters', b'{}').decode('utf-8')
+                                parameters = json.loads(parameters_str)
+                            except (json.JSONDecodeError, TypeError):
+                                app.logger.error(f"Error parsing parameters for key {key}")
+                                parameters = {}
 
-                        images.append(image_data)
-                        app.logger.error(f"Added generated image to history: {image_data}")
+                            # Construire l'objet image
+                            image_data = {
+                                'key': key.decode('utf-8'),
+                                'url': f"/image/{key.decode('utf-8')}",
+                                'prompt': decoded_prompt,
+                                'timestamp': decoded_timestamp,
+                                'parameters': parameters,
+                                'model': model
+                            }
 
-                    except Exception as e:
-                        app.logger.error(f"Error processing generated image metadata: {e}")
-                        continue
+                            # Ajouter des champs spécifiques à Midjourney si présents
+                            if model == 'midjourney':
+                                image_data['task_id'] = metadata.get(b'task_id', b'').decode('utf-8')
+                                image_data['make_task_id'] = metadata.get(b'make_task_id', b'').decode('utf-8')
+
+                            images.append(image_data)
+                            app.logger.error(f"Added generated image to history: {image_data}")
+
+                        except Exception as e:
+                            app.logger.error(f"Error processing generated image metadata: {e}")
+                            continue
 
                 elif history_type == "enhanced" and metadata.get(b'type') == b'enhanced':
                     try:
@@ -277,6 +316,74 @@ class ImageManager:
         metadata_key = f"{key}:metadata"
         return self.redis.hgetall(metadata_key)
 
+    def create_midjourney_group(self, task_id, prompt):
+        group_key = f"{self.prefix}:midjourney:group:{task_id}"
+        group_data = {
+            'task_id': task_id,
+            'prompt': prompt,
+            'images': [],
+            'timestamp': datetime.now().isoformat(),
+            'status': 'pending'
+        }
+        self.redis.setex(
+            group_key,
+            TEMP_STORAGE_DURATION,
+            json.dumps(group_data)
+        )
+        return group_data
+
+    def add_to_midjourney_group(self, task_id, image_data):
+        group_key = f"{self.prefix}:midjourney:group:{task_id}"
+        group_data = self.redis.get(group_key)
+
+        if not group_data:
+            app.logger.error(f"Group key {group_key} not found for task_id:{task_id}")
+            return None
+
+        group = json.loads(group_data)
+        group['images'].append(image_data)
+
+        # Mise à jour du statut
+        if len(group['images']) == 4:
+            group['status'] = 'complete'
+        else:
+            group['status'] = 'partial'
+
+        self.redis.setex(
+            group_key,
+            TEMP_STORAGE_DURATION,
+            json.dumps(group)
+        )
+        app.logger.error(f"Added image to group {task_id}. Status: {group['status']}")
+        return group
+
+    def get_midjourney_group(self, task_id):
+        group_key = f"{self.prefix}:midjourney:group:{task_id}"
+        group_data = self.redis.get(group_key)
+        if not group_data:
+            return None
+        return json.loads(group_data)
+
+    def get_user_midjourney_groups(self, user_id):
+        pattern = f"{self.prefix}:midjourney:group:*"
+        group_keys = self.redis.keys(pattern)
+        groups = []
+
+        for key in group_keys:
+            group_data = self.redis.get(key)
+            if group_data:
+                group = json.loads(group_data)
+                if self._check_group_ownership(group, user_id):
+                    groups.append(group)
+
+        return sorted(groups, key=lambda x: x['timestamp'], reverse=True)
+
+    def _check_group_ownership(self, group, user_id):
+        """Vérifie si un groupe appartient à un utilisateur"""
+        # Implémenter votre logique de vérification ici
+        return True  # À adapter selon vos besoins
+
+
 def cleanup_expired_images():
     """Nettoie les images expirées de Redis"""
     pattern = "temp:image:*"
@@ -285,6 +392,40 @@ def cleanup_expired_images():
             redis_client.delete(key)
 
 image_manager = ImageManager(redis_client)
+
+
+class MidjourneyImageGroup:
+    def __init__(self, task_id, prompt):
+        self.task_id = task_id
+        self.prompt = prompt
+        self.images = []
+        self.timestamp = datetime.now().isoformat()
+        self.status = 'pending'  # pending, partial, complete
+
+    def add_image(self, image_data):
+        """Ajoute une image au groupe"""
+        self.images.append(image_data)
+        self._update_status()
+
+    def _update_status(self):
+        """Met à jour le statut en fonction du nombre d'images"""
+        if len(self.images) == 4:
+            self.status = 'complete'
+        elif len(self.images) > 0:
+            self.status = 'partial'
+        else:
+            self.status = 'pending'
+
+    def to_dict(self):
+        """Convertit le groupe en dictionnaire"""
+        return {
+            'task_id': self.task_id,
+            'prompt': self.prompt,
+            'images': self.images,
+            'timestamp': self.timestamp,
+            'status': self.status
+        }
+
 
 class ChatManager:
     def __init__(self, redis_client):
@@ -1383,6 +1524,15 @@ def get_chat_history(wp_user_id):
 def get_enhanced_history(wp_user_id):
     # Utilise la fonction utilitaire pour les images améliorées
     response, status_code = get_paginated_history(wp_user_id, "enhanced")
+    # Transformer les données pour le format attendu par le frontend
+    if response['success'] and 'data' in response:
+        for item in response['data']['items']:
+            if item.get('model') == 'midjourney':
+                # S'assurer que les URLs sont complètes
+                for image in item.get('images', []):
+                    if 'url' in image and not image['url'].startswith('http'):
+                        image['url'] = f"/image/{image['key']}"
+
     return jsonify(response), status_code
 
 
@@ -1538,6 +1688,25 @@ def midjourney_callback():
             image_key = f"img:temp:image:midjourney:{datetime.now().timestamp()}"
             app.logger.error(f"Generated key for image: {image_key}")
 
+            # Prepare image data for the group
+            image_data = {
+                'key': image_key,
+                'url': f"/image/{image_key}",
+                'choice': data.get('choice'),
+                'type': data.get('type'),
+                'timestamp': datetime.now().isoformat()
+            }
+
+            # Get or create image group
+            group = image_manager.get_midjourney_group(our_task_id)
+
+            if not group:
+                # Create new group if it doesn't exist
+                group = image_manager.create_midjourney_group(our_task_id, original_prompt)
+
+            # Add image to group
+            group = image_manager.add_to_midjourney_group(our_task_id, image_data)
+
             # Prepare metadata for the generated image
             metadata = {
                 'type': b'generated',
@@ -1553,11 +1722,7 @@ def midjourney_callback():
                 }).encode('utf-8')
             }
 
-            # Log metadata for debugging
-            for key, value in metadata.items():
-                app.logger.error(f"Metadata {key}: {value} (type: {type(value)})")
-
-            # Use Redis pipeline for atomic operations
+            # Store the image in Redis
             pipe = redis_client.pipeline()
 
             # Store the image
@@ -1572,14 +1737,26 @@ def midjourney_callback():
             pipe.hmset(metadata_image_key, metadata)
             pipe.expire(metadata_image_key, TEMP_STORAGE_DURATION)
 
-            # Update task status and link image
-            pipe.hmset(metadata_key, {
-                'status': b'completed',
-                'image_key': image_key.encode('utf-8'),
-                'make_task_id': make_task_id.encode('utf-8')
-            })
+            # Update task status if this is the last image
+            if len(group['images']) == 4:
+                pipe.hmset(metadata_key, {
+                    'status': b'completed',
+                    'image_group_key': image_key.encode('utf-8'),
+                    'make_task_id': make_task_id.encode('utf-8')
+                })
 
-            # Create Make ID to Our ID mapping
+            # Log metadata for debugging
+            for key, value in metadata.items():
+                app.logger.error(f"Metadata {key}: {value} (type: {type(value)})")
+
+
+            # Update task status and link image
+            #pipe.hmset(metadata_key, {
+                #'status': b'completed',
+                #'image_key': image_key.encode('utf-8'),
+                #'make_task_id': make_task_id.encode('utf-8')
+            #})
+            # Create mapping
             pipe.setex(
                 f"midjourney_mapping:{make_task_id}",
                 TEMP_STORAGE_DURATION,
@@ -1598,7 +1775,8 @@ def midjourney_callback():
             return jsonify({
                 'success': True,
                 'image_key': image_key,
-                'image_url': f"/image/{image_key}"
+                'image_url': f"/image/{image_key}",
+                'group_status': group['status']
             })
 
         except requests.exceptions.Timeout:

@@ -5,6 +5,93 @@
 {% block content %}
 
 <style>
+    .midjourney-group {
+        position: relative;
+        width: 100%;
+        max-width: 400px;
+        cursor: pointer;
+    }
+
+    .midjourney-group-preview {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 2px;
+        border-radius: 8px;
+        overflow: hidden;
+    }
+
+    .midjourney-group-preview img {
+        width: 100%;
+        height: auto;
+        object-fit: cover;
+    }
+
+    .midjourney-group-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.3);
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        opacity: 0;
+        transition: opacity 0.3s;
+    }
+
+    .midjourney-group:hover .midjourney-group-overlay {
+        opacity: 1;
+    }
+
+    .midjourney-detail-view {
+        position: fixed;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.9);
+        z-index: 1000;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+    }
+
+    .midjourney-detail-content {
+        width: 90%;
+        max-width: 1200px;
+        background: #fff;
+        border-radius: 12px;
+        padding: 20px;
+    }
+
+    .midjourney-variations-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+        margin-top: 20px;
+    }
+
+    .variation-item {
+        position: relative;
+        cursor: pointer;
+        transition: transform 0.2s;
+    }
+
+    .variation-item:hover {
+        transform: scale(1.02);
+    }
+
+    .variation-number {
+        position: absolute;
+        bottom: 8px;
+        left: 8px;
+        background: rgba(0, 0, 0, 0.6);
+        color: white;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+    }
      .spinner-border {
             width: 2rem;
             height: 2rem;
@@ -431,7 +518,11 @@ async function handleMidjourneyProcessing(taskId, token) {
 }
 
 // Fonction d'affichage de l'image générée
-function displayGeneratedImage(imageUrl) {
+function displayGeneratedImage(imageUrl, isGroup = false) {
+    if (isGroup) {
+        // Pour les groupes Midjourney, attendre que toutes les images soient générées
+        return;
+    }
     console.error('Starting displayGeneratedImage with imageUrl:', imageUrl);
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -636,7 +727,32 @@ function showErrorOverlay(title, message) {
             const listItem = document.createElement('li');
             listItem.className = 'fn__gl_item';
 
-            listItem.innerHTML = `
+            if (item.model === 'midjourney' && item.images && item.images.length === 4) {
+                // Créer un aperçu du groupe Midjourney
+                listItem.innerHTML = `
+                    <div class="fn__gl__item">
+                        <div class="abs_item midjourney-group" data-group-id="${item.task_id}">
+                            <div class="midjourney-group-preview">
+                                ${item.images.map((img, index) => `
+                                    <img src="${img.url}?token=${encodeURIComponent(token)}"
+                                         alt="Variation ${index + 1}"
+                                         loading="lazy">
+                                `).join('')}
+                            </div>
+                            <div class="midjourney-group-overlay">
+                                <span>Voir les 4 variations</span>
+                            </div>
+                            <div class="prompt">${item.prompt}</div>
+                            <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
+                        </div>
+                    </div>
+                `;
+                // Gestionnaire d'événements pour l'ouverture du groupe
+                listItem.querySelector('.midjourney-group').addEventListener('click', () => {
+                    showMidjourneyDetail(item);
+                });
+            } else {
+                listItem.innerHTML = `
                 <div class="fn__gl__item">
                     <div class="abs_item">
                         <img src="${fullImageUrl}" alt="Generated image" loading="lazy">
@@ -689,6 +805,8 @@ function showErrorOverlay(title, message) {
              // Ajouter le délai d'animation
             listItem.style.animationDelay = `${delay}ms`;
 
+            }
+
             return listItem;
 
         }
@@ -710,6 +828,58 @@ function showErrorOverlay(title, message) {
         //document.addEventListener('DOMContentLoaded', () => {
             //loadHistory(1, false);
         //});
+    function showMidjourneyDetail(groupData) {
+    const detailView = document.createElement('div');
+    detailView.className = 'midjourney-detail-view';
+
+    detailView.innerHTML = `
+        <div class="midjourney-detail-content">
+            <div class="detail-header">
+                <h3>${groupData.prompt}</h3>
+                <button class="close-button">×</button>
+            </div>
+            <div class="midjourney-variations-grid">
+                ${groupData.images.map((img, index) => `
+                    <div class="variation-item">
+                        <img src="${img.url}?token=${encodeURIComponent(token)}"
+                             alt="Variation ${index + 1}"
+                             class="variation-image">
+                        <div class="variation-number">V${index + 1}</div>
+                        <div class="all_options">
+                            <div class="fn__icon_options medium_size">
+                                <div class="dropdown">
+                                    <button class="fn__icon_button dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                                        <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-dark">
+                                        <li class="dropdown-item" data-format="png" data-url="${img.url}">PNG</li>
+                                        <li class="dropdown-item" data-format="jpg" data-url="${img.url}">JPG</li>
+                                        <li class="dropdown-item" data-format="jpeg" data-url="${img.url}">JPEG</li>
+                                        <li class="dropdown-item" data-format="gif" data-url="${img.url}">GIF</li>
+                                    </ul>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        </div>
+    `;
+
+    // Fermeture de la vue détaillée
+    detailView.querySelector('.close-button').addEventListener('click', () => {
+        detailView.remove();
+    });
+
+    // Clic sur l'arrière-plan pour fermer
+    detailView.addEventListener('click', (e) => {
+        if (e.target === detailView) {
+            detailView.remove();
+        }
+    });
+
+    document.body.appendChild(detailView);
+}
 
     // Fonction pour charger l'historique
         async function loadHistory(page = 1, append = false) {
