@@ -1550,19 +1550,27 @@ def check_midjourney_status(wp_user_id, task_id=None):
         }), 400
 
     try:
-        # Vérifier la tâche
+        # 1. Vérifier la tâche
         metadata_key = f"midjourney_task:{task_id}"
         task_data = redis_client.hgetall(metadata_key)
         app.logger.error(f"Task data from Redis: {task_data}")
 
+        # Si pas de tâche trouvée
         if not task_data:
+            app.logger.error(f"No task data found for key: {metadata_key}")
             return jsonify({
                 "success": True,
                 "task_id": task_id,
-                "status": "processing"
+                "status": "processing",
+                "images_received": 0,
+                "total_expected": 4
             })
 
-        # Vérifier le groupe
+        # 2. Vérifier le statut de la tâche
+        status = task_data.get(b'status', b'processing').decode('utf-8')
+        app.logger.error(f"Task status: {status}")
+
+        # 3. Vérifier le groupe
         group_key = f"midjourney_group:{task_id}"
         group_data = redis_client.get(group_key)
         app.logger.error(f"Group data from Redis: {group_data}")
@@ -1584,15 +1592,7 @@ def check_midjourney_status(wp_user_id, task_id=None):
                         "prompt": group.get('prompt', ''),
                         "total_images": images_count
                     })
-                # Si le groupe existe mais n'est pas complet
-                else:
-                    return jsonify({
-                        "success": True,
-                        "task_id": task_id,
-                        "status": "processing",
-                        "images_received": images_count,
-                        "total_expected": 4
-                    })
+
             except json.JSONDecodeError as e:
                 app.logger.error(f"Error decoding group data: {e}")
                 return jsonify({
@@ -1601,12 +1601,13 @@ def check_midjourney_status(wp_user_id, task_id=None):
                     "error": "Invalid group data format"
                 }), 500
 
-        # Si pas de groupe, on est toujours en processing
+        # Par défaut, retourner processing avec le nombre d'images trouvées
+        image_count = len(json.loads(group_data).get('images', [])) if group_data else 0
         return jsonify({
             "success": True,
             "task_id": task_id,
             "status": "processing",
-            "images_received": 0,
+            "images_received": image_count,
             "total_expected": 4
         })
 
