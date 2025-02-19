@@ -57,79 +57,62 @@ class MidjourneyGenerator(AIModelGenerator):
         self.redis = redis_client
 
     def generate(self, prompt, additional_params=None):
-        metadata_key = None
         try:
-            # Generate our internal task ID
-            our_task_id = str(uuid.uuid4())
-            app.logger.error(f"=== Starting Midjourney Generation ===")
-            app.logger.error(f"Generated task_id: {our_task_id}")
-            app.logger.error(f"Prompt: {prompt}")
+            internal_task_id = str(uuid.uuid4())
+            timestamp = datetime.now().isoformat()
 
-            # Create metadata key for Redis
-            metadata_key = f"midjourney_task:{our_task_id}"
-
-            # Prepare initial metadata
-            metadata = {
-                'type': b'generated',
-                'prompt': prompt.encode('utf-8'),
-                'timestamp': datetime.now().isoformat().encode('utf-8'),
-                'model': b'midjourney',
-                'status': b'processing',
-                'task_id': our_task_id.encode('utf-8'),
-                'parameters': json.dumps({
-                    'model': 'midjourney',
-                    'size': '1024x1024'
-                }).encode('utf-8'),
-                'make_task_id': b''  # Will be filled in callback
+            # Créer la structure initiale du groupe
+            group_data = {
+                'internal_task_id': internal_task_id,
+                'prompt': prompt,
+                'status': 'processing',
+                'timestamp': timestamp,
+                'images': [],
+                'total_expected': 4
             }
 
-            app.logger.error(f"About to store metadata in Redis with key: {metadata_key}")
-            app.logger.error(f"Metadata to store: {metadata}")
+            # Stocker le groupe
+            self.redis.setex(
+                f"midjourney_group:{internal_task_id}",
+                3600,
+                json.dumps(group_data)
+            )
 
-            # Use Redis pipeline for atomic operations
-            pipe = self.redis.pipeline()
-
-            # Store metadata with expiration
-            pipe.hmset(metadata_key, metadata)
-            pipe.expire(metadata_key, 3600)  # 1 hour expiration
-            pipe.execute()
-
-            # Verify storage
-            stored = self.redis.exists(metadata_key)
-            app.logger.error(f"Task exists in Redis after creation: {stored}")
-            app.logger.error(f"Initial Redis storage - key: {metadata_key}")
-            app.logger.error(f"Stored metadata: {metadata}")
-
-            # Send request to Make/Userapi.AI
-            payload = {
-                "prompt": prompt
+            # Stocker la tâche active avec son prompt
+            active_task_data = {
+                'prompt': prompt,
+                'internal_task_id': internal_task_id,
+                'timestamp': timestamp,
+                'status': 'processing'
             }
-            app.logger.error(f"Sending to Make/Userapi.AI: {payload}")
 
+            # On stocke cette tâche comme la tâche active la plus récente
+            self.redis.setex(
+                'midjourney_active_task',
+                3600,
+                json.dumps(active_task_data)
+            )
+
+            # Envoi à Make/userapi.ai
             response = requests.post(
                 self.webhook_url,
-                json=payload,
+                json={"prompt": prompt},
                 headers={'Content-Type': 'application/json'}
             )
 
-            if response.status_code == 200:
-                app.logger.info("Successfully sent to Make webhook")
-                return {
-                    "success": True,
-                    "status": "processing",
-                    "task_id": our_task_id
-                }
-            else:
-                # Clean up Redis data if webhook fails
-                self.redis.delete(metadata_key)
-                raise ValueError(f"Discord webhook error: {response.status_code}")
+            if response.status_code != 200:
+                raise ValueError(f"Webhook error: {response.status_code}")
+
+            return {
+                "success": True,
+                "status": "processing",
+                "task_id": internal_task_id
+            }
 
         except Exception as e:
             app.logger.error(f"Midjourney generation error: {str(e)}")
-            # Clean up Redis data in case of error
-            if metadata_key:
-                self.redis.delete(metadata_key)
             return {"success": False, "error": str(e)}
+
 
 class AIModelManager:
     def __init__(self):

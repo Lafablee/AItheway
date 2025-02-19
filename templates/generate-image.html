@@ -106,6 +106,21 @@
     #download-section {
             display: none;
         }
+    .midjourney-group-container {
+        @apply p-4;
+    }
+
+    .progress-container {
+        @apply mt-4 mb-8;
+    }
+
+    .variation-number {
+        @apply absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded text-sm;
+    }
+
+    .image-actions {
+        @apply absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity;
+    }
 </style>
 <div class="neltar_fn_page">
 
@@ -456,6 +471,21 @@ async function handleMidjourneyProcessing(taskId, token) {
             if (statusResult.image_url) {
                 console.error('Image URL found:', statusResult.image_url);
 
+            // Mise à jour de la progression
+            if (statusResult.progress) {
+                updateProgressIndicator(statusResult.progress.percentage);
+            }
+
+            if (statusResult.status === 'completed' && statusResult.images.length === 4) {
+                // Afficher le groupe complet
+                displayMidjourneyGroup(statusResult);
+                return;
+            }
+            // Délai dynamique
+            const delay = attempts < 5 ? 5000 : 10000;
+            await new Promise(resolve => setTimeout(resolve, delay));
+            attempts++;
+
                 try {
                     const imageCheck = await fetch(`${statusResult.image_url}?token=${token}`, {
                         method: 'HEAD'
@@ -628,6 +658,143 @@ function updateLoadingState(state) {
             spinner.style.display = 'none';
             generateText.style.display = 'inline';
     }
+}
+
+function displayMidjourneyGroup(groupData) {
+    const container = document.createElement('div');
+    container.className = 'midjourney-group-container';
+
+    // Afficher le prompt
+    const promptDiv = document.createElement('div');
+    promptDiv.className = 'prompt-container mb-4';
+    promptDiv.innerHTML = `
+        <h3 class="text-lg font-medium">${groupData.prompt}</h3>
+        <p class="text-sm text-gray-500">${new Date(groupData.timestamp).toLocaleString()}</p>
+    `;
+    container.appendChild(promptDiv);
+
+    // Grille d'images
+    const grid = document.createElement('div');
+    grid.className = 'grid grid-cols-2 gap-4';
+
+    groupData.images.forEach((image, index) => {
+        const imageContainer = document.createElement('div');
+        imageContainer.className = 'relative group';
+        imageContainer.innerHTML = `
+            <img src="${image.url}?token=${token}"
+                 alt="Variation ${image.choice}"
+                 class="w-full rounded shadow transition-transform duration-200 group-hover:scale-105 cursor-pointer">
+            <div class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
+                V${image.choice}
+            </div>
+            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="dropdown">
+                    <button class="fn__icon_button dropdown-toggle">
+                        <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li class="dropdown-item" data-format="png" data-url="${image.url}">PNG</li>
+                        <li class="dropdown-item" data-format="jpg" data-url="${image.url}">JPG</li>
+                        <li class="dropdown-item" data-format="jpeg" data-url="${image.url}">JPEG</li>
+                    </ul>
+                </div>
+            </div>
+        `;
+
+        // Ajouter le clic pour agrandir
+        imageContainer.querySelector('img').addEventListener('click', () => {
+            showImageDetail(image, groupData.prompt);
+        });
+
+        grid.appendChild(imageContainer);
+    });
+
+    container.appendChild(grid);
+
+    // Remplacer le contenu existant
+    const imageDiv = document.getElementById('generated-image');
+    imageDiv.innerHTML = '';
+    imageDiv.appendChild(container);
+
+    // Afficher la section de téléchargement
+    document.getElementById('download-section').style.display = 'block';
+
+    // Mettre à jour l'état
+    document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+
+    // Mettre à jour l'historique
+    loadHistory(1, false);
+}
+
+function updateProgressIndicator(percentage) {
+    const progressBar = document.querySelector('.progress-bar');
+    if (!progressBar) {
+        const progressContainer = document.createElement('div');
+        progressContainer.className = 'progress-container mt-4';
+        progressContainer.innerHTML = `
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                <div class="progress-bar bg-blue-600 h-2.5 rounded-full transition-all duration-500"
+                     style="width: ${percentage}%"></div>
+            </div>
+            <div class="text-sm text-gray-600 mt-2">
+                Génération en cours : ${Math.round(percentage)}%
+            </div>
+        `;
+        document.getElementById('generated-image').appendChild(progressContainer);
+    } else {
+        progressBar.style.width = `${percentage}%`;
+        progressBar.parentElement.nextElementSibling.textContent =
+            `Génération en cours : ${Math.round(percentage)}%`;
+    }
+}
+function showImageDetail(image, prompt) {
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white w-full max-w-4xl rounded-lg p-4">
+            <div class="flex justify-between items-center mb-4">
+                <div>
+                    <h3 class="text-xl font-semibold">Variation ${image.choice}</h3>
+                    <p class="text-sm text-gray-600">${prompt}</p>
+                </div>
+                <button class="close-button text-gray-500 hover:text-gray-700">
+                    <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <img src="${image.url}?token=${token}"
+                 alt="Variation ${image.choice}"
+                 class="w-full rounded-lg">
+            <div class="mt-4 flex justify-between items-center">
+                <div class="text-sm text-gray-600">
+                    ${image.width}x${image.height}
+                </div>
+                <div class="dropdown">
+                    <button class="fn__icon_button dropdown-toggle">
+                        <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-dark">
+                        <li class="dropdown-item" data-format="png" data-url="${image.url}">PNG</li>
+                        <li class="dropdown-item" data-format="jpg" data-url="${image.url}">JPG</li>
+                        <li class="dropdown-item" data-format="jpeg" data-url="${image.url}">JPEG</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    modal.querySelector('.close-button').addEventListener('click', () => {
+        modal.remove();
+    });
+
+    modal.addEventListener('click', (e) => {
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
 }
 
 function showErrorOverlay(title, message) {
