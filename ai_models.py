@@ -72,25 +72,23 @@ class MidjourneyGenerator(AIModelGenerator):
             }
 
             # Stocker le groupe
+            group_key = f"midjourney_task:{internal_task_id}"
             self.redis.setex(
-                f"midjourney_group:{internal_task_id}",
+                group_key,
                 3600,
                 json.dumps(group_data)
             )
 
             # Stocker la tâche active avec son prompt
-            active_task_data = {
-                'prompt': prompt,
-                'internal_task_id': internal_task_id,
-                'timestamp': timestamp,
-                'status': 'processing'
-            }
-
-            # On stocke cette tâche comme la tâche active la plus récente
+            active_task_key = f"midjourney_active_task"
             self.redis.setex(
-                'midjourney_active_task',
+                active_task_key,
                 3600,
-                json.dumps(active_task_data)
+                json.dumps({
+                    'task_id': internal_task_id,
+                    'prompt': prompt,
+                    'timestamp': timestamp
+                })
             )
 
             # Envoi à Make/userapi.ai
