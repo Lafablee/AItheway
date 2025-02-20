@@ -502,14 +502,33 @@ async function handleMidjourneyProcessing(taskId, token) {
         console.error(`Polling attempt ${attempts + 1}/${maxAttempts}`);
         try {
             console.error('Sending request with model:', currentModel);
-            const statusResponse = await fetch(`/check_midjourney_status/${taskId}?token=${token}`, {
+            // Ajouter un timeout à la requête fetch
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 secondes
+
+            const statusResponse = await fetch(`/check_midjourney_status/${taskId}?token=${encodeURIComponent(token)}`, {
                 headers: {
                     'X-Requested-With': 'XMLHttpRequest'
-                }
+                },
+                signal: controller.signal
             });
+
+            clearTimeout(1)
             console.error('Status response:', statusResponse.status);
+            // Ajoutez ces logs pour déboguer
+            console.error(`Requested URL: /check_midjourney_status/${taskId}?token=[redacted]`);
+            console.error(`taskId value: ${taskId}`);
+            console.error(`taskId type: ${typeof taskId}`);
 
             if (!statusResponse.ok) {
+                console.error(`Response not OK: ${statusResponse.status}`);
+                // Tenter de lire le corps de la réponse pour plus d'informations
+                try {
+                    const errorText = await statusResponse.text();
+                    console.error(`Error response body: ${errorText}`);
+                } catch (readError) {
+                    console.error(`Could not read error response: ${readError}`);
+                }
                 throw new Error('Erreur lors de la vérification du statut');
             }
 

@@ -1512,8 +1512,11 @@ def check_midjourney_status(wp_user_id, task_id=None):
     app.logger.error(f"User ID: {wp_user_id}")
     app.logger.error(f"Task ID: {task_id}")
 
+    app.logger.error("Checking task_id parameter")
+
     # Vérifier le task_id
     if not task_id:
+        app.logger.error("No task_id provided, returning 400")
         return jsonify({
             "success": False,
             "status": "error",
@@ -1521,8 +1524,11 @@ def check_midjourney_status(wp_user_id, task_id=None):
         }), 400
 
     try:
+        app.logger.error(f"Preparing to fetch task data for {task_id}")
         metadata_key = f"midjourney_task:{task_id}"
         group_key = f"midjourney_group:{task_id}"
+
+        app.logger.error(f"Getting data with keys: {metadata_key}, {group_key}")
 
         # Récupérer les données de la tâche
         task_data = redis_client.hgetall(metadata_key)
