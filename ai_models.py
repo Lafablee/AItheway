@@ -179,11 +179,11 @@ class MidjourneyGenerator(AIModelGenerator):
                 }).encode('utf-8')
             }
 
-            # Utilisez un pipeline Redis asynchrone
-            tr = redis.multi_exec()
-            await tr.hmset(metadata_key, metadata)
-            await tr.expire(metadata_key, 3600)
-            await tr.execute()
+            # Version redis.asyncio (nouvelle)
+            async with redis.pipeline() as pipe:
+                pipe.hset(metadata_key, mapping=metadata)  # hmset -> hset avec mapping
+                pipe.expire(metadata_key, 3600)
+                await pipe.execute()
 
             # Setup Discord session
             headers = {
@@ -287,8 +287,7 @@ class MidjourneyGenerator(AIModelGenerator):
         finally:
             # Fermer la connexion Redis asynchrone si elle existe
             if self.async_redis is not None:
-                self.async_redis.close()
-                await self.async_redis.wait_closed()
+                await self.async_redis.close()  # Nouvelle syntaxe avec redis.asyncio
                 self.async_redis = None
 
 class AIModelManager:
