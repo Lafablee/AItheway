@@ -320,7 +320,8 @@ def create_ai_manager():
     manager = AIModelManager()
 
     # Configuration DALL-E
-    dalle_api_key = os.getenv("OPENAI_API_KEY")
+    dalle_api_key = os.getenv("openai.api_key")
+    app.logger.error(f"DALL-E API Key present: {bool(dalle_api_key)}")
     if dalle_api_key:
         manager.register_model("dall-e", DallEGenerator(dalle_api_key))
 
