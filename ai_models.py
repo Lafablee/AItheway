@@ -7,8 +7,8 @@ import os
 from datetime import datetime
 import asyncio
 import aiohttp
-import aioredis
-from aioredis import Redis
+import redis.asyncio as aioredis
+from redis.asyncio import Redis
 import time
 import uuid
 import redis
@@ -76,7 +76,7 @@ class MidjourneyGenerator(AIModelGenerator):
     async def get_async_redis(self) -> Redis:
         """Lazy initialization of async Redis connection"""
         if self.async_redis is None:
-            self.async_redis = await aioredis.create_redis_pool(
+            self.async_redis = await aioredis.from_url(
                 'redis://localhost'
             )
         return self.async_redis
