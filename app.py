@@ -752,7 +752,7 @@ def token_required(f):
             )
 
         if token == FIXED_TOKEN:
-            return f(None)
+            return f(None, **kwargs)
         try:
             decoded_token = jwt.decode(token, SECRET_KEY, algorithms=['HS256'])
             app.logger.error(f"Token decoded successfully: {decoded_token}")
@@ -767,7 +767,7 @@ def token_required(f):
             if not client:
                 return redirect(LOGIN_URL)
 
-            return f(wp_user_id)
+            return f(wp_user_id, **kwargs)
 
         except jwt.ExpiredSignatureError:
             app.logger.error("Token has expired")
