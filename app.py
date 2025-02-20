@@ -102,23 +102,6 @@ class ImageManager:
                 metadata_key = f"{key}:meta"
                 app.logger.error(f"Original metadata: {metadata}")
 
-                # S'assurer que toutes les valeurs sont en bytes
-                processed_metadata = {}
-                for k, v in metadata.items():
-                    app.logger.error(f"Metadata {k}: {v} (type: {type(v)})")
-                    #if isinstance(v, str):
-                        #processed_metadata[k] = v.encode('utf-8')
-                    #elif isinstance(v, bytes):
-                        #processed_metadata[k] = v
-                    #else:
-                        #processed_metadata[k] = str(v).encode('utf-8')
-
-                # Ajout de la timestamp si non présente
-                #if b'timestamp' not in processed_metadata:
-                    #processed_metadata[b'timestamp'] = datetime.now().isoformat().encode('utf-8')
-
-                #app.logger.error(f"Storing metadata at {metadata_key}: {processed_metadata}")
-
                 pipe.hmset(metadata_key, metadata)
                 pipe.expire(metadata_key, TEMP_STORAGE_DURATION)
 
@@ -128,14 +111,6 @@ class ImageManager:
 
             results = pipe.execute()
             app.logger.error(f"Pipeline execution results: {results}")
-            #pipe.ltrim(user_index_key, 0, 99)  # Garder les 100 dernières images
-
-            # Exécuter toutes les opérations
-            #pipe.execute()
-
-            if metadata:
-                stored = self.redis.hgetall(metadata_key)
-                app.logger.error(f"Immediate verification - stored metadata: {stored}")
 
             return key
 
@@ -143,7 +118,6 @@ class ImageManager:
             app.logger.error(f"Redis storage error: {str(e)}")
             app.logger.error(f"Failed to store image with metadata: {metadata}")
             raise
-
 
     def get_user_history(self, user_id, history_type="enhanced"):
         """Récupère l'historique des images d'un utilisateur"""
@@ -349,35 +323,65 @@ class ImageManager:
         app.logger.error(f"Added image to group {task_id}. Status: {group['status']}")
         return group
 
-    def get_midjourney_group(self, task_id):
+    def get_midjourney_task_status(self, task_id):
+        """Récupère le statut d'une tâche Midjourney"""
+        metadata_key = f"midjourney_task:{task_id}"
         group_key = f"midjourney_group:{task_id}"
-        raw_data = self.redis.get(group_key)
-        if not raw_data:
+
+        # Récupérer les métadonnées de la tâche
+        task_data = self.redis.hgetall(metadata_key)
+        group_data = self.redis.get(group_key)
+
+        if not task_data:
             return None
-        try:
-            return json.loads(raw_data)  # Il n'y a plus de b'data' à décoder
-        except Exception as e:
-            app.logger.error(f"Error decoding group data: {e}")
+
+        status_info = {
+            'task_id': task_id,
+            'status': task_data.get(b'status', b'unknown').decode('utf-8'),
+            'prompt': task_data.get(b'prompt', b'').decode('utf-8'),
+        }
+
+        if group_data:
+            group_info = json.loads(group_data)
+            status_info.update({
+                'initial_grid': group_info.get('initial_grid'),
+                'images': group_info.get('images', []),
+                'group_status': group_info.get('status')
+            })
+
+        return status_info
+
+    def store_midjourney_upscale(self, task_id, image_url, upscale_number):
+        """Stocke une image upscale de Midjourney"""
+        group_key = f"midjourney_group:{task_id}"
+        group_data = self.redis.get(group_key)
+
+        if not group_data:
             return None
 
-    def get_user_midjourney_groups(self, user_id):
-        pattern = f"{self.prefix}:midjourney:group:*"
-        group_keys = self.redis.keys(pattern)
-        groups = []
+        group_info = json.loads(group_data)
 
-        for key in group_keys:
-            group_data = self.redis.get(key)
-            if group_data:
-                group = json.loads(group_data)
-                if self._check_group_ownership(group, user_id):
-                    groups.append(group)
+        # Ajouter la nouvelle image upscale
+        new_image = {
+            'url': image_url,
+            'upscale_number': upscale_number,
+            'timestamp': datetime.now().isoformat()
+        }
 
-        return sorted(groups, key=lambda x: x['timestamp'], reverse=True)
+        group_info['images'].append(new_image)
 
-    def _check_group_ownership(self, group, user_id):
-        """Vérifie si un groupe appartient à un utilisateur"""
-        # Implémenter votre logique de vérification ici
-        return True  # À adapter selon vos besoins
+        # Mettre à jour le statut si toutes les images sont reçues
+        if len(group_info['images']) == 4:
+            group_info['status'] = 'complete'
+
+        # Sauvegarder les modifications
+        self.redis.setex(
+            group_key,
+            TEMP_STORAGE_DURATION,
+            json.dumps(group_info)
+        )
+
+        return group_info
 
 
 def cleanup_expired_images():
@@ -1124,88 +1128,58 @@ def generate_image(wp_user_id):
                 return jsonify({"message": "Create what inspires you!"}), 400
 
             try:
-                # Configuration spécifique au modèle
-                if model == 'dall-e':
-                    app.logger.error("Using DALL-E model...")
-                    response = openai.images.generate(
-                        model="dall-e-3",
-                        prompt=prompt,
-                        n=1,
-                        size="1024x1024"
-                    )
-                    image_url = response.data[0].url
+                # Utiliser le gestionnaire de modèles
+                result = ai_manager.generate_image_sync(model, prompt)
+                app.logger.error(f"Generation result: {result}")
 
-                    # Téléchargement de l'image
-                    image_response = requests.get(image_url)
-
-                    if image_response.status_code == 200:
-                        app.logger.error(f"Preparing to store generated image for user {wp_user_id}")
-
-                        # Préparation des métadonnées
-                        metadata = {
-                            'type': b'generated',
-                            'prompt': prompt.encode('utf-8'),
-                            'timestamp': datetime.now().isoformat().encode('utf-8'),
-                            'model': model.encode('utf-8'),
-                            'parameters': json.dumps({
-                                'model': model,
-                                'size': '1024x1024'
-                            }).encode('utf-8'),
-                        }
-                        app.logger.error(f"Preparing metadata: {metadata}")
-
-                        # Stockage de l'image avec ses métadonnées
-                        image_key = image_manager.store_temp_image(
-                            wp_user_id,
-                            image_response.content,
-                            metadata
-                        )
-                        app.logger.error(f"Storing image with key: {image_key}")
-
-                        # Vérification du stockage
-                        stored_image = image_manager.get_image(image_key)
-                        app.logger.error(f"Image retrieval verification: {'Success' if stored_image else 'Failed'}")
-
-                        stored_metadata = image_manager.redis.hgetall(f"{image_key}:meta")
-                        app.logger.error(f"Verified stored metadata: {stored_metadata}")
-
+                if result['success']:
+                    if model == 'midjourney':
+                        # Pour Midjourney, on retourne le task_id pour le suivi
                         return jsonify({
                             'success': True,
-                            'image_key': image_key,
-                            'image_url': f"/image/{image_key}"
+                            'status': 'processing',
+                            'task_id': result['task_id']
                         })
                     else:
-                        return jsonify({'error': 'Failed to download image'}), 500
+                        # Pour DALL-E, télécharger et stocker l'image
+                        image_response = requests.get(result['image_url'])
 
-                elif model == 'midjourney':
-                    app.logger.error("Using Midjourney model...")
+                        if image_response.status_code == 200:
+                            # Préparer les métadonnées
+                            metadata = {
+                                'type': b'generated',
+                                'prompt': prompt.encode('utf-8'),
+                                'timestamp': datetime.now().isoformat().encode('utf-8'),
+                                'model': model.encode('utf-8'),
+                                'parameters': json.dumps({
+                                    'model': model,
+                                    'size': '1024x1024'
+                                }).encode('utf-8')
+                            }
 
-                    try:
-                        # Utilisation du gestionnaire de modèles
-                        result = ai_manager.generate_image('midjourney', prompt)
-                        app.logger.error(f"Midjourney generation result: {result}")
+                            # Stocker l'image avec ses métadonnées
+                            image_key = image_manager.store_temp_image(
+                                wp_user_id,
+                                image_response.content,
+                                metadata
+                            )
 
-                        if result['success']:
-                            if result.get('status') == 'processing':
-                                # Pour Midjourney, on retourne juste le statut et le task_id
-                                # L'image sera récupérée plus tard via le webhook de callback
-                                return jsonify({
-                                    'success': True,
-                                    'status': 'processing',
-                                    'task_id': result['task_id']
-                                })
-                            else:
-                                # Si on a directement une URL d'image
-                                return jsonify({
-                                    'success': True,
-                                    'image_url': result['image_url']
-                                })
+                            # Vérification du stockage
+                            stored_image = image_manager.get_image(image_key)
+                            app.logger.error(f"Image storage verification: {'Success' if stored_image else 'Failed'}")
+
+                            stored_metadata = image_manager.redis.hgetall(f"{image_key}:meta")
+                            app.logger.error(f"Stored metadata verification: {stored_metadata}")
+
+                            return jsonify({
+                                'success': True,
+                                'image_key': image_key,
+                                'image_url': f"/image/{image_key}"
+                            })
                         else:
-                            return jsonify({'error': result.get('error', 'Failed to generate image')}), 500
-
-                    except Exception as e:
-                        app.logger.error(f"Midjourney generation error: {str(e)}")
-                        return jsonify({'error': str(e)}), 500
+                            return jsonify({'error': 'Failed to download image'}), 500
+                else:
+                    return jsonify({'error': result.get('error', 'Failed to generate image')}), 500
 
             except openai.OpenAIError as e:
                 error_message = str(e)
@@ -1216,7 +1190,6 @@ def generate_image(wp_user_id):
                 app.logger.error(f"Request error: {str(e)}")
                 return jsonify({'error': 'Failed to connect to image service'}), 500
 
-                # If somehow we get here without returning
         return jsonify({"error": "Invalid request method"}), 400
 
     except Exception as e:
@@ -1539,13 +1512,8 @@ def check_midjourney_status(wp_user_id, task_id=None):
     app.logger.error(f"User ID: {wp_user_id}")
     app.logger.error(f"Task ID: {task_id}")
 
-    # 1. Validation du task_id
-    if task_id is None:
-        task_id = request.view_args.get('task_id')
-        app.logger.error(f"Retrieved task_id from view_args: {task_id}")
-
+    # Vérifier le task_id
     if not task_id:
-        app.logger.error("No task_id provided")
         return jsonify({
             "success": False,
             "status": "error",
@@ -1553,74 +1521,62 @@ def check_midjourney_status(wp_user_id, task_id=None):
         }), 400
 
     try:
-        # Utiliser directement la clé du groupe où sont stockées les données
+        metadata_key = f"midjourney_task:{task_id}"
         group_key = f"midjourney_group:{task_id}"
+
+        # Récupérer les données de la tâche
+        task_data = redis_client.hgetall(metadata_key)
         group_data = redis_client.get(group_key)
+
+        app.logger.error(f"Task data from Redis: {task_data}")
         app.logger.error(f"Group data from Redis: {group_data}")
 
-        if not group_data:
-            app.logger.error(f"No data found for task {task_id}")
+        if not task_data:
             return jsonify({
                 "success": False,
-                "status": "error",
                 "error": "Task not found"
             }), 404
 
-        try:
-            group = json.loads(group_data.decode('utf-8') if isinstance(group_data, bytes) else group_data)
-        except json.JSONDecodeError as e:
-            app.logger.error(f"Error decoding group data: {e}")
-            return jsonify({
-                "success": False,
-                "status": "error",
-                "error": "Invalid group data"
-            }), 500
+        # Décoder les données de la tâche
+        status = task_data.get(b'status', b'processing').decode('utf-8')
+        prompt = task_data.get(b'prompt', b'').decode('utf-8')
 
-        # Vérifier que les images existent toujours
-        valid_images = []
-        for img in group.get('images', []):
-            if redis_client.exists(img.get('key', '')):
-                if img not in valid_images:  # Éviter les doublons
-                    valid_images.append(img)
-
-        # Mise à jour du groupe si nécessaire
-        if len(valid_images) != len(group['images']):
-            group['images'] = valid_images
-            redis_client.setex(group_key, 3600, json.dumps(group))
-
-        # Formater la réponse
-        response_data = {
+        # Préparer la réponse de base
+        response = {
             "success": True,
-            "task_id": task_id,
-            "status": group['status'],
-            "images": sorted(valid_images, key=lambda x: x.get('choice', 0)),
-            "images_received": len(valid_images),
-            "total_expected": 4,
-            "prompt": group.get('prompt', '')
+            "data": {
+                "task_id": task_id,
+                "status": status,
+                "prompt": prompt,
+                "timestamp": task_data.get(b'timestamp', b'').decode('utf-8')
+            }
         }
 
-        # Ajouter des informations de progression
-        if 'timestamp' in group:
-            try:
-                start_time = datetime.fromisoformat(group['timestamp'])
-                time_elapsed = (datetime.now() - start_time).total_seconds()
-                response_data["progress"] = {
-                    "time_elapsed": time_elapsed,
-                    "percentage": (len(valid_images) / 4) * 100
-                }
-            except (ValueError, TypeError) as e:
-                app.logger.error(f"Error calculating progress: {e}")
+        # Ajouter les données du groupe si disponibles
+        if group_data:
+            group_info = json.loads(group_data)
+            response["data"].update({
+                "initial_grid": group_info.get('initial_grid'),
+                "images": group_info.get('images', []),
+                "group_status": group_info.get('status', 'pending')
+            })
 
-        app.logger.error(f"Returning response: {response_data}")
-        return jsonify(response_data)
+        # Si le status est une erreur, inclure le message d'erreur
+        if status == 'error':
+            response["data"]["error"] = task_data.get(b'error', b'Unknown error').decode('utf-8')
+
+        app.logger.error(f"Sending response: {response}")
+        return jsonify(response)
 
     except Exception as e:
-        app.logger.error(f"Error checking status: {str(e)}")
+        app.logger.error(f"Error checking status for task {task_id}: {str(e)}")
         return jsonify({
             "success": False,
             "status": "error",
             "error": str(e)
         }), 500
+
+
 @app.route('/midjourney_callback', methods=['POST'])
 def midjourney_callback():
     app.logger.error("=== Midjourney Callback Started ===")
@@ -1628,111 +1584,86 @@ def midjourney_callback():
         data = request.get_json()
         app.logger.error(f"Received callback data: {data}")
 
-        # Récupérer la tâche active
-        active_task = redis_client.get('midjourney_active_task')
-        app.logger.error(f"Active task data: {active_task}")
+        # Validation des données reçues
+        required_fields = ['task_id', 'image_url', 'variation_number', 'type']
+        if not all(field in data for field in required_fields):
+            app.logger.error("Missing required fields in callback data")
+            return jsonify({"error": "Missing required fields"}), 400
 
-        # 1. Validation des données
-        if not data:
-            app.logger.error("No data received in callback")
-            return jsonify({"error": "No data received"}), 400
+        task_id = data['task_id']
+        image_url = data['image_url']
+        variation_number = data['variation_number']
+        type = data['type']  # 'initial' ou 'upscale'
 
-        required_fields = ['choice', 'image_url', 'filename', 'task_hash']
-        missing_fields = [field for field in required_fields if field not in data]
-        if missing_fields:
-            app.logger.error(f"Missing required fields: {missing_fields}")
-            return jsonify({"error": f"Missing required fields: {missing_fields}"}), 400
+        # Récupérer les clés Redis
+        metadata_key = f"midjourney_task:{task_id}"
+        group_key = f"midjourney_group:{task_id}"
 
-            # Récupérer la tâche active
-            active_task = redis_client.get('midjourney_active_task')
-            app.logger.error(f"Active task data: {active_task}")
+        # Vérifier si la tâche existe
+        if not redis_client.exists(metadata_key):
+            app.logger.error(f"Task {task_id} not found")
+            return jsonify({"error": "Task not found"}), 404
 
-            if not active_task:
-                app.logger.error("No active task found")
-                return jsonify({"error": "No active task found"}), 404
+        # Utiliser une pipeline Redis pour les opérations atomiques
+        pipe = redis_client.pipeline()
 
-            active_task = json.loads(active_task)
-            task_id = active_task['task_id']
-
-            # Récupérer le groupe/tâche
-            group_key = f"midjourney_task:{task_id}"
-            group_data = redis_client.get(group_key)
-
-            if not group_data:
-                app.logger.error(f"Group not found for task {task_id}")
-                return jsonify({"error": "Group not found"}), 404
-
-            group = json.loads(group_data)
-
-            # Vérifier que le prompt correspond approximativement
-            filename_prompt = data['filename'].split('.')[0].replace('_', ' ').lower()
-            original_prompt = group['prompt'].lower()
-
-            # Vérification souple des premiers mots
-            original_words = original_prompt.split()[:4]
-            if not any(word in filename_prompt for word in original_words):
-                app.logger.error(f"Prompt mismatch. Original: {original_prompt}, Filename: {filename_prompt}")
-                # On continue quand même, car le nom de fichier peut être tronqué
-
-            # Télécharger l'image
-            image_response = requests.get(data['image_url'], headers={'User-Agent': 'Mozilla/5.0'}, timeout=30)
-
-            if image_response.status_code != 200:
-                app.logger.error("Failed to download image")
-                return jsonify({"error": "Failed to download image"}), 500
-
-            # Stocker l'image
-            choice = data['choice']
-            image_key = f"img:temp:image:midjourney:{task_id}:choice_{choice}"
-
-            pipe = redis_client.pipeline()
-
-            # Stocker l'image avec pipe
-            pipe.setex(
-                image_key,
-                3600,
-                image_response.content
-            )
-
-            # Mettre à jour le groupe
-            if not any(img.get('choice') == int(choice) for img in group['images']):
-                group['images'].append({
-                    'key': image_key,
-                    'choice': int(choice),
-                    'url': f"/image/{image_key}",
-                    'task_hash': data['task_hash'],
-                    'width': data.get('width'),
-                    'height': data.get('height'),
-                    'timestamp': datetime.now().isoformat()
-                })
-
-            # Mettre à jour le statut si toutes les images sont reçues
-            if len(group['images']) == 4:
-                group['status'] = 'completed'
-                # Supprimer la tâche active
-                pipe.delete('midjourney_active_task')
-
-            # Sauvegarder le groupe mis à jour
+        if type == 'initial':
+            # Stocker la grille initiale
+            group_data = {
+                'task_id': task_id,
+                'prompt': redis_client.hget(metadata_key, b'prompt').decode('utf-8'),
+                'initial_grid': image_url,
+                'images': [],
+                'timestamp': datetime.now().isoformat(),
+                'status': 'pending'
+            }
             pipe.setex(
                 group_key,
-                3600,
-                json.dumps(group)
+                TEMP_STORAGE_DURATION,
+                json.dumps(group_data)
             )
 
-            pipe.execute()
+        elif type == 'upscale':
+            # Récupérer les données du groupe existant
+            group_data = redis_client.get(group_key)
+            if group_data:
+                group_info = json.loads(group_data)
 
-            return jsonify({
-                'success': True,
-                'task_id': task_id,
-                'image_key': image_key,
-                'group_status': group['status'],
-                'images_count': len(group['images'])
-            })
+                # Ajouter la nouvelle image upscale
+                new_image = {
+                    'url': image_url,
+                    'variation_number': variation_number,
+                    'timestamp': datetime.now().isoformat(),
+                    'type': 'upscale'
+                }
+
+                group_info['images'].append(new_image)
+
+                # Mettre à jour le statut si toutes les images sont reçues
+                if len(group_info['images']) == 4:
+                    group_info['status'] = 'complete'
+                    pipe.hset(metadata_key, 'status', b'completed')
+
+                # Sauvegarder les modifications du groupe
+                pipe.setex(
+                    group_key,
+                    TEMP_STORAGE_DURATION,
+                    json.dumps(group_info)
+                )
+
+        # Exécuter toutes les opérations Redis
+        pipe.execute()
+
+        return jsonify({
+            "success": True,
+            "task_id": task_id,
+            "type": type,
+            "status": "complete" if type == 'upscale' and len(group_info['images']) == 4 else "processing"
+        })
 
     except Exception as e:
-        app.logger.error(f"Midjourney callback error: {str(e)}")
+        app.logger.error(f"Error in callback: {str(e)}")
         return jsonify({"error": str(e)}), 500
-
 
 @app.route('/download-enhanced-image', methods=['POST'])
 def download_enhanced_image():

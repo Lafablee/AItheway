@@ -121,6 +121,51 @@
     .image-actions {
         @apply absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity;
     }
+    .generation-status {
+        padding: 2rem;
+        text-align: center;
+    }
+
+    .initial-grid {
+        position: relative;
+        overflow: hidden;
+        border-radius: 0.5rem;
+        margin-bottom: 2rem;
+    }
+
+    .initial-grid img {
+        width: 100%;
+        height: auto;
+    }
+
+    #upscale-progress {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 1rem;
+        margin-top: 2rem;
+    }
+
+    .upscale-slot {
+        position: relative;
+        aspect-ratio: 1/1;
+        background: #f3f4f6;
+        border-radius: 0.5rem;
+        overflow: hidden;
+    }
+
+    .progress-container {
+        width: 100%;
+        height: 4px;
+        background: #e5e7eb;
+        border-radius: 2px;
+        overflow: hidden;
+    }
+
+    .progress-bar {
+        height: 100%;
+        background: #3b82f6;
+        transition: width 0.3s ease;
+    }
 </style>
 <div class="neltar_fn_page">
 
@@ -420,6 +465,9 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
                 if (currentModel === 'midjourney' && result.status === 'processing') {
                     console.error('Starting Midjourney processing with task_id:', result.task_id);
                     // Cas Midjourney : attente du résultat
+                    // Afficher un état initial de chargement
+                    updateLoadingState('processing');
+                    displayInitialLoadingState();
                     handleMidjourneyProcessing(result.task_id, token);
                 } else {
                     // Cas DALL-E ou réponse immédiate
@@ -468,83 +516,57 @@ async function handleMidjourneyProcessing(taskId, token) {
             const statusResult = await statusResponse.json();
             console.error('Status data:', statusResult);
 
-            if (statusResult.image_url) {
-                console.error('Image URL found:', statusResult.image_url);
+            // Mise à jour de la progression si disponible
+            if (statusResult.success && statusResult.data) {
+                const data = statusResult.data;
 
-            // Mise à jour de la progression
-            if (statusResult.progress) {
-                updateProgressIndicator(statusResult.progress.percentage);
-            }
-
-            if (statusResult.status === 'completed' && statusResult.images.length === 4) {
-                // Afficher le groupe complet
-                displayMidjourneyGroup(statusResult);
-                return;
-            }
-            // Délai dynamique
-            const delay = attempts < 5 ? 5000 : 10000;
-            await new Promise(resolve => setTimeout(resolve, delay));
-            attempts++;
-
-                try {
-                    const imageCheck = await fetch(`${statusResult.image_url}?token=${token}`, {
-                        method: 'HEAD'
-                    });
-
-                    if (imageCheck.status === 200) {
-                        console.error('Image is accessible, status:', imageCheck.status);
-                        // Si l'image est accessible et le status est completed
-                        if (statusResult.status === 'completed') {
-                            displayGeneratedImage(statusResult.image_url);
-                            // Afficher l'image
-                            displayGeneratedImage(statusResult.image_url);
-
-                            // Attendre un peu pour que l'enregistrement soit fait
-                            await new Promise(resolve => setTimeout(resolve, 1000));
-
-                            // Recharger l'historique explicitement
-                            console.error('Reloading history after Midjourney generation');
-                            await loadHistory(1, false);
-                            return;
-                        }
-                    } else {
-                        console.error('Image check failed:', imageCheck.status);
-                    }
-                } catch (imageError) {
-                    console.error('Error checking image:', imageError);
+                // Si nous avons la grille initiale, l'afficher
+                if (data.initial_grid && !document.querySelector('.initial-grid')) {
+                    displayInitialGrid(data.initial_grid);
                 }
+
+                // Mettre à jour la progression des upscales
+                if (data.images && data.images.length > 0) {
+                    updateUpscaleProgress(data.images);
+                }
+
+                // Si le groupe est complet
+                if (data.status === 'complete' && data.images && data.images.length === 4) {
+                    console.error('Group complete, displaying results');
+                    displayMidjourneyGroup(data);
+                    updateLoadingState('complete');
+                    return;
+                }
+
+                // Mettre à jour la barre de progression
+                const progress = (attempts / maxAttempts) * 100;
+                updateProgressIndicator(progress);
             }
 
-            // Gestion des erreurs de génération
+            // Gestion des erreurs spécifiques
             if (statusResult.status === 'failed') {
                 showErrorOverlay('Erreur', 'La génération a échoué');
-                return;
-            } else if (statusResult.status === 'error') {
-                showErrorOverlay('Erreur', statusResult.error || 'Une erreur est survenue');
+                updateLoadingState('default');
                 return;
             }
 
-            // Délai dynamique
             const delay = attempts < 5 ? 5000 : 10000;
-            console.error(`Waiting ${delay}ms before next attempt...`);
             await new Promise(resolve => setTimeout(resolve, delay));
             attempts++;
 
         } catch (error) {
             console.error('Error in polling:', error);
-
             if (attempts === maxAttempts - 1) {
                 showErrorOverlay('Erreur', 'Erreur lors de la vérification du statut');
+                updateLoadingState('default');
                 return;
             }
-
-            // Délai plus court en cas d'erreur
             await new Promise(resolve => setTimeout(resolve, 2000));
-            attempts++;
         }
     }
 
     showErrorOverlay('Erreur', 'Le délai de génération a été dépassé');
+    updateLoadingState('default');
 }
 
 // Fonction d'affichage de l'image générée
@@ -659,7 +681,52 @@ function updateLoadingState(state) {
             generateText.style.display = 'inline';
     }
 }
+// Nouvelle fonction pour afficher l'état initial
+function displayInitialLoadingState() {
+    const imageDiv = document.getElementById('generated-image');
+    imageDiv.innerHTML = `
+        <div class="generation-status">
+            <div class="status-message">Génération en cours...</div>
+            <div class="progress-container mt-4">
+                <div class="progress-bar" style="width: 0%"></div>
+            </div>
+        </div>
+    `;
+}
 
+function updateUpscaleProgress(images) {
+    const progressSection = document.getElementById('upscale-progress') || createUpscaleProgressSection();
+
+    images.forEach((image, index) => {
+        const slot = progressSection.querySelector(`#upscale-slot-${index}`);
+        if (slot && image.url) {
+            slot.innerHTML = `
+                <img src="${image.url}" alt="Variation ${index + 1}" class="w-full h-full object-cover rounded">
+                <div class="absolute bottom-0 left-0 bg-green-500 text-white px-2 py-1 text-sm rounded-tr">
+                    Complété
+                </div>
+            `;
+        }
+    });
+}
+
+// Nouvelle fonction pour l'affichage de la grille initiale
+function displayInitialGrid(imageUrl) {
+    const imageDiv = document.getElementById('generated-image');
+    const container = document.createElement('div');
+    container.className = 'initial-grid mb-4';
+    container.innerHTML = `
+        <h4 class="text-center mb-2">Génération initiale</h4>
+        <div class="relative">
+            <img src="${imageUrl}" alt="Initial grid" class="w-full rounded">
+            <div class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50 text-white">
+                <span>Génération des variations en cours...</span>
+            </div>
+        </div>
+    `;
+    imageDiv.innerHTML = '';
+    imageDiv.appendChild(container);
+}
 function displayMidjourneyGroup(groupData) {
     const container = document.createElement('div');
     container.className = 'midjourney-group-container';
