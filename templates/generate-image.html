@@ -513,8 +513,9 @@ async function handleMidjourneyProcessing(taskId, token) {
                 signal: controller.signal
             });
 
-            clearTimeout(1)
+            clearTimeout(timeoutId)
             console.error('Status response:', statusResponse.status);
+
             // Ajoutez ces logs pour déboguer
             console.error(`Requested URL: /check_midjourney_status/${taskId}?token=[redacted]`);
             console.error(`taskId value: ${taskId}`);
@@ -546,11 +547,15 @@ async function handleMidjourneyProcessing(taskId, token) {
 
                 // Mettre à jour la progression des upscales
                 if (data.images && data.images.length > 0) {
-                    updateUpscaleProgress(data.images);
+                    // Check if we have new images to show progress
+                    if (data.images.length > lastImagesCount) {
+                        lastImagesCount = data.images.length;
+                        updateUpscaleProgress(data.images);
+                    }
                 }
 
                 // Si le groupe est complet
-                if (data.status === 'complete' && data.images && data.images.length === 4) {
+                if ((data.status === 'completed' || data.group_status ==='completed') && data.images && data.images.length >= 4) {
                     console.error('Group complete, displaying results');
                     displayMidjourneyGroup(data);
                     updateLoadingState('complete');
@@ -558,12 +563,12 @@ async function handleMidjourneyProcessing(taskId, token) {
                 }
 
                 // Mettre à jour la barre de progression
-                const progress = (attempts / maxAttempts) * 100;
+                const progress = Math.min(90, (attempts / maxAttempts) * 100);(attempts / maxAttempts) * 100;
                 updateProgressIndicator(progress);
             }
 
             // Gestion des erreurs spécifiques
-            if (statusResult.status === 'failed') {
+            if (statusResult.status === 'failed' || statusResult.data?.status === 'failed') {
                 showErrorOverlay('Erreur', 'La génération a échoué');
                 updateLoadingState('default');
                 return;
@@ -581,6 +586,7 @@ async function handleMidjourneyProcessing(taskId, token) {
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, 2000));
+            attempts++;
         }
     }
 
@@ -717,10 +723,22 @@ function updateUpscaleProgress(images) {
     const progressSection = document.getElementById('upscale-progress') || createUpscaleProgressSection();
 
     images.forEach((image, index) => {
-        const slot = progressSection.querySelector(`#upscale-slot-${index}`);
+        // Get the variation/upscale number
+        const variationNumber = image.variation_number || image.choice || index;
+        const slot = document.querySelector(`#upscale-slot-${variationNumber}`);
+
         if (slot && image.url) {
+            // Make sure the URL is fully qualified
+            const imageUrl = image.url.startsWith('http') ? image.url :
+                (image.url.startsWith('/') ? `${window.location.origin}${image.url}` : image.url);
+
+            // Get the token to append to the URL if needed
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const fullImageUrl = imageUrl.includes('token=') ? imageUrl : `${imageUrl}?token=${encodeURIComponent(token)}`;
+
             slot.innerHTML = `
-                <img src="${image.url}" alt="Variation ${index + 1}" class="w-full h-full object-cover rounded">
+                <img src="${fullImageUrl}" alt="Variation ${variationNumber + 1}" class="w-full h-full object-cover rounded">
                 <div class="absolute bottom-0 left-0 bg-green-500 text-white px-2 py-1 text-sm rounded-tr">
                     Complété
                 </div>
@@ -746,7 +764,34 @@ function displayInitialGrid(imageUrl) {
     imageDiv.innerHTML = '';
     imageDiv.appendChild(container);
 }
+// Function to create the upscale progress section if it doesn't exist
+function createUpscaleProgressSection() {
+    const imageDiv = document.getElementById('generated-image');
+    const progressSection = document.createElement('div');
+    progressSection.id = 'upscale-progress';
+    progressSection.className = 'grid grid-cols-2 gap-4 mt-4';
+
+    // Create 4 slots for the 4 upscales
+    for (let i = 0; i < 4; i++) {
+        const slot = document.createElement('div');
+        slot.id = `upscale-slot-${i}`;
+        slot.className = 'upscale-slot flex items-center justify-center bg-gray-100';
+        slot.innerHTML = `
+            <div class="text-gray-400">
+                <div class="spinner-border spinner-border-sm" role="status"></div>
+                <div class="mt-2">En attente...</div>
+            </div>
+        `;
+        progressSection.appendChild(slot);
+    }
+
+    imageDiv.appendChild(progressSection);
+    return progressSection;
+}
+
 function displayMidjourneyGroup(groupData) {
+    const taskId = groupData.task_id;
+
     const container = document.createElement('div');
     container.className = 'midjourney-group-container';
 
@@ -759,58 +804,89 @@ function displayMidjourneyGroup(groupData) {
     `;
     container.appendChild(promptDiv);
 
+    // Get token for URLs
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+
     // Grille d'images
     const grid = document.createElement('div');
     grid.className = 'grid grid-cols-2 gap-4';
 
-    groupData.images.forEach((image, index) => {
-        const imageContainer = document.createElement('div');
-        imageContainer.className = 'relative group';
-        imageContainer.innerHTML = `
-            <img src="${image.url}?token=${token}"
-                 alt="Variation ${image.choice}"
-                 class="w-full rounded shadow transition-transform duration-200 group-hover:scale-105 cursor-pointer">
-            <div class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
-                V${image.choice}
-            </div>
-            <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div class="dropdown">
-                    <button class="fn__icon_button dropdown-toggle">
-                        <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
-                    </button>
-                    <ul class="dropdown-menu dropdown-menu-dark">
-                        <li class="dropdown-item" data-format="png" data-url="${image.url}">PNG</li>
-                        <li class="dropdown-item" data-format="jpg" data-url="${image.url}">JPG</li>
-                        <li class="dropdown-item" data-format="jpeg" data-url="${image.url}">JPEG</li>
-                    </ul>
+    // Ensure images is an array and has items
+    const images = groupData.images || [];
+
+    if (images.length > 0) {
+        images.forEach((image, index) => {
+            // Make sure we have a valid URL
+            if (!image.url) {
+                console.error('Missing URL for image:', image);
+                return;
+            }
+
+            // Normalize image.choice to a number (0-3)
+            const choiceNum = typeof image.choice === 'number' ? image.choice :
+                             (typeof image.variation_number === 'number' ? image.variation_number : index);
+
+            // Ensure URL has token
+            const imageUrl = image.url.includes('token=') ? image.url :
+                `${image.url}${image.url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'relative group';
+            imageContainer.innerHTML = `
+                <img src="${imageUrl}"
+                     alt="Variation ${choiceNum + 1}"
+                     class="w-full rounded shadow transition-transform duration-200 group-hover:scale-105 cursor-pointer">
+                <div class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
+                    V${choiceNum + 1}
                 </div>
-            </div>
-        `;
+                <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div class="dropdown">
+                        <button class="fn__icon_button dropdown-toggle">
+                            <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
+                        </button>
+                        <ul class="dropdown-menu dropdown-menu-dark">
+                            <li class="dropdown-item" data-format="png" data-url="${imageUrl}">PNG</li>
+                            <li class="dropdown-item" data-format="jpg" data-url="${imageUrl}">JPG</li>
+                            <li class="dropdown-item" data-format="jpeg" data-url="${imageUrl}">JPEG</li>
+                        </ul>
+                    </div>
+                </div>
+            `;
 
-        // Ajouter le clic pour agrandir
-        imageContainer.querySelector('img').addEventListener('click', () => {
-            showImageDetail(image, groupData.prompt);
+            // Add click to enlarge
+            const imgElement = imageContainer.querySelector('img');
+            if (imgElement) {
+                imgElement.addEventListener('click', () => {
+                    showImageDetail(image, groupData.prompt);
+                });
+            }
+
+            grid.appendChild(imageContainer);
         });
-
-        grid.appendChild(imageContainer);
-    });
+    } else {
+        // If no images, show a message
+        grid.innerHTML = '<div class="col-span-2 text-center py-4">No images available yet</div>';
+    }
 
     container.appendChild(grid);
 
-    // Remplacer le contenu existant
+    // Replace existing content
     const imageDiv = document.getElementById('generated-image');
     imageDiv.innerHTML = '';
     imageDiv.appendChild(container);
 
-    // Afficher la section de téléchargement
+    // Show download section
     document.getElementById('download-section').style.display = 'block';
 
-    // Mettre à jour l'état
+    // Update state
     document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
 
-    // Mettre à jour l'historique
+    // Update history
     loadHistory(1, false);
 }
+
 
 function updateProgressIndicator(percentage) {
     const progressBar = document.querySelector('.progress-bar');
@@ -834,6 +910,18 @@ function updateProgressIndicator(percentage) {
     }
 }
 function showImageDetail(image, prompt) {
+    // Get token for URLs
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    // Ensure we have a valid URL and choice number
+    const imageUrl = image.url || '';
+    const fullImageUrl = imageUrl.includes('token=') ? imageUrl :
+        `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+
+    const choiceNum = typeof image.choice === 'number' ? image.choice :
+                     (typeof image.variation_number === 'number' ? image.variation_number : 0);
+
     const modal = document.createElement('div');
     modal.className = 'fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50';
     modal.innerHTML = `
@@ -849,21 +937,21 @@ function showImageDetail(image, prompt) {
                     </svg>
                 </button>
             </div>
-            <img src="${image.url}?token=${token}"
-                 alt="Variation ${image.choice}"
+            <img src="${fullImageUrl}"
+                 alt="Variation ${choiceNum + 1}"
                  class="w-full rounded-lg">
             <div class="mt-4 flex justify-between items-center">
                 <div class="text-sm text-gray-600">
-                    ${image.width}x${image.height}
+                    ${image.width || 1024}x${image.height || 1024}
                 </div>
                 <div class="dropdown">
                     <button class="fn__icon_button dropdown-toggle">
                         <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
                     </button>
                     <ul class="dropdown-menu dropdown-menu-dark">
-                        <li class="dropdown-item" data-format="png" data-url="${image.url}">PNG</li>
-                        <li class="dropdown-item" data-format="jpg" data-url="${image.url}">JPG</li>
-                        <li class="dropdown-item" data-format="jpeg" data-url="${image.url}">JPEG</li>
+                        <li class="dropdown-item" data-format="png" data-url="${fullImageUrl}">PNG</li>
+                        <li class="dropdown-item" data-format="jpg" data-url="${fullImageUrl}">JPG</li>
+                        <li class="dropdown-item" data-format="jpeg" data-url="${fullImageUrl}">JPEG</li>
                     </ul>
                 </div>
             </div>
@@ -880,6 +968,22 @@ function showImageDetail(image, prompt) {
         if (e.target === modal) {
             modal.remove();
         }
+    });
+
+    modal.addEventListener('click', (e) =>{
+        if (e.target === modal) {
+            modal.remove();
+        }
+    });
+    // Set up download buttons
+    modal.querySelectorAll('.dropdown-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+            const format = e.target.getAttribute('data-format');
+            const url = e.target.getAttribute('data-url');
+            if (format && url) {
+                downloadImage(url, format);
+            }
+        });
     });
 }
 
