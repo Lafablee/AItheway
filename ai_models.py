@@ -130,6 +130,7 @@ class MidjourneyGenerator(AIModelGenerator):
     async def upscale_image(self, session, message_id, custom_id):
         """Upscale une image spécifique"""
         try:
+            app.logger.error(f"Atttempting to upscale image with message_id= {message_id}, and custom_id={custom_id}")
             payload = {
                 "type": 3,
                 "guild_id": self.guild_id,
@@ -142,6 +143,8 @@ class MidjourneyGenerator(AIModelGenerator):
                     "custom_id": custom_id
                 }
             }
+            app.logger.error(f"Sending upscale request with payload: {json.dumps(payload)}")
+
             # Add timeout to prevent hanging
             timeout = aiohttp.ClientTimeout(total=15)
             async with session.post(
@@ -379,7 +382,7 @@ class AIModelManager:
             # Create a task with timeout to prevent hanging
             coro = self.generate_image(model_name, prompt, additional_params)
             task = asyncio.ensure_future(coro, loop=loop)
-            return loop.run_until_complete(asyncio.wait_for(task, timeout=60))
+            return loop.run_until_complete(asyncio.wait_for(task, timeout=180))
         finally:
             # Cancel any pending tasks before closing
             pending = asyncio.all_tasks(loop=loop)
