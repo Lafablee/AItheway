@@ -97,52 +97,96 @@ class MidjourneyGenerator(AIModelGenerator):
         for attempt in range(20):
             await asyncio.sleep(6)
 
-            timeout = aiohttp.ClientTimeout(total=300, connect=10, sock_read=30)
-            async with session.get(
-                    f"https://discord.com/api/v9/channels/{self.channel_id}/messages?limit=10",
-                    timeout=timeout
-            ) as msg_response:
-                if msg_response.status == 200:
-                    messages = await msg_response.json()
+            try:
+                timeout = aiohttp.ClientTimeout(total=300, connect=10, sock_read=30)
+                async with session.get(
+                        f"https://discord.com/api/v9/channels/{self.channel_id}/messages?limit=10",
+                        timeout=timeout
+                ) as msg_response:
+                    if msg_response.status == 200:
+                        messages = await msg_response.json()
 
-                    for message in messages:
-                        author = message.get('author', {})
-                        content = message.get('content', '')
-                        message_time = int(
-                            datetime.fromisoformat(message['timestamp'].replace('Z', '+00:00')).timestamp()
-                        ) if message.get('timestamp') else 0
+                        for message in messages:
+                            author = message.get('author', {})
+                            content = message.get('content', '')
+                            message_time = int(
+                                datetime.fromisoformat(message['timestamp'].replace('Z', '+00:00')).timestamp()
+                            ) if message.get('timestamp') else 0
 
-                        if (message_time < start_time):
-                            continue
+                            if (message_time < start_time):
+                                continue
 
-                        if (author.get('id') == self.MIDJOURNEY_BOT_ID and
-                                message.get('components') and
-                                message.get('attachments') and
-                                prompt.lower() in content.lower()):
-                            return message
+                            if (author.get('id') == self.MIDJOURNEY_BOT_ID and
+                                    message.get('components') and
+                                    message.get('attachments') and
+                                    prompt.lower() in content.lower()):
+                                app.logger.error(f"Found Midjourney response with components: {message['components']}")
+                                return message
+            except Exception as e:
+                app.logger.error(f"Error in wait_for_midjourney_response: {str(e)}")
 
         return None
 
     async def upscale_image(self, session, message_id, custom_id):
         """Upscale une image spécifique"""
-        payload = {
-            "type": 3,
-            "guild_id": self.guild_id,
-            "channel_id": self.channel_id,
-            "message_id": message_id,
-            "application_id": self.MIDJOURNEY_BOT_ID,
-            "session_id": "1234567890",
-            "data": {
-                "component_type": 2,
-                "custom_id": custom_id
+        try:
+            payload = {
+                "type": 3,
+                "guild_id": self.guild_id,
+                "channel_id": self.channel_id,
+                "message_id": message_id,
+                "application_id": self.MIDJOURNEY_BOT_ID,
+                "session_id": "1234567890",
+                "data": {
+                    "component_type": 2,
+                    "custom_id": custom_id
+                }
             }
-        }
+            # Add timeout to prevent hanging
+            timeout = aiohttp.ClientTimeout(total=15)
+            async with session.post(
+                    "https://discord.com/api/v9/interactions",
+                    json=payload,
+                    timeout=timeout
+            ) as response:
+                success = response.status == 204
+                app.logger.error(f"Upscale request result: status={response.status}, success={success}")
+                return success
+        except Exception as e:
+            app.logger.error(f"Error in upscale_image: {str(e)}")
+            return False
 
-        async with session.post(
-                "https://discord.com/api/v9/interactions",
-                json=payload
-        ) as response:
-            return response.status == 204
+    async def handle_upscales(self, session, message_id, upscale_buttons):
+        """Handle all upscale operations with retry logic"""
+        results = []
+        for i, button_id in enumerate(upscale_buttons, 1):
+            retry_count = 0
+            max_retries = 3
+            success = False
+
+            while retry_count < max_retries and not success:
+                try:
+                    app.logger.error(f"Attempting upscale U{i} with button ID: {button_id}")
+                    success = await self.upscale_image(session, message_id, button_id)
+                    if success:
+                        app.logger.error(f"Successfully triggered upscale U{i}")
+                        # Update status in Redis to track progress
+                        results.append({"button": f"U{i}", "success": True})
+                        # Add a small delay between upscale requests to avoid rate limiting
+                        await asyncio.sleep(1)
+                    else:
+                        app.logger.error(f"Failed to trigger upscale U{i}, retrying...")
+                        retry_count += 1
+                        await asyncio.sleep(2 * retry_count)  # Exponential backoff
+                except Exception as e:
+                    app.logger.error(f"Error during upscale U{i}: {str(e)}")
+                    retry_count += 1
+                    await asyncio.sleep(2 * retry_count)
+
+            if not success:
+                results.append({"button": f"U{i}", "success": False})
+
+        return results
 
     async def handle_failed_upscale(self, task_id, variation_number):
         retry_count = 0
@@ -191,7 +235,8 @@ class MidjourneyGenerator(AIModelGenerator):
                 "Content-Type": "application/json"
             }
 
-            async with aiohttp.ClientSession(headers=headers) as session:
+            timeout = aiohttp.ClientTimeout(total=120, connect=10, sock_read=30)
+            async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
                 # Get command version
                 command_id, command_version = await self.get_application_commands(session)
                 if not command_id or not command_version:
@@ -261,11 +306,16 @@ class MidjourneyGenerator(AIModelGenerator):
                                         upscale_buttons.append(button.get('custom_id'))
 
                             if upscale_buttons:
-                                # Trigger upscales
-                                for i, button_id in enumerate(upscale_buttons, 1):
-                                    if await self.upscale_image(session, message_id, button_id):
-                                        # Update status in Redis
-                                        await redis.hset(metadata_key, 'upscale_status', f'U{i}_processing')
+                                app.logger.error(f"Found {len(upscale_buttons)} upscale buttons")
+
+                                # Trigger upscales in background
+                                upscale_results = await self.handle_upscales(session, message_id, upscale_buttons)
+                                app.logger.error(f"Upscale results: {upscale_results}")
+
+                                # Update Redis with upscale status
+                                for result in upscale_results:
+                                    if result["success"]:
+                                        await redis.hset(metadata_key, f'upscale_status_{result["button"]}',b'triggered')
 
                             return {
                                 "success": True,
@@ -273,21 +323,37 @@ class MidjourneyGenerator(AIModelGenerator):
                                 "task_id": task_id
                             }
 
-                    return {
-                        "success": False,
-                        "error": "Failed to send command to Discord"
-                    }
-
+                        else:
+                            await redis.hset(metadata_key, 'status', b'error')
+                            await redis.hset(metadata_key, 'error', b'No response from Midjourney')
+                            return {
+                                "success": False,
+                                "error": "No response from Midjourney"
+                            }
+                    else:
+                        await redis.hset(metadata_key, 'status', b'error')
+                        await redis.hset(metadata_key, 'error', b'Failed to send command to Discord')
+                        return {
+                            "success": False,
+                            "error": "Failed to send command to Discord"
+                        }
         except Exception as e:
             # Clean up Redis data in case of error
+            app.logger.error(f"Error in generate: {str(e)}")
             if metadata_key:
-                redis = await self.get_async_redis()
-                await redis.delete(metadata_key)
-            return {"success": False, "error": str(e)}
+                try:
+                    redis = await self.get_async_redis()
+                    await redis.hset(metadata_key, 'status', b'error')
+                    await redis.hset(metadata_key, 'error', str(e).encode('utf-8'))
+                except:
+                    pass
+
+                return {"success": False, "error": str(e)}
+
         finally:
-            # Fermer la connexion Redis asynchrone si elle existe
+            # Close Redis connection if it exists
             if self.async_redis is not None:
-                await self.async_redis.close()  # Nouvelle syntaxe avec redis.asyncio
+                await self.async_redis.close()
                 self.async_redis = None
 
 class AIModelManager:
@@ -310,8 +376,18 @@ class AIModelManager:
         loop = asyncio.new_event_loop()
         asyncio.set_event_loop(loop)
         try:
-            return loop.run_until_complete(self.generate_image(model_name, prompt, additional_params))
+            # Create a task with timeout to prevent hanging
+            coro = self.generate_image(model_name, prompt, additional_params)
+            task = asyncio.ensure_future(coro, loop=loop)
+            return loop.run_until_complete(asyncio.wait_for(task, timeout=60))
         finally:
+            # Cancel any pending tasks before closing
+            pending = asyncio.all_tasks(loop=loop)
+            for task in pending:
+                task.cancel()
+            # Run cancellation of tasks
+            if pending:
+                loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
             loop.close()
 
 # Fonction d'initialisation pour créer et configurer le gestionnaire
