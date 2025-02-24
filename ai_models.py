@@ -466,7 +466,7 @@ class MidjourneyGenerator(AIModelGenerator):
                     # Save group data back to Redis
                     await redis.setex(
                         group_key,
-                        int(TEMP_STORAGE_DURATION.total_seconds()),
+                        TEMP_STORAGE_DURATION,
                         json.dumps(group_info)
                     )
 
@@ -474,7 +474,7 @@ class MidjourneyGenerator(AIModelGenerator):
                     image_key = f"midjourney_image:{task_id}:{variation_number}"
                     await redis.setex(
                         image_key,
-                        int(TEMP_STORAGE_DURATION.total_seconds()),
+                        TEMP_STORAGE_DURATION,
                         json.dumps(image_data)
                     )
 
