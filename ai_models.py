@@ -169,6 +169,10 @@ class MidjourneyGenerator(AIModelGenerator):
             ) as response:
                 success = response.status == 204
                 app.logger.error(f"Upscale request result: status={response.status}, success={success}")
+
+                if not success:
+                    error_text = await response.text()
+                    app.logger.error(f"Error response: {error_text}")
                 return success
         except Exception as e:
             app.logger.error(f"Error in upscale_image: {str(e)}")
@@ -246,6 +250,12 @@ class MidjourneyGenerator(AIModelGenerator):
                     messages = await msg_response.json()
                     app.logger.error(f"Checking {len(messages)} messages for upscaled images")
 
+                    for i, message in enumerate(messages):
+                        author = message.get('author', {})
+                        content_snippet = message.get('content', '')[:50] + '...' if len(
+                            message.get('content', '')) > 50 else message.get('content', '')
+                        app.logger.error(f"Message {i}: Author ID: {author.get('id')}, Content: {content_snippet}")
+
                     # Look for upscaled image messages from the Midjourney bot
                     for message in messages:
                         author = message.get('author', {})
@@ -262,7 +272,7 @@ class MidjourneyGenerator(AIModelGenerator):
 
                         # Check if this is an upscale message related to our prompt
                         # Midjourney upscale messages contain "Upscaled" and part of the original prompt
-                        if "Upscaled" in content and prompt.lower() in content.lower():
+                        if "Upscaled" in content or any(key_term.lower() in content.lower() for key_term in prompt.split()[:3]):
                             # Extract variation number from the message content or components
                             variation_match = re.search(r'Upscaled by ([1-4])', content)
                             variation_number = None
