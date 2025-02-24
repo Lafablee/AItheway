@@ -77,9 +77,19 @@ class MidjourneyGenerator(AIModelGenerator):
         """Lazy initialization of async Redis connection"""
         if self.async_redis is None:
             self.async_redis = await aioredis.from_url(
-                'redis://localhost'
+                'redis://localhost',
+                encoding='utf-8',
+                decode_responses=True
             )
         return self.async_redis
+
+    async def __aenter__(self):
+        self.redis = await self.get_async_redis()
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.redis:
+            await self.redis.close()
 
     async def get_application_commands(self, session):
         """Récupère les commandes disponibles et leur version actuelle"""
@@ -98,12 +108,14 @@ class MidjourneyGenerator(AIModelGenerator):
             await asyncio.sleep(6)
 
             try:
-                timeout = aiohttp.ClientTimeout(total=300, connect=10, sock_read=30)
+                timeout = aiohttp.ClientTimeout(total=300, connect=30, sock_read=60)
                 async with session.get(
                         f"https://discord.com/api/v9/channels/{self.channel_id}/messages?limit=10",
                         timeout=timeout
                 ) as msg_response:
                     if msg_response.status == 200:
+                        app.logger.error("code 200 from miidjourney generation")
+
                         messages = await msg_response.json()
 
                         for message in messages:
@@ -129,6 +141,9 @@ class MidjourneyGenerator(AIModelGenerator):
 
     async def upscale_image(self, session, message_id, custom_id):
         """Upscale une image spécifique"""
+        #timeout = aiohttp.ClientTimeout(total=120, connect=30, sock_read=60)
+
+
         try:
             app.logger.error(f"Atttempting to upscale image with message_id= {message_id}, and custom_id={custom_id}")
             payload = {
@@ -146,7 +161,7 @@ class MidjourneyGenerator(AIModelGenerator):
             app.logger.error(f"Sending upscale request with payload: {json.dumps(payload)}")
 
             # Add timeout to prevent hanging
-            timeout = aiohttp.ClientTimeout(total=15)
+            timeout = aiohttp.ClientTimeout(total=60)
             async with session.post(
                     "https://discord.com/api/v9/interactions",
                     json=payload,
@@ -242,6 +257,7 @@ class MidjourneyGenerator(AIModelGenerator):
             async with aiohttp.ClientSession(timeout=timeout, headers=headers) as session:
                 # Get command version
                 command_id, command_version = await self.get_application_commands(session)
+                app.logger.error(f"Imagine command sent. Awaiting initial response...")
                 if not command_id or not command_version:
                     await redis.delete(metadata_key)
                     raise ValueError("Impossible de récupérer la version de la commande Midjourney")
@@ -278,11 +294,14 @@ class MidjourneyGenerator(AIModelGenerator):
                     if response.status == 204:
                         # Wait for initial message with 4 images
                         message = await self.wait_for_midjourney_response(session, prompt, start_time)
+                        app.logger.error(f"Got message response: {message is not None}")
 
                         if message:
                             message_id = message.get('id')
                             components = message.get('components', [])
                             initial_image_url = message.get('attachments', [{}])[0].get('url')
+                            app.logger.error(f"Message ID: {message_id}")
+                            app.logger.error(f"Components found: {len(components)}")
 
                             # Create image group
                             group_data = {
@@ -307,6 +326,7 @@ class MidjourneyGenerator(AIModelGenerator):
                                 for button in component.get('components', []):
                                     if button.get('custom_id', '').startswith('MJ::JOB::upsample::'):
                                         upscale_buttons.append(button.get('custom_id'))
+                                        app.logger.error(f"Found upscale button: {button.get('custom_id')}")
 
                             if upscale_buttons:
                                 app.logger.error(f"Found {len(upscale_buttons)} upscale buttons")
