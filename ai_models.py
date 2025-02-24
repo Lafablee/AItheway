@@ -126,13 +126,6 @@ class MidjourneyGenerator(AIModelGenerator):
                                 datetime.fromisoformat(message['timestamp'].replace('Z', '+00:00')).timestamp()
                             ) if message.get('timestamp') else 0
 
-                            app.logger.error(f"Message details:")
-                            app.logger.error(f"Author ID: {author.get('id')}")
-                            app.logger.error(f"Bot ID we're looking for: {self.MIDJOURNEY_BOT_ID}")
-                            app.logger.error(f"Has components: {bool(message.get('components'))}")
-                            app.logger.error(f"Has attachments: {bool(message.get('attachments'))}")
-                            app.logger.error(f"Content: {content[:100]}...")  # First 100 chars
-
                             if (author.get('id') == self.MIDJOURNEY_BOT_ID and
                                     message.get('components') and
                                     message.get('attachments') and
@@ -183,6 +176,13 @@ class MidjourneyGenerator(AIModelGenerator):
     async def handle_upscales(self, session, message_id, upscale_buttons):
         """Handle all upscale operations with retry logic"""
         results = []
+        job_id = None
+
+        if upscale_buttons:
+            parts = upscale_buttons[0].split('::')
+            if len(parts) >= 5:
+                job_id = parts[4]
+
         for i, button_id in enumerate(upscale_buttons, 1):
             retry_count = 0
             max_retries = 3
@@ -209,7 +209,10 @@ class MidjourneyGenerator(AIModelGenerator):
 
             if not success:
                 results.append({"button": f"U{i}", "success": False})
-
+        if job_id:
+            asyncio.create_task(self.poll_for_upscaled_images(
+                session, self.task_id, job_id, message_id
+            ))
         return results
 
     async def handle_failed_upscale(self, task_id, variation_number):
@@ -223,6 +226,97 @@ class MidjourneyGenerator(AIModelGenerator):
             except Exception as e:
                 retry_count += 1
                 await asyncio.sleep(5 * retry_count)  # Backoff exponentiel
+
+        return False
+
+    # Add this to MidjourneyGenerator class
+    async def poll_for_upscaled_images(self, session, task_id, job_id, message_id):
+        max_attempts = 20
+        for attempt in range(max_attempts):
+            try:
+                # Check for new messages with upscaled images
+                async with session.get(
+                        f"https://discord.com/api/v9/channels/{self.channel_id}/messages?limit=10",
+                ) as response:
+                    if response.status == 200:
+                        messages = await response.json()
+
+                        for message in messages:
+                            # Look for messages from the Midjourney bot
+                            if message.get('author', {}).get('id') == self.MIDJOURNEY_BOT_ID:
+                                content = message.get('content', '')
+
+                                # Look for messages with job ID and "Upscaled" in the content
+                                if job_id in content and "Upscaled" in content and message.get('attachments'):
+                                    attachment = message['attachments'][0]
+
+                                    # Extract variation number from the custom ID
+                                    # Format is MJ::JOB::upsample::1::job_id
+                                    for component in message_id['components']:
+                                        for button in component.get('components', []):
+                                            custom_id = button.get('custom_id', '')
+                                            if job_id in custom_id and 'upsample' in custom_id:
+                                                parts = custom_id.split('::')
+                                                if len(parts) >= 4:
+                                                    variation_number = parts[3]
+
+                                                    # Update Redis with the upscaled image
+                                                    await self.store_upscaled_image(
+                                                        task_id,
+                                                        attachment['url'],
+                                                        variation_number
+                                                    )
+
+                                                    return True
+
+                # Wait before next attempt
+                await asyncio.sleep(5)
+
+            except Exception as e:
+                app.logger.error(f"Error polling for upscaled images: {str(e)}")
+                await asyncio.sleep(5)
+
+        return False
+
+    async def store_upscaled_image(self, task_id, image_url, variation_number):
+        # Get Redis connection
+        redis = await self.get_async_redis()
+
+        try:
+            # Get the group data
+            group_key = f"midjourney_group:{task_id}"
+            group_data_bytes = await redis.get(group_key)
+
+            if group_data_bytes:
+                group_info = json.loads(group_data_bytes)
+
+                # Add the new image
+                new_image = {
+                    'url': image_url,
+                    'variation_number': variation_number,
+                    'timestamp': datetime.now().isoformat()
+                }
+
+                # Update the images array
+                images = group_info.get('images', [])
+                images.append(new_image)
+                group_info['images'] = images
+
+                # Update status if we have all images
+                if len(images) >= 4:
+                    group_info['status'] = 'completed'
+                    await redis.hset(f"midjourney_task:{task_id}", 'status', 'completed')
+
+                # Save back to Redis
+                await redis.set(group_key, json.dumps(group_info))
+
+                app.logger.error(f"Stored upscaled image {variation_number} for task {task_id}")
+                return True
+
+        except Exception as e:
+            app.logger.error(f"Error storing upscaled image: {str(e)}")
+        finally:
+            await redis.close()
 
         return False
 
