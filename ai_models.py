@@ -105,6 +105,12 @@ class MidjourneyGenerator(AIModelGenerator):
 
     async def wait_for_midjourney_response(self, session, prompt, start_time):
         """Attend et récupère la réponse de Midjourney avec les 4 images"""
+        # Calculate initial delay based on prompt complexity
+        initial_delay = self.calculate_prompt_complexity(prompt)
+
+        # Add initial waiting period before looking for the response
+        app.logger.error(f"Waiting {initial_delay} seconds before checking for Midjourney response...")
+        await asyncio.sleep(initial_delay)
         for attempt in range(20):
             await asyncio.sleep(6)
 
@@ -138,6 +144,51 @@ class MidjourneyGenerator(AIModelGenerator):
                 app.logger.error(f"Error in wait_for_midjourney_response: {str(e)}")
             app.logger.error(f"Attempt {attempt + 1} complete, trying again...")
         return None
+
+    def calculate_prompt_complexity(self, prompt):
+        """Calculates waiting time based on prompt complexity"""
+        # Base delay for all prompts
+        base_delay = 15  # 15 seconds minimum waiting time
+
+        # Initialize complexity factors
+        word_count = len(prompt.split())
+        complexity_score = 0
+
+        # 1. Word count factor
+        if word_count > 50:
+            complexity_score += 3
+        elif word_count > 30:
+            complexity_score += 2
+        elif word_count > 15:
+            complexity_score += 1
+
+        # 2. Check for complexity indicators
+        complexity_indicators = [
+            'realistic', 'detailed', 'intricate', 'high resolution', '8k',
+            'landscape', 'cityscape', 'panorama',
+            'group', 'crowd', 'multiple',
+            'reflection', 'glass', 'water', 'transparent',
+            'cinematic', 'dramatic lighting', 'sunset', 'night scene',
+            'fog', 'rain', 'snow', 'particles'
+        ]
+
+        indicator_count = sum(1 for indicator in complexity_indicators
+                              if indicator.lower() in prompt.lower())
+
+        # Add score based on indicators
+        if indicator_count > 7:
+            complexity_score += 3
+        elif indicator_count > 4:
+            complexity_score += 2
+        elif indicator_count > 2:
+            complexity_score += 1
+
+        # Calculate additional delay (max 15 seconds additional)
+        additional_delay = min(complexity_score * 3, 15)
+        total_delay = base_delay + additional_delay
+
+        app.logger.error(f"Prompt complexity: {complexity_score}, Total delay: {total_delay}s")
+        return total_delay
 
     async def upscale_image(self, session, message_id, custom_id):
         """Upscale une image spécifique"""
