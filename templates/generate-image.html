@@ -420,6 +420,7 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
     document.getElementById('generate-image-form').addEventListener('submit', async function(event) {
         event.preventDefault();
         const promptInput = document.getElementById('prompt');
+        const promptText = promptInput.value;
         const spinner = document.getElementById('spinner');
         const generateText = document.getElementById('generate-text');
         const downloadSection = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
@@ -468,7 +469,7 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
                     // Afficher un état initial de chargement
                     updateLoadingState('processing');
                     displayInitialLoadingState();
-                    handleMidjourneyProcessing(result.task_id, token, promptInput.value);
+                    handleMidjourneyProcessing(result.task_id, token, promptText);
                 } else {
                     // Cas DALL-E ou réponse immédiate
                     console.error('Displaying generated image:', result.image_url);
@@ -695,6 +696,10 @@ function displayGeneratedImage(imageUrl, isGroup = false) {
 }
 
 function calculatePollingDelay(prompt) {
+    if (!prompt || typeof prompt !== 'string') {
+        console.error('Invalid prompt passed to calculatePollingDelay:', prompt);
+        return 5000; // Return default delay if prompt is invalid
+    }
     let baseDelay = 7000;
     const maxAdditionalDelay = 15000;
     let complexityScore = 0;
