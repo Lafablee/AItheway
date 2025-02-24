@@ -173,7 +173,7 @@ class MidjourneyGenerator(AIModelGenerator):
             app.logger.error(f"Error in upscale_image: {str(e)}")
             return False
 
-    async def handle_upscales(self, session, message_id, upscale_buttons):
+    async def handle_upscales(self, session, message_id, upscale_buttons, task_id):
         """Handle all upscale operations with retry logic"""
         results = []
         job_id = None
@@ -432,7 +432,7 @@ class MidjourneyGenerator(AIModelGenerator):
                                 app.logger.error(f"Found {len(upscale_buttons)} upscale buttons")
 
                                 # Trigger upscales in background
-                                upscale_results = await self.handle_upscales(session, message_id, upscale_buttons)
+                                upscale_results = await self.handle_upscales(session, message_id, upscale_buttons, task_id)
                                 app.logger.error(f"Upscale results: {upscale_results}")
 
                                 # Update Redis with upscale status
