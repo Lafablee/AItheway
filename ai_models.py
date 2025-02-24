@@ -211,7 +211,7 @@ class MidjourneyGenerator(AIModelGenerator):
                 results.append({"button": f"U{i}", "success": False})
         if job_id:
             asyncio.create_task(self.poll_for_upscaled_images(
-                session, self.task_id, job_id, message_id
+                session, task_id, job_id, message_id
             ))
         return results
 
