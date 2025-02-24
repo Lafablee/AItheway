@@ -12,6 +12,7 @@ from redis.asyncio import Redis
 import time
 import uuid
 import redis
+import re
 
 # Configuration Redis
 redis_client = redis.Redis(
@@ -176,12 +177,6 @@ class MidjourneyGenerator(AIModelGenerator):
     async def handle_upscales(self, session, message_id, upscale_buttons, task_id):
         """Handle all upscale operations with retry logic"""
         results = []
-        job_id = None
-
-        if upscale_buttons:
-            parts = upscale_buttons[0].split('::')
-            if len(parts) >= 5:
-                job_id = parts[4]
 
         for i, button_id in enumerate(upscale_buttons, 1):
             retry_count = 0
@@ -209,9 +204,171 @@ class MidjourneyGenerator(AIModelGenerator):
 
             if not success:
                 results.append({"button": f"U{i}", "success": False})
-        if job_id:
-            await self.start_polling_for_upscales(task_id, job_id)
+
         return results
+
+    async def poll_for_upscaled_images(self, session, message_id, task_id, max_attempts=20, delay=10):
+        """
+        Poll Discord for upscaled image messages after triggering upscales.
+
+        Args:
+            session: The aiohttp ClientSession
+            message_id: The ID of the original message with the grid
+            task_id: The task ID for this generation
+            max_attempts: Maximum number of polling attempts
+            delay: Delay between polling attempts in seconds
+
+        Returns:
+            True if all upscaled images were found, False otherwise
+        """
+        app.logger.error(f"Starting to poll for upscaled images for task {task_id}")
+
+        # Get metadata about this task
+        metadata_key = f"midjourney_task:{task_id}"
+        prompt = self.redis.hget(metadata_key, b'prompt').decode('utf-8')
+
+        # Track which variations we've found
+        found_variations = set()
+
+        for attempt in range(max_attempts):
+            await asyncio.sleep(delay)
+
+            try:
+                # Get the latest messages from the channel
+                async with session.get(
+                        f"https://discord.com/api/v9/channels/{self.channel_id}/messages?limit=25",
+                        timeout=aiohttp.ClientTimeout(total=30)
+                ) as msg_response:
+                    if msg_response.status != 200:
+                        app.logger.error(f"Failed to get Discord messages: {msg_response.status}")
+                        continue
+
+                    messages = await msg_response.json()
+                    app.logger.error(f"Checking {len(messages)} messages for upscaled images")
+
+                    # Look for upscaled image messages from the Midjourney bot
+                    for message in messages:
+                        author = message.get('author', {})
+                        content = message.get('content', '')
+
+                        # Skip if not from Midjourney bot
+                        if author.get('id') != self.MIDJOURNEY_BOT_ID:
+                            continue
+
+                        # Skip if no attachments
+                        attachments = message.get('attachments', [])
+                        if not attachments:
+                            continue
+
+                        # Check if this is an upscale message related to our prompt
+                        # Midjourney upscale messages contain "Upscaled" and part of the original prompt
+                        if "Upscaled" in content and prompt.lower() in content.lower():
+                            # Extract variation number from the message content or components
+                            variation_match = re.search(r'Upscaled by ([1-4])', content)
+                            variation_number = None
+
+                            if variation_match:
+                                variation_number = int(variation_match.group(1))
+                            else:
+                                # Try to infer variation number from the content
+                                for i in range(1, 5):
+                                    if f"U{i}" in content or f"Variation {i}" in content:
+                                        variation_number = i
+                                        break
+
+                            # If we can't determine the variation number, generate a unique one
+                            if not variation_number:
+                                # Find an unused number
+                                for i in range(1, 5):
+                                    if i not in found_variations:
+                                        variation_number = i
+                                        break
+
+                            # Skip if we've already found this variation
+                            if variation_number in found_variations:
+                                continue
+
+                            # Get the image URL from the first attachment
+                            image_url = attachments[0].get('url')
+                            if not image_url:
+                                continue
+
+                            app.logger.error(f"Found upscaled image {variation_number} for task {task_id}: {image_url}")
+
+                            # Store this upscaled image
+                            image_data = {
+                                'url': image_url,
+                                'variation_number': variation_number,
+                                'choice': variation_number,  # For frontend compatibility
+                                'timestamp': datetime.now().isoformat(),
+                                'key': f"midjourney_image:{task_id}:{variation_number}"
+                            }
+
+                            # Add to group data
+                            group_key = f"midjourney_group:{task_id}"
+                            group_data_bytes = self.redis.get(group_key)
+
+                            if group_data_bytes:
+                                try:
+                                    group_info = json.loads(group_data_bytes)
+
+                                    # Check if this variation already exists
+                                    existing_index = None
+                                    for i, img in enumerate(group_info.get('images', [])):
+                                        if img.get('variation_number') == variation_number:
+                                            existing_index = i
+                                            break
+
+                                    # Add or replace image
+                                    if existing_index is not None:
+                                        group_info['images'][existing_index] = image_data
+                                    else:
+                                        if 'images' not in group_info:
+                                            group_info['images'] = []
+                                        group_info['images'].append(image_data)
+
+                                    # Update status if all images are received
+                                    if len(group_info['images']) >= 4:
+                                        group_info['status'] = 'completed'
+                                        await self.redis.hset(metadata_key, 'status', 'completed'.encode('utf-8'))
+
+                                    from config import TEMP_STORAGE_DURATION
+
+                                    # Save back to Redis
+                                    await self.redis.setex(
+                                        group_key,
+                                        int(TEMP_STORAGE_DURATION.total_seconds()),
+                                        json.dumps(group_info)
+                                    )
+
+                                    # Also store the individual image
+                                    image_key = f"midjourney_image:{task_id}:{variation_number}"
+                                    await self.redis.setex(
+                                        image_key,
+                                        int(TEMP_STORAGE_DURATION.total_seconds()),
+                                        json.dumps(image_data)
+                                    )
+
+                                    # Add to set of found variations
+                                    found_variations.add(variation_number)
+
+                                    # If we've found all 4 variations, we're done
+                                    if len(found_variations) >= 4:
+                                        app.logger.error(f"All upscaled images for task {task_id} found!")
+                                        return True
+
+                                except json.JSONDecodeError as e:
+                                    app.logger.error(f"Error parsing group data: {e}")
+
+                    # Log progress
+                    app.logger.error(f"Found {len(found_variations)}/4 upscaled images after attempt {attempt + 1}")
+
+            except Exception as e:
+                app.logger.error(f"Error while polling for upscaled images: {e}")
+
+        # If we get here, we couldn't find all variations within max_attempts
+        app.logger.error(f"Could only find {len(found_variations)}/4 upscaled images after {max_attempts} attempts")
+        return False
 
     async def handle_failed_upscale(self, task_id, variation_number):
         retry_count = 0
@@ -348,6 +505,8 @@ class MidjourneyGenerator(AIModelGenerator):
                                     if result["success"]:
                                         await redis.hset(metadata_key, f'upscale_status_{result["button"]}',b'triggered')
 
+                                # We run this in a background task so the current request can return immediately
+                                asyncio.create_task(self.poll_for_upscaled_images(session, message_id, task_id))
                             return {
                                 "success": True,
                                 "status": "processing",
@@ -368,6 +527,7 @@ class MidjourneyGenerator(AIModelGenerator):
                             "success": False,
                             "error": "Failed to send command to Discord"
                         }
+
         except Exception as e:
             # Clean up Redis data in case of error
             app.logger.error(f"Error in generate: {str(e)}")

@@ -20,6 +20,7 @@ import redis
 import json
 
 from ai_models import create_ai_manager
+from tasks import start_background_tasks
 import uuid
 from config import redis_client, TEMP_STORAGE_DURATION, PERMANENT_STORAGE_DURATION
 
@@ -1945,4 +1946,5 @@ def debug_task(task_id):
 #---- END TEMP!----
 
 if __name__ == '__main__':
+    background_task = start_background_tasks()
     app.run(debug=True, host='127.0.0.1', port=5432)
