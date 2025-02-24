@@ -495,6 +495,7 @@ async function handleMidjourneyProcessing(taskId, token) {
     const generateText = document.getElementById('generate-text');
     generateText.textContent = 'Génération en cours...';
 
+    let lastImagesCount = 0;
     const maxAttempts = 30;
     let attempts = 0;
 
@@ -546,7 +547,7 @@ async function handleMidjourneyProcessing(taskId, token) {
                 }
 
                 // Mettre à jour la progression des upscales
-                if (data.images && data.images.length > 0) {
+                if (data.images && data.isArray(data.images)) {
                     // Check if we have new images to show progress
                     if (data.images.length > lastImagesCount) {
                         lastImagesCount = data.images.length;
@@ -557,6 +558,12 @@ async function handleMidjourneyProcessing(taskId, token) {
                 // Si le groupe est complet
                 if ((data.status === 'completed' || data.group_status ==='completed') && data.images && data.images.length >= 4) {
                     console.error('Group complete, displaying results');
+                    displayMidjourneyGroup(data);
+                    updateLoadingState('complete');
+                    return;
+                } else if (data.images && data.images.length >=4) {
+                    // If we have all 4 images but status isn't marked complete, show them anyway
+                    console.error('All 4 images received, displaying anyway');
                     displayMidjourneyGroup(data);
                     updateLoadingState('complete');
                     return;
@@ -720,25 +727,29 @@ function displayInitialLoadingState() {
 }
 
 function updateUpscaleProgress(images) {
+    if (!Array.isArray(images)) {
+        console.error('Expected images array for updateUpscaleProgress, got', images);
+        return;
+    }
     const progressSection = document.getElementById('upscale-progress') || createUpscaleProgressSection();
+    if (!progressSection) {
+        console.error('Failed to create or find upscale progress section');
+        return;
+    }
 
     images.forEach((image, index) => {
         // Get the variation/upscale number
-        const variationNumber = image.variation_number || image.choice || index;
+        const variationNumber = getVariationNumber(image, index)
         const slot = document.querySelector(`#upscale-slot-${variationNumber}`);
 
-        if (slot && image.url) {
-            // Make sure the URL is fully qualified
-            const imageUrl = image.url.startsWith('http') ? image.url :
-                (image.url.startsWith('/') ? `${window.location.origin}${image.url}` : image.url);
-
+        if (slot && image && image.url) {
             // Get the token to append to the URL if needed
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
-            const fullImageUrl = imageUrl.includes('token=') ? imageUrl : `${imageUrl}?token=${encodeURIComponent(token)}`;
+            const fullImageUrl = normalizeImageUrl(image.url, token);
 
             slot.innerHTML = `
-                <img src="${fullImageUrl}" alt="Variation ${variationNumber + 1}" class="w-full h-full object-cover rounded">
+                <img src="${fullImageUrl}" alt="Variation ${variationNumber + 1}"class="w-full h-full object-cover rounded"onerror="this.onerror=null; this.src='/static/assets/img/placeholder.png'; console.error('Failed to load image');">
                 <div class="absolute bottom-0 left-0 bg-green-500 text-white px-2 py-1 text-sm rounded-tr">
                     Complété
                 </div>
@@ -767,6 +778,16 @@ function displayInitialGrid(imageUrl) {
 // Function to create the upscale progress section if it doesn't exist
 function createUpscaleProgressSection() {
     const imageDiv = document.getElementById('generated-image');
+    if (!imageDiv) {
+        console.error('Cannot find generated-image element');
+        return null;
+    }
+    // Remove existing section if present to avoid duplicates
+    const existingSection = document.getElementById('upscale-progress');
+    if (existingSection) {
+        existingSection.remove();
+    }
+
     const progressSection = document.createElement('div');
     progressSection.id = 'upscale-progress';
     progressSection.className = 'grid grid-cols-2 gap-4 mt-4';
@@ -789,8 +810,40 @@ function createUpscaleProgressSection() {
     return progressSection;
 }
 
+// 1. First, let's create a utility function for consistent URL handling
+function normalizeImageUrl(imageUrl, token) {
+    if (!imageUrl) return '';
+
+    // If already a full URL
+    if (imageUrl.startsWith('http')) {
+        // Add token if needed
+        if (token && !imageUrl.includes('token=')) {
+            return `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+        }
+        return imageUrl;
+    }
+
+    // If it's a relative URL starting with /
+    if (imageUrl.startsWith('/')) {
+        const baseUrl = `${window.location.origin}${imageUrl}`;
+        return token ? `${baseUrl}${baseUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}` : baseUrl;
+    }
+
+    // Default case
+    return token ? `${imageUrl}?token=${encodeURIComponent(token)}` : imageUrl;
+}
+// 2. Helper function for consistent variation number handling
+function getVariationNumber(image, fallbackIndex) {
+    if (typeof image.variation_number === 'number') return image.variation_number;
+    if (typeof image.choice === 'number') return image.choice;
+    return fallbackIndex || 0;
+}
+
 function displayMidjourneyGroup(groupData) {
-    const taskId = groupData.task_id;
+    if (!groupData) {
+        console.error('No group data provided');
+        return;
+    }
 
     const container = document.createElement('div');
     container.className = 'midjourney-group-container';
@@ -798,9 +851,13 @@ function displayMidjourneyGroup(groupData) {
     // Afficher le prompt
     const promptDiv = document.createElement('div');
     promptDiv.className = 'prompt-container mb-4';
+    const safePompt = (groupData.prompt || "No prompt available")
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+
     promptDiv.innerHTML = `
-        <h3 class="text-lg font-medium">${groupData.prompt}</h3>
-        <p class="text-sm text-gray-500">${new Date(groupData.timestamp).toLocaleString()}</p>
+        <h3 class="text-lg font-medium">${safePompt}</h3>
+        <p class="text-sm text-gray-500">${new Date(groupData.timestamp || Date.now()).toLocaleString()}</p>
     `;
     container.appendChild(promptDiv);
 
@@ -814,34 +871,32 @@ function displayMidjourneyGroup(groupData) {
     grid.className = 'grid grid-cols-2 gap-4';
 
     // Ensure images is an array and has items
-    const images = groupData.images || [];
+    const images = Array.isArray(groupData) ? groupData.images : [];
 
     if (images.length > 0) {
         images.forEach((image, index) => {
             // Make sure we have a valid URL
-            if (!image.url) {
+            if (!image || !image.url) {
                 console.error('Missing URL for image:', image);
                 return;
             }
 
             // Normalize image.choice to a number (0-3)
-            const choiceNum = typeof image.choice === 'number' ? image.choice :
-                             (typeof image.variation_number === 'number' ? image.variation_number : index);
-
+            const choiceNum = getVariationNumber(image, index);
             // Ensure URL has token
-            const imageUrl = image.url.includes('token=') ? image.url :
-                `${image.url}${image.url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+            const imageUrl = normalizeImageUrl(image.url, token);
 
             const imageContainer = document.createElement('div');
             imageContainer.className = 'relative group';
             imageContainer.innerHTML = `
                 <img src="${imageUrl}"
                      alt="Variation ${choiceNum + 1}"
-                     class="w-full rounded shadow transition-transform duration-200 group-hover:scale-105 cursor-pointer">
-                <div class="absolute bottom-2 left-2 bg-black bg-opacity-50 text-white px-2 py-1 rounded">
+                     class="w-full rounded shadow transition-transform duration-200 group-hover:scale-105 cursor-pointer"
+                     onerror="this.onerror=null; this.src='/static/assets/img/placeholder.png'; console.error('Failed to load image');">
+                <div class="variation-number">
                     V${choiceNum + 1}
                 </div>
-                <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div class="image-actions">
                     <div class="dropdown">
                         <button class="fn__icon_button dropdown-toggle">
                             <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
@@ -1044,9 +1099,26 @@ function showErrorOverlay(title, message) {
     }
     function downloadImage(url, format) {
         console.error('Starting download:', {url, format});
+        if (!url) {
+            console.error('No URL provided for download');
+            alert('URL de téléchargement manquante');
+            return;
+        }
 
         const img = new Image();
         img.crossOrigin = 'anonymous';
+
+        // Add loading indicator
+        const loadingIndicator = document.createElement('div');
+        loadingIndicator.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+        loadingIndicator.innerHTML = `
+            <div class="bg-white p-4 rounded">
+                <div class="spinner-border" role="status"></div>
+                <p class="mt-2">Téléchargement en cours...</p>
+            </div>
+        `;
+        document.body.appendChild(loadingIndicator);
+
         img.onload = function () {
             console.error('Image loaded successfully');
             const canvas = document.createElement('canvas');
@@ -1055,8 +1127,10 @@ function showErrorOverlay(title, message) {
             canvas.height = img.height;
             ctx.drawImage(img, 0, 0);
             canvas.toBlob(function (blob) {
+                loadingIndicator.remove();
                 if (!blob) {
-                    console.error('Failed to create blob')
+                    console.error('Failed to create blob');
+                    alert('Échec de la création du fichier image');
                     return;
                 }
                 console.error('Blob created successfully');
@@ -1074,6 +1148,16 @@ function showErrorOverlay(title, message) {
             console.error('Erreur lors du chargement de l\'image');
             alert('Impossible de télécharger l\'image. Veuillez réessayer.');
         };
+
+        // Set timeout to handle hanging requests
+        setTimeout(() => {
+            if (!img.complete) {
+                loadingIndicator.remove();
+                console.error('Image download timed out');
+                alert('Le téléchargement a expiré. Veuillez réessayer.');
+            }
+        }, 20000);
+
         img.src = url;
     }
 
