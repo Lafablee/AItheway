@@ -117,6 +117,7 @@ class MidjourneyGenerator(AIModelGenerator):
                         app.logger.error("code 200 from miidjourney generation")
 
                         messages = await msg_response.json()
+                        app.logger.error(f"Got {len(messages)} messages")
 
                         for message in messages:
                             author = message.get('author', {})
@@ -125,7 +126,15 @@ class MidjourneyGenerator(AIModelGenerator):
                                 datetime.fromisoformat(message['timestamp'].replace('Z', '+00:00')).timestamp()
                             ) if message.get('timestamp') else 0
 
+                            app.logger.error(f"Message details:")
+                            app.logger.error(f"Author ID: {author.get('id')}")
+                            app.logger.error(f"Bot ID we're looking for: {self.MIDJOURNEY_BOT_ID}")
+                            app.logger.error(f"Has components: {bool(message.get('components'))}")
+                            app.logger.error(f"Has attachments: {bool(message.get('attachments'))}")
+                            app.logger.error(f"Content: {content[:100]}...")  # First 100 chars
+
                             if (message_time < start_time):
+                                app.logger.error("Message is too old, skipping")
                                 continue
 
                             if (author.get('id') == self.MIDJOURNEY_BOT_ID and
@@ -134,9 +143,10 @@ class MidjourneyGenerator(AIModelGenerator):
                                     prompt.lower() in content.lower()):
                                 app.logger.error(f"Found Midjourney response with components: {message['components']}")
                                 return message
+                        app.logger.error("No matching message found in this batch")
             except Exception as e:
                 app.logger.error(f"Error in wait_for_midjourney_response: {str(e)}")
-
+            app.logger.error(f"Attempt {attempt + 1} complete, trying again...")
         return None
 
     async def upscale_image(self, session, message_id, custom_id):
