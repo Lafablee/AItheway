@@ -5,15 +5,20 @@ import re
 from datetime import datetime, timedelta
 import aiohttp
 import os
+import redis
 
-from app import app, redis_client
+from config import redis_client, TEMP_STORAGE_DURATION
 from ai_models import MidjourneyGenerator
+
+app = None
 
 async def check_pending_midjourney_tasks():
     """
         Background task to check for pending Midjourney tasks and attempt to complete them
         by fetching their upscaled images if they're ready.
         """
+    global app
+
     while True:
         try:
             # Find all pending Midjourney tasks

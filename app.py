@@ -22,6 +22,7 @@ import json
 from ai_models import create_ai_manager
 from tasks import start_background_tasks
 import uuid
+import asyncio
 from config import redis_client, TEMP_STORAGE_DURATION, PERMANENT_STORAGE_DURATION
 
 
@@ -1944,7 +1945,18 @@ def debug_task(task_id):
 
 
 #---- END TEMP!----
+def init_background_tasks(_app):
+    # Import here to avoid circular imports
+    from tasks import check_pending_midjourney_tasks
+
+    # Set the app in the tasks module
+    import tasks
+    tasks.app = _app
+
+    # Start the background task
+    loop = asyncio.get_event_loop()
+    return loop.create_task(check_pending_midjourney_tasks())
 
 if __name__ == '__main__':
-    background_task = start_background_tasks()
+    background_task = init_background_tasks(app)
     app.run(debug=True, host='127.0.0.1', port=5432)
