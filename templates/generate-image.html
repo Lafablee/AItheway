@@ -468,7 +468,7 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
                     // Afficher un état initial de chargement
                     updateLoadingState('processing');
                     displayInitialLoadingState();
-                    handleMidjourneyProcessing(result.task_id, token);
+                    handleMidjourneyProcessing(result.task_id, token, promptInput.value);
                 } else {
                     // Cas DALL-E ou réponse immédiate
                     console.error('Displaying generated image:', result.image_url);
@@ -494,6 +494,11 @@ async function handleMidjourneyProcessing(taskId, token) {
     console.error('Task ID:', taskId);
     const generateText = document.getElementById('generate-text');
     generateText.textContent = 'Génération en cours...';
+
+    const initialDelay = calculatePollingDelay(prompt);
+    console.error(`Waiting ${initialDelay/1000} seconds before starting to poll based on prompt complexity`);
+
+    await new Promise(resolve => setTimeout(resolve, initialDelay));
 
     let lastImagesCount = 0;
     const maxAttempts = 30;
@@ -547,7 +552,7 @@ async function handleMidjourneyProcessing(taskId, token) {
                 }
 
                 // Mettre à jour la progression des upscales
-                if (data.images && data.isArray(data.images)) {
+                if (data.images && Array.isArray(data.images) && data.images.length > lastImagesCount) {
                     // Check if we have new images to show progress
                     if (data.images.length > lastImagesCount) {
                         lastImagesCount = data.images.length;
@@ -556,7 +561,7 @@ async function handleMidjourneyProcessing(taskId, token) {
                 }
 
                 // Si le groupe est complet
-                if ((data.status === 'completed' || data.group_status ==='completed') && data.images && data.images.length >= 4) {
+                if ((data.status === 'completed' || data.group_status ==='completed') && data.images && Array.isArray(data.images).length >= 4) {
                     console.error('Group complete, displaying results');
                     displayMidjourneyGroup(data);
                     updateLoadingState('complete');
@@ -687,6 +692,67 @@ function displayGeneratedImage(imageUrl, isGroup = false) {
         showErrorOverlay('Error', 'impossible to load the image');
     };
     newImage.src = fullImageUrl;
+}
+
+function calculatePollingDelay(prompt) {
+    let baseDelay = 7000;
+    const maxAdditionalDelay = 15000;
+    let complexityScore = 0;
+
+    const wordCount = prompt.split(/\s+/).length;
+    if (wordCount > 50) complexityScore += 3;
+    else if (wordCount > 30) complexityScore += 2;
+    else if (wordCount > 15) complexityScore += 1;
+
+    const complexityIndicators = [
+        // Detailed styles and effects
+        'realistic', 'photorealistic', 'hyper-realistic', 'detailed', 'intricate',
+        'high resolution', 'high detail', '8k', '4k', 'ray tracing', 'volumetric lighting',
+
+        // Complex scene descriptors
+        'landscape', 'cityscape', 'panorama', 'scene', 'environment',
+
+        // Multiple subjects
+        'group', 'crowd', 'multiple', 'many',
+
+        // Difficult rendering elements
+        'reflection', 'glass', 'water', 'mirror', 'transparent', 'translucent',
+        'chromatic aberration', 'bokeh', 'depth of field',
+
+        // Specific artistic styles that take longer
+        'oil painting', 'watercolor', 'concept art', 'matte painting',
+
+        // Specific lighting conditions
+        'sunset', 'sunrise', 'night scene', 'dramatic lighting', 'cinematic',
+
+        // Atmosphere effects
+        'fog', 'mist', 'rain', 'snow', 'particles',
+
+        //complex rendering process
+        'low angle', 'fisheye', 'first person view', 'a first-person view', 'POV'
+    ]
+
+    let indicatorCount = 0;
+    complexityIndicators.forEach(indicator =>{
+        if (prompt.toLowerCase().includes(indicator.toLowerCase())) {
+            indicator++;
+        }
+    });
+
+    // Add to complexity score based on number of indicators
+    if (indicatorCount > 10) complexityScore += 5;
+    else if (indicatorCount > 7) complexityScore += 4;
+    else if (indicatorCount > 5) complexityScore += 3;
+    else if (indicatorCount > 3) complexityScore += 2;
+    else if (indicatorCount > 1) complexityScore += 1;
+
+    complexityScore = Math.min(complexityScore, 7); //Max score of 7
+
+    const additionalDelay = Math.min(complexityScore * 2000, maxAdditionalDelay);
+    const totalDelay = baseDelay + additionalDelay
+
+    console.log(`Prompt complexity score: ${complexityScore}, Total delay: ${totalDelay}ms`);
+    return totalDelay
 }
 
 function updateLoadingState(state) {
