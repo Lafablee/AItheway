@@ -133,10 +133,6 @@ class MidjourneyGenerator(AIModelGenerator):
                             app.logger.error(f"Has attachments: {bool(message.get('attachments'))}")
                             app.logger.error(f"Content: {content[:100]}...")  # First 100 chars
 
-                            if (message_time < start_time):
-                                app.logger.error("Message is too old, skipping")
-                                continue
-
                             if (author.get('id') == self.MIDJOURNEY_BOT_ID and
                                     message.get('components') and
                                     message.get('attachments') and
