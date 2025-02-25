@@ -562,9 +562,10 @@ async function handleMidjourneyProcessing(taskId, token) {
                 }
 
                 // Si le groupe est complet
-                if ((data.status === 'completed' || data.group_status ==='completed') && data.images && Array.isArray(data.images).length >= 4) {
+                if ((data.status === 'completed' || data.group_status ==='completed') && (data.images && data.images.length >=4)) {
                     console.error('Group complete, displaying results');
                     displayMidjourneyGroup(data);
+                    console.error('call displayMidjourneyGroup');
                     updateLoadingState('complete');
                     return;
                 } else if (data.images && data.images.length >=4) {
@@ -918,10 +919,12 @@ function displayMidjourneyGroup(groupData) {
 
     const container = document.createElement('div');
     container.className = 'midjourney-group-container';
+    console.error(container);
 
     // Afficher le prompt
     const promptDiv = document.createElement('div');
     promptDiv.className = 'prompt-container mb-4';
+    console.error(promptDiv.localName)
     const safePompt = (groupData.prompt || "No prompt available")
         .replace(/</g, '&lt;')
         .replace(/>/g, '&gt;')
