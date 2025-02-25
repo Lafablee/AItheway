@@ -111,13 +111,14 @@ class MidjourneyGenerator(AIModelGenerator):
         # Add initial waiting period before looking for the response
         app.logger.error(f"Waiting {initial_delay} seconds before checking for Midjourney response...")
         await asyncio.sleep(initial_delay)
-        for attempt in range(20):
-            await asyncio.sleep(6)
 
+        prompt_snippet = prompt[:30].lower()
+
+        for attempt in range(20):
             try:
                 timeout = aiohttp.ClientTimeout(total=300, connect=30, sock_read=60)
                 async with session.get(
-                        f"https://discord.com/api/v9/channels/{self.channel_id}/messages?limit=10",
+                        f"https://discord.com/api/v9/channels/{self.channel_id}/messages?limit=5",
                         timeout=timeout
                 ) as msg_response:
                     if msg_response.status == 200:
@@ -128,18 +129,21 @@ class MidjourneyGenerator(AIModelGenerator):
 
                         for message in messages:
                             author = message.get('author', {})
-                            content = message.get('content', '')
-                            message_time = int(
-                                datetime.fromisoformat(message['timestamp'].replace('Z', '+00:00')).timestamp()
-                            ) if message.get('timestamp') else 0
 
-                            if (author.get('id') == self.MIDJOURNEY_BOT_ID and
-                                    message.get('components') and
-                                    message.get('attachments') and
-                                    prompt.lower() in content.lower()):
-                                app.logger.error(f"Found Midjourney response with components: {message['components']}")
-                                return message
-                        app.logger.error("No matching message found in this batch")
+                            if author.get('id') == self.MIDJOURNEY_BOT_ID:
+                                content = message.get('content', '')
+                                has_components  =bool(message.get('components'))
+                                has_attachments = bool(message.get('attachments'))
+
+                                app.logger.error(f"Found Midjourney message with: Components: {has_components}, Attachments: {has_attachments}")
+                                app.logger.error(f"Message content preview: {content[:30]}...")
+
+                                if has_components and has_attachments and prompt_snippet in content.lower():
+                                    app.logger.error("Found Midjourneymessage with the right components!")
+                                    return message
+                        else:
+                            app.logger.error("No matching message for the id found in this batch")
+                await asyncio.sleep(5)
             except Exception as e:
                 app.logger.error(f"Error in wait_for_midjourney_response: {str(e)}")
             app.logger.error(f"Attempt {attempt + 1} complete, trying again...")
@@ -148,7 +152,7 @@ class MidjourneyGenerator(AIModelGenerator):
     def calculate_prompt_complexity(self, prompt):
         """Calculates waiting time based on prompt complexity"""
         # Base delay for all prompts
-        base_delay = 15  # 15 seconds minimum waiting time
+        base_delay = 25  # 15 seconds minimum waiting time
 
         # Initialize complexity factors
         word_count = len(prompt.split())
