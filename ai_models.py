@@ -289,7 +289,12 @@ class MidjourneyGenerator(AIModelGenerator):
         try:
             metadata_key = f"midjourney_task:{task_id}"
             prompt_bytes = await redis.hget(metadata_key, 'prompt')
-            prompt = prompt_bytes.decode('utf-8') if prompt_bytes else "Unknown prompt"
+            # Fix for the decode error - check type before decoding
+            if isinstance(prompt_bytes, bytes):
+                prompt = prompt_bytes.decode('utf-8')
+            else:
+                # It's already a string, use as is
+                prompt = prompt_bytes if prompt_bytes else "Unknown prompt"
             app.logger.error(f"[POLL] Task prompt: {prompt[:50]}...")
         except Exception as e:
             app.logger.error(f"[POLL] Error getting prompt from Redis: {e}")
