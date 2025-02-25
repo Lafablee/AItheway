@@ -917,6 +917,10 @@ function displayMidjourneyGroup(groupData) {
         return;
     }
 
+    console.error('Group data received:', JSON.stringify(groupData, null, 2));
+
+
+
     const container = document.createElement('div');
     container.className = 'midjourney-group-container';
     console.error(container);
@@ -945,9 +949,23 @@ function displayMidjourneyGroup(groupData) {
     grid.className = 'grid grid-cols-2 gap-4';
 
     // Ensure images is an array and has items
-    const images = Array.isArray(groupData) ? groupData.images : [];
+    const images = Array.isArray(groupData.images) ? groupData.images : [];
+    console.error(`Found ${images.length} images in group data`);
+    images.forEach((img, i) => {
+        console.error(`Images ${i}:`, JSON.stringify(img));
+
+        const Testimg = new Image();
+        Testimg.onload = () => console.error(`Image ${i} loaded successfully:`, img.url);
+        Testimg.onerror = () => console.error(`Image ${i}Failed to load:`, img.url);
+
+        const imageUrl = img.url.includes('token=') ? img.url :
+            `${img.url}${img.url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+        Testimg.src = imageUrl;
+    });
+
 
     if (images.length > 0) {
+        console.error('arrive ligne 951')
         images.forEach((image, index) => {
             // Make sure we have a valid URL
             if (!image || !image.url) {
