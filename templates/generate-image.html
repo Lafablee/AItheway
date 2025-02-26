@@ -925,185 +925,210 @@ function checkTwentyTwentyInterference() {
     }
 }
 
-function displayMidjourneyGroup(groupData) {
-    if (!groupData) {
-        console.error('No group data provided');
+function displayMidjourneyGroupDebug(groupData) {
+    console.error('DEBUG: Starting simplified display function');
+
+    if (!groupData || !Array.isArray(groupData.images) || groupData.images.length === 0) {
+        console.error('DEBUG: Invalid or empty group data', groupData);
         return;
     }
 
-    console.error('Group data received:', JSON.stringify(groupData, null, 2));
+    // Get main container
+    const imageDiv = document.getElementById('generated-image');
+    if (!imageDiv) {
+        console.error('DEBUG: Could not find generated-image container');
+        return;
+    }
 
+    // Clear existing content
+    imageDiv.innerHTML = '';
 
+    // Add explicit container styles to ensure visibility
+    imageDiv.style.display = 'block';
+    imageDiv.style.width = '100%';
+    imageDiv.style.minHeight = '300px';
+    imageDiv.style.border = '2px solid red'; // Temporary debugging border
 
+    // Create a simple container with inline styles (no reliance on external CSS)
     const container = document.createElement('div');
-    container.className = 'midjourney-group-container';
-    container.style.display = 'block';
     container.style.width = '100%';
-    console.error(container);
+    container.style.padding = '10px';
+    container.style.backgroundColor = '#f0f0f0';
+    container.style.borderRadius = '5px';
+    container.style.marginBottom = '20px';
 
-    // Afficher le prompt
-    const promptDiv = document.createElement('div');
-    promptDiv.className = 'prompt-container mb-4';
-    console.error(promptDiv.localName)
-    const safePompt = (groupData.prompt || "No prompt available")
-        .replace(/</g, '&lt;')
-        .replace(/>/g, '&gt;')
+    // Add prompt text
+    const promptText = document.createElement('p');
+    promptText.textContent = groupData.prompt || 'No prompt available';
+    promptText.style.marginBottom = '10px';
+    promptText.style.fontWeight = 'bold';
+    container.appendChild(promptText);
 
-    promptDiv.innerHTML = `
-        <h3 class="text-lg font-medium">${safePompt}</h3>
-        <p class="text-sm text-gray-500">${new Date(groupData.timestamp || Date.now()).toLocaleString()}</p>
-    `;
-    container.appendChild(promptDiv);
+    // Create grid with pure inline styles
+    const grid = document.createElement('div');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    grid.style.gap = '10px';
+    grid.style.padding = '10px';
 
     // Get token for URLs
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
 
+    console.error(`DEBUG: Processing ${groupData.images.length} images`);
 
-    // Grille d'images
-    const grid = document.createElement('div');
-    grid.className = 'midjourney-results-grid';
-    // Add explicit styles to override any conflicting CSS
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
-    grid.style.gap = '1rem';
-    grid.style.position = 'static';
-    grid.style.overflow = 'visible';
-    grid.style.zIndex = "1000";
+    // Add each image with minimal styling
+    groupData.images.forEach((imageData, index) => {
+        let image = imageData;
 
-    // Ensure images is an array and has items
-    const images = Array.isArray(groupData.images) ? groupData.images : [];
-    console.error(`Found ${images.length} images in group data`);
-    images.forEach((img, i) => {
-        console.error(`Images ${i}:`, JSON.stringify(img));
-
-        const Testimg = new Image();
-        Testimg.onload = () => console.error(`Image ${i} loaded successfully:`, img.url);
-        Testimg.onerror = () => console.error(`Image ${i}Failed to load:`, img.url);
-
-        const imageUrl = img.url.includes('token=') ? img.url :
-            `${img.url}${img.url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
-        Testimg.src = imageUrl;
-    });
-
-
-    if (images.length > 0) {
-        console.error('arrive ligne 951')
-        images.forEach((imageData, index) => {
-            let image = imageData;
-            if (typeof imageData === 'string') {
-                try {
-                    image = JSON.parse(imageData);
-                    console.error(`Successfully parsed image ${index} from string`);
-                } catch (e) {
-                    console.error(`Failed to parse image ${index}:`, e);
-                    return;
-                }
-            }
-            // Make sure we have a valid URL
-            if (!image || !image.url) {
-                console.error('Missing URL for image:', image);
+        // Parse image if it's a string
+        if (typeof imageData === 'string') {
+            try {
+                image = JSON.parse(imageData);
+            } catch (e) {
+                console.error(`DEBUG: Failed to parse image ${index}`, e);
                 return;
             }
+        }
 
-            // Normalize image.choice to a number (0-3)
-            const choiceNum = getVariationNumber(image, index);
-            // Ensure URL has token
-            const imageUrl = normalizeImageUrl(image.url, token);
+        if (!image || !image.url) {
+            console.error(`DEBUG: Invalid image data at index ${index}`, image);
+            return;
+        }
 
-            const imageContainer = document.createElement('div');
-            imageContainer.className = 'midjourney-image-item relative group';
-            imageContainer.style.position = 'relative';
-            imageContainer.style.overflow = 'visible';
-            imageContainer.style.zIndex = "5";
+        // Normalize URL
+        const imageUrl = image.url.includes('token=') ? image.url :
+            `${image.url}${image.url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
 
-            imageContainer.innerHTML = `
-                <img src="${imageUrl}"
-                     alt="Variation ${choiceNum + 1}"
-                     class="w-full rounded shadow transition-transform duration-200 group-hover:scale-105 cursor-pointer"
-                     onerror="this.onerror=null; this.src='/static/assets/img/placeholder.png'; console.error('Failed to load image');">
-                <div class="variation-number">
-                    V${choiceNum + 1}
-                </div>
-                <div class="image-actions">
-                    <div class="dropdown">
-                        <button class="fn__icon_button dropdown-toggle">
-                            <img src="/static/assets/svg/download.svg" alt="" class="fn__svg">
-                        </button>
-                        <ul class="dropdown-menu dropdown-menu-dark">
-                            <li class="dropdown-item" data-format="png" data-url="${imageUrl}">PNG</li>
-                            <li class="dropdown-item" data-format="jpg" data-url="${imageUrl}">JPG</li>
-                            <li class="dropdown-item" data-format="jpeg" data-url="${imageUrl}">JPEG</li>
-                        </ul>
-                    </div>
-                </div>
-            `;
+        console.error(`DEBUG: Creating image ${index} with URL: ${imageUrl}`);
 
-            // Add click to enlarge
-            const imgElement = imageContainer.querySelector('img');
-            if (imgElement) {
-                imgElement.addEventListener('click', () => {
-                    showImageDetail(image, groupData.prompt);
-                });
-            }
+        // Create simple image container
+        const imageContainer = document.createElement('div');
+        imageContainer.style.position = 'relative';
+        imageContainer.style.border = '1px solid #ccc';
+        imageContainer.style.borderRadius = '5px';
+        imageContainer.style.overflow = 'hidden';
+        imageContainer.style.backgroundColor = '#ffffff';
 
-            grid.appendChild(imageContainer);
-        });
-    } else {
-        // If no images, show a message
-        grid.innerHTML = '<div class="col-span-2 text-center py-4">No images available yet</div>';
-    }
+        // Create image with event listener to log when loaded
+        const imgElement = document.createElement('img');
+        imgElement.src = imageUrl;
+        imgElement.alt = `Variation ${index + 1}`;
+        imgElement.style.width = '100%';
+        imgElement.style.display = 'block';
 
+        // Add load and error handlers
+        imgElement.onload = () => {
+            console.error(`DEBUG: Image ${index} loaded successfully`);
+            imageContainer.style.backgroundColor = '#eaffea'; // Green tint when loaded
+        };
+
+        imgElement.onerror = () => {
+            console.error(`DEBUG: Image ${index} failed to load`);
+            imageContainer.style.backgroundColor = '#ffeeee'; // Red tint when failed
+            imgElement.src = '/static/assets/img/placeholder.png';
+        };
+
+        // Add image number
+        const numberLabel = document.createElement('div');
+        numberLabel.textContent = `Image ${index + 1}`;
+        numberLabel.style.position = 'absolute';
+        numberLabel.style.bottom = '5px';
+        numberLabel.style.left = '5px';
+        numberLabel.style.padding = '2px 5px';
+        numberLabel.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        numberLabel.style.color = 'white';
+        numberLabel.style.borderRadius = '3px';
+        numberLabel.style.fontSize = '12px';
+
+        // Assemble components
+        imageContainer.appendChild(imgElement);
+        imageContainer.appendChild(numberLabel);
+        grid.appendChild(imageContainer);
+    });
+
+    // Add grid to container
     container.appendChild(grid);
 
-    // Replace existing content
-    const imageDiv = document.getElementById('generated-image');
-    imageDiv.innerHTML = '';
+    // Add container to page
     imageDiv.appendChild(container);
 
-    // Add this diagnostic code:
-    console.error('Content added to DOM. Checking visibility...');
-    setTimeout(() => {
-        const gridElement = imageDiv.querySelector('.midjourney-results-grid');
-        const imageElements = imageDiv.querySelectorAll('img');
-
-        console.error('Grid element found:', !!gridElement);
-        console.error('Number of images in DOM:', imageElements.length);
-
-        if (gridElement) {
-            const style = window.getComputedStyle(gridElement);
-            console.error('Grid CSS:', {
-                display: style.display,
-                gridTemplateColumns: style.gridTemplateColumns,
-                width: style.width,
-                height: style.height,
-                visibility: style.visibility,
-                opacity: style.opacity
-            });
-        }
-
-        if (imageElements.length > 0) {
-            const imgStyle = window.getComputedStyle(imageElements[0]);
-            console.error('First image CSS:', {
-                display: imgStyle.display,
-                width: imgStyle.width,
-                height: imgStyle.height,
-                visibility: imgStyle.visibility,
-                opacity: imgStyle.opacity
-            });
-        }
-    }, 100);
-
     // Show download section
-    document.getElementById('download-section').style.display = 'block';
+    const downloadSection = document.getElementById('download-section');
+    if (downloadSection) {
+        downloadSection.style.display = 'block';
+    }
 
-    // Update state
-    document.getElementById('generate-text').textContent = 'Générer une nouvelle image';
+    console.error('DEBUG: Display complete, checking elements...');
 
-    // Update history
-    loadHistory(1, false);
+    // Check if everything is set up properly
+    setTimeout(() => {
+        const imgElements = imageDiv.querySelectorAll('img');
+        console.error(`DEBUG: Found ${imgElements.length} images in DOM`);
+
+        if (imgElements.length > 0) {
+            const firstImg = imgElements[0];
+            const rect = firstImg.getBoundingClientRect();
+
+            console.error('DEBUG: First image details:', {
+                src: firstImg.src,
+                displayStyle: window.getComputedStyle(firstImg).display,
+                width: rect.width,
+                height: rect.height,
+                visible: rect.width > 0 && rect.height > 0,
+                inViewport: rect.top < window.innerHeight && rect.bottom > 0
+            });
+        }
+    }, 500);
 }
 
+// Helper function to test the display with mock data
+function testMidjourneyDisplay() {
+    console.error('DEBUG: Testing display with mock data');
+
+    // Create mock data similar to your real data
+    const mockData = {
+        prompt: "Test prompt for debugging",
+        timestamp: new Date().toISOString(),
+        images: [
+            {
+                choice: 1,
+                url: "/static/assets/img/placeholder.png", // Use a known good image
+                variation_number: 1,
+                width: 1024,
+                height: 1024
+            },
+            {
+                choice: 2,
+                url: "/static/assets/img/placeholder.png",
+                variation_number: 2,
+                width: 1024,
+                height: 1024
+            },
+            {
+                choice: 3,
+                url: "/static/assets/img/placeholder.png",
+                variation_number: 3,
+                width: 1024,
+                height: 1024
+            },
+            {
+                choice: 4,
+                url: "/static/assets/img/placeholder.png",
+                variation_number: 4,
+                width: 1024,
+                height: 1024
+            }
+        ]
+    };
+
+    // Call the debug display function
+    displayMidjourneyGroupDebug(mockData);
+}
+
+// To use this debug version, add this line to your JavaScript:
+// Replace your call to displayMidjourneyGroup with displayMidjourneyGroupDebug
+// Or run testMidjourneyDisplay() from the console to test with mock data
 
 function updateProgressIndicator(percentage) {
     const progressBar = document.querySelector('.progress-bar');
