@@ -500,7 +500,6 @@ async function handleMidjourneyProcessing(taskId, token) {
     const generateText = document.getElementById('generate-text');
     generateText.textContent = 'Génération en cours...';
 
-    await new Promise(resolve => setTimeout(resolve, initialDelay));
 
     let lastImagesCount = 0;
     const maxAttempts = 30;
