@@ -425,6 +425,10 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
         const generateText = document.getElementById('generate-text');
         const downloadSection = document.querySelector('.fn__generation_item .item_list .fn__generation_list');
         const imageDiv = document.getElementById('generated-image');
+        console.error('Elements exists:', {
+            imageDiv: !!imageDiv,
+            downloadSection: !! downloadSection
+        });
 
         console.error('Current Model:', currentModel);
         console.error('Prompt:', promptInput.value);
@@ -495,10 +499,6 @@ async function handleMidjourneyProcessing(taskId, token) {
     console.error('Task ID:', taskId);
     const generateText = document.getElementById('generate-text');
     generateText.textContent = 'Génération en cours...';
-
-    const promptText = document.getElementById('prompt').value || prompt;
-    const initialDelay = calculatePollingDelay(promptText);
-    console.error(`Waiting ${initialDelay/1000} seconds before starting to poll based on prompt complexity`);
 
     await new Promise(resolve => setTimeout(resolve, initialDelay));
 
@@ -811,6 +811,9 @@ function updateUpscaleProgress(images) {
     }
 
     images.forEach((image, index) => {
+        const imgObj = typeof image === 'string' ? JSON.parse(image) : image;
+        console.error(`Processing image ${index}:`, imgObj);
+
         // Get the variation/upscale number
         const variationNumber = getVariationNumber(image, index)
         const slot = document.querySelector(`#upscale-slot-${variationNumber}`);
@@ -911,6 +914,17 @@ function getVariationNumber(image, fallbackIndex) {
     if (typeof image.choice === 'number') return image.choice;
     return fallbackIndex || 0;
 }
+function checkTwentyTwentyInterference() {
+    // Check if TwentyTwenty CSS is loaded
+    const twentyTwentyCSS = document.querySelector('link[href*="twentytwenty.css"]');
+    console.error('TwentyTwenty CSS loaded:', !!twentyTwentyCSS);
+
+    // Temporarily disable it as a test
+    if (twentyTwentyCSS) {
+        console.error('Temporarily disabling TwentyTwenty CSS to test');
+        twentyTwentyCSS.disabled = true;
+    }
+}
 
 function displayMidjourneyGroup(groupData) {
     if (!groupData) {
@@ -924,6 +938,8 @@ function displayMidjourneyGroup(groupData) {
 
     const container = document.createElement('div');
     container.className = 'midjourney-group-container';
+    container.style.display = 'block';
+    container.style.width = '100%';
     console.error(container);
 
     // Afficher le prompt
@@ -947,7 +963,13 @@ function displayMidjourneyGroup(groupData) {
 
     // Grille d'images
     const grid = document.createElement('div');
-    grid.className = 'grid grid-cols-2 gap-4';
+    grid.className = 'midjourney-results-grid';
+    // Add explicit styles to override any conflicting CSS
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    grid.style.gap = '1rem';
+    grid.style.position = 'static';
+    grid.style.overflow = 'visible';
 
     // Ensure images is an array and has items
     const images = Array.isArray(groupData.images) ? groupData.images : [];
@@ -980,7 +1002,10 @@ function displayMidjourneyGroup(groupData) {
             const imageUrl = normalizeImageUrl(image.url, token);
 
             const imageContainer = document.createElement('div');
-            imageContainer.className = 'relative group';
+            imageContainer.className = 'midjourney-image-item relative group';
+            imageContainer.style.position = 'relative';
+            imageContainer.style.overflow = 'visible';
+
             imageContainer.innerHTML = `
                 <img src="${imageUrl}"
                      alt="Variation ${choiceNum + 1}"
@@ -1024,6 +1049,39 @@ function displayMidjourneyGroup(groupData) {
     const imageDiv = document.getElementById('generated-image');
     imageDiv.innerHTML = '';
     imageDiv.appendChild(container);
+
+    // Add this diagnostic code:
+    console.error('Content added to DOM. Checking visibility...');
+    setTimeout(() => {
+        const gridElement = imageDiv.querySelector('.midjourney-results-grid');
+        const imageElements = imageDiv.querySelectorAll('img');
+
+        console.error('Grid element found:', !!gridElement);
+        console.error('Number of images in DOM:', imageElements.length);
+
+        if (gridElement) {
+            const style = window.getComputedStyle(gridElement);
+            console.error('Grid CSS:', {
+                display: style.display,
+                gridTemplateColumns: style.gridTemplateColumns,
+                width: style.width,
+                height: style.height,
+                visibility: style.visibility,
+                opacity: style.opacity
+            });
+        }
+
+        if (imageElements.length > 0) {
+            const imgStyle = window.getComputedStyle(imageElements[0]);
+            console.error('First image CSS:', {
+                display: imgStyle.display,
+                width: imgStyle.width,
+                height: imgStyle.height,
+                visibility: imgStyle.visibility,
+                opacity: imgStyle.opacity
+            });
+        }
+    }, 100);
 
     // Show download section
     document.getElementById('download-section').style.display = 'block';
