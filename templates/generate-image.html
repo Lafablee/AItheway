@@ -969,6 +969,7 @@ function displayMidjourneyGroup(groupData) {
     grid.style.gap = '1rem';
     grid.style.position = 'static';
     grid.style.overflow = 'visible';
+    grid.style.zIndex = "1000";
 
     // Ensure images is an array and has items
     const images = Array.isArray(groupData.images) ? groupData.images : [];
@@ -988,7 +989,17 @@ function displayMidjourneyGroup(groupData) {
 
     if (images.length > 0) {
         console.error('arrive ligne 951')
-        images.forEach((image, index) => {
+        images.forEach((imageData, index) => {
+            let image = imageData;
+            if (typeof imageData === 'string') {
+                try {
+                    image = JSON.parse(imageData);
+                    console.error(`Successfully parsed image ${index} from string`);
+                } catch (e) {
+                    console.error(`Failed to parse image ${index}:`, e);
+                    return;
+                }
+            }
             // Make sure we have a valid URL
             if (!image || !image.url) {
                 console.error('Missing URL for image:', image);
@@ -1004,6 +1015,7 @@ function displayMidjourneyGroup(groupData) {
             imageContainer.className = 'midjourney-image-item relative group';
             imageContainer.style.position = 'relative';
             imageContainer.style.overflow = 'visible';
+            imageContainer.style.zIndex = "5";
 
             imageContainer.innerHTML = `
                 <img src="${imageUrl}"
