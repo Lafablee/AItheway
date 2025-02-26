@@ -496,7 +496,8 @@ async function handleMidjourneyProcessing(taskId, token) {
     const generateText = document.getElementById('generate-text');
     generateText.textContent = 'Génération en cours...';
 
-    const initialDelay = calculatePollingDelay(prompt);
+    const promptText = document.getElementById('prompt').value || prompt;
+    const initialDelay = calculatePollingDelay(promptText);
     console.error(`Waiting ${initialDelay/1000} seconds before starting to poll based on prompt complexity`);
 
     await new Promise(resolve => setTimeout(resolve, initialDelay));
