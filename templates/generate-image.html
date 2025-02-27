@@ -925,59 +925,100 @@ function checkTwentyTwentyInterference() {
     }
 }
 
-function displayMidjourneyGroup(groupData) {
-    console.error('DEBUG: Starting simplified display function');
+// Replace your current displayMidjourneyGroup function with this one
+// This version focuses on maximum visibility with explicit inline styles
 
+function displayMidjourneyGroup(groupData) {
+    console.error('Starting enhanced displayMidjourneyGroup...');
+
+    // Make sure we have valid data
     if (!groupData || !Array.isArray(groupData.images) || groupData.images.length === 0) {
-        console.error('DEBUG: Invalid or empty group data', groupData);
+        console.error('Invalid or empty group data');
         return;
     }
 
-    // Get main container
+    // Get and reset the main container
     const imageDiv = document.getElementById('generated-image');
     if (!imageDiv) {
-        console.error('DEBUG: Could not find generated-image container');
+        console.error('Cannot find generated-image container');
+        alert('Error: Image container not found!');
         return;
     }
 
-    // Clear existing content
+    // Force any containing elements to be visible
+    let parent = imageDiv;
+    for (let i = 0; i < 5; i++) { // Check up to 5 parent levels
+        if (!parent) break;
+
+        parent.style.display = 'block';
+        parent.style.visibility = 'visible';
+        parent.style.opacity = '1';
+        parent.style.height = 'auto';
+        parent.style.overflow = 'visible';
+
+        parent = parent.parentElement;
+    }
+
+    // Reset the container with explicit styles
     imageDiv.innerHTML = '';
-
-    // Add explicit container styles to ensure visibility
     imageDiv.style.display = 'block';
+    imageDiv.style.visibility = 'visible';
+    imageDiv.style.opacity = '1';
     imageDiv.style.width = '100%';
-    imageDiv.style.minHeight = '300px';
-    imageDiv.style.border = '2px solid red'; // Temporary debugging border
+    imageDiv.style.minHeight = '400px';
+    imageDiv.style.backgroundColor = '#ffffff';
+    imageDiv.style.padding = '15px';
+    imageDiv.style.boxSizing = 'border-box';
+    imageDiv.style.border = '1px solid #e0e0e0';
+    imageDiv.style.borderRadius = '8px';
+    imageDiv.style.margin = '20px 0';
+    imageDiv.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
 
-    // Create a simple container with inline styles (no reliance on external CSS)
+    // Create main container
     const container = document.createElement('div');
     container.style.width = '100%';
     container.style.padding = '10px';
-    container.style.backgroundColor = '#f0f0f0';
-    container.style.borderRadius = '5px';
-    container.style.marginBottom = '20px';
+    container.style.boxSizing = 'border-box';
 
-    // Add prompt text
-    const promptText = document.createElement('p');
+    // Add prompt section
+    const promptDiv = document.createElement('div');
+    promptDiv.style.marginBottom = '15px';
+    promptDiv.style.padding = '10px';
+    promptDiv.style.backgroundColor = '#f5f5f5';
+    promptDiv.style.borderRadius = '4px';
+
+    const promptText = document.createElement('h3');
     promptText.textContent = groupData.prompt || 'No prompt available';
-    promptText.style.marginBottom = '10px';
+    promptText.style.margin = '0 0 5px 0';
+    promptText.style.fontSize = '16px';
     promptText.style.fontWeight = 'bold';
-    container.appendChild(promptText);
+
+    const timestampText = document.createElement('p');
+    timestampText.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
+    timestampText.style.margin = '0';
+    timestampText.style.fontSize = '12px';
+    timestampText.style.color = '#666';
+
+    promptDiv.appendChild(promptText);
+    promptDiv.appendChild(timestampText);
+    container.appendChild(promptDiv);
 
     // Create grid with pure inline styles
     const grid = document.createElement('div');
     grid.style.display = 'grid';
     grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
-    grid.style.gap = '10px';
-    grid.style.padding = '10px';
+    grid.style.gap = '15px';
+    grid.style.padding = '0';
+    grid.style.width = '100%';
+    grid.style.boxSizing = 'border-box';
 
     // Get token for URLs
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
 
-    console.error(`DEBUG: Processing ${groupData.images.length} images`);
+    console.error(`Processing ${groupData.images.length} images`);
 
-    // Add each image with minimal styling
+    // Create image elements with maximum visibility
     groupData.images.forEach((imageData, index) => {
         let image = imageData;
 
@@ -986,64 +1027,164 @@ function displayMidjourneyGroup(groupData) {
             try {
                 image = JSON.parse(imageData);
             } catch (e) {
-                console.error(`DEBUG: Failed to parse image ${index}`, e);
+                console.error(`Failed to parse image ${index}:`, e);
                 return;
             }
         }
 
+        // Skip invalid images
         if (!image || !image.url) {
-            console.error(`DEBUG: Invalid image data at index ${index}`, image);
+            console.error('Missing URL for image:', image);
             return;
         }
 
-        // Normalize URL
+        // Get variation number
+        const variationNum =
+            typeof image.variation_number === 'number' ? image.variation_number :
+            typeof image.choice === 'number' ? image.choice :
+            index;
+
+        // Ensure URL has token
         const imageUrl = image.url.includes('token=') ? image.url :
             `${image.url}${image.url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
 
-        console.error(`DEBUG: Creating image ${index} with URL: ${imageUrl}`);
+        console.error(`Creating image ${index} with URL:`, imageUrl);
 
-        // Create simple image container
+        // Create container with explicit styles for maximum visibility
         const imageContainer = document.createElement('div');
         imageContainer.style.position = 'relative';
-        imageContainer.style.border = '1px solid #ccc';
-        imageContainer.style.borderRadius = '5px';
+        imageContainer.style.backgroundColor = '#f0f0f0';
+        imageContainer.style.border = '1px solid #ddd';
+        imageContainer.style.borderRadius = '8px';
         imageContainer.style.overflow = 'hidden';
-        imageContainer.style.backgroundColor = '#ffffff';
+        imageContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        imageContainer.style.transition = 'transform 0.2s';
+        imageContainer.style.cursor = 'pointer';
 
-        // Create image with event listener to log when loaded
+        // Create image element with explicit styles
         const imgElement = document.createElement('img');
         imgElement.src = imageUrl;
-        imgElement.alt = `Variation ${index + 1}`;
+        imgElement.alt = `Variation ${variationNum + 1}`;
         imgElement.style.width = '100%';
+        imgElement.style.height = 'auto';
         imgElement.style.display = 'block';
+        imgElement.style.minHeight = '150px';
+        imgElement.style.backgroundColor = '#eee';
 
-        // Add load and error handlers
+        // Add load and error handlers with visual feedback
         imgElement.onload = () => {
-            console.error(`DEBUG: Image ${index} loaded successfully`);
-            imageContainer.style.backgroundColor = '#eaffea'; // Green tint when loaded
+            console.error(`Image ${index} loaded successfully`);
+            imageContainer.style.backgroundColor = '#fff';
+            // Add a subtle border to show it's loaded
+            imageContainer.style.border = '1px solid #ccc';
         };
 
         imgElement.onerror = () => {
-            console.error(`DEBUG: Image ${index} failed to load`);
-            imageContainer.style.backgroundColor = '#ffeeee'; // Red tint when failed
+            console.error(`Image ${index} failed to load`);
             imgElement.src = '/static/assets/img/placeholder.png';
+            imageContainer.style.backgroundColor = '#ffeeee';
+            imageContainer.style.border = '1px solid #ffcccc';
         };
 
-        // Add image number
-        const numberLabel = document.createElement('div');
-        numberLabel.textContent = `Image ${index + 1}`;
-        numberLabel.style.position = 'absolute';
-        numberLabel.style.bottom = '5px';
-        numberLabel.style.left = '5px';
-        numberLabel.style.padding = '2px 5px';
-        numberLabel.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        numberLabel.style.color = 'white';
-        numberLabel.style.borderRadius = '3px';
-        numberLabel.style.fontSize = '12px';
+        // Add variation number label
+        const variationLabel = document.createElement('div');
+        variationLabel.textContent = `V${variationNum + 1}`;
+        variationLabel.style.position = 'absolute';
+        variationLabel.style.bottom = '8px';
+        variationLabel.style.left = '8px';
+        variationLabel.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        variationLabel.style.color = 'white';
+        variationLabel.style.padding = '4px 8px';
+        variationLabel.style.borderRadius = '4px';
+        variationLabel.style.fontSize = '12px';
+
+        // Add download button (optional)
+        const downloadBtn = document.createElement('button');
+        downloadBtn.textContent = 'Download';
+        downloadBtn.style.position = 'absolute';
+        downloadBtn.style.top = '8px';
+        downloadBtn.style.right = '8px';
+        downloadBtn.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        downloadBtn.style.color = 'white';
+        downloadBtn.style.border = 'none';
+        downloadBtn.style.padding = '4px 8px';
+        downloadBtn.style.borderRadius = '4px';
+        downloadBtn.style.fontSize = '12px';
+        downloadBtn.style.cursor = 'pointer';
+        downloadBtn.style.opacity = '0';
+        downloadBtn.style.transition = 'opacity 0.2s';
+
+        // Show download button on hover
+        imageContainer.addEventListener('mouseenter', () => {
+            downloadBtn.style.opacity = '1';
+        });
+
+        imageContainer.addEventListener('mouseleave', () => {
+            downloadBtn.style.opacity = '0';
+        });
+
+        // Add download functionality
+        downloadBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent opening the large view
+            if (typeof downloadImage === 'function') {
+                downloadImage(imageUrl, 'png');
+            } else {
+                window.open(imageUrl, '_blank');
+            }
+        });
+
+        // Add click for large image view
+        imageContainer.addEventListener('click', () => {
+            // Create a modal for viewing the full image
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0,0,0,0.9)';
+            modal.style.display = 'flex';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            modal.style.zIndex = '9999';
+
+            const modalImg = document.createElement('img');
+            modalImg.src = imageUrl;
+            modalImg.style.maxWidth = '90%';
+            modalImg.style.maxHeight = '90%';
+            modalImg.style.objectFit = 'contain';
+            modalImg.style.border = '2px solid white';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = '×';
+            closeBtn.style.position = 'absolute';
+            closeBtn.style.top = '20px';
+            closeBtn.style.right = '20px';
+            closeBtn.style.backgroundColor = 'transparent';
+            closeBtn.style.color = 'white';
+            closeBtn.style.border = 'none';
+            closeBtn.style.fontSize = '30px';
+            closeBtn.style.cursor = 'pointer';
+
+            closeBtn.addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
+
+            modal.appendChild(modalImg);
+            modal.appendChild(closeBtn);
+            document.body.appendChild(modal);
+        });
 
         // Assemble components
         imageContainer.appendChild(imgElement);
-        imageContainer.appendChild(numberLabel);
+        imageContainer.appendChild(variationLabel);
+        imageContainer.appendChild(downloadBtn);
         grid.appendChild(imageContainer);
     });
 
@@ -1053,31 +1194,73 @@ function displayMidjourneyGroup(groupData) {
     // Add container to page
     imageDiv.appendChild(container);
 
-    // Show download section
+    // Show download section if it exists
     const downloadSection = document.getElementById('download-section');
     if (downloadSection) {
         downloadSection.style.display = 'block';
     }
 
-    console.error('DEBUG: Display complete, checking elements...');
+    // Update text
+    const generateText = document.getElementById('generate-text');
+    if (generateText) {
+        generateText.textContent = 'Générer une nouvelle image';
+    }
 
-    // Check if everything is set up properly
+    // Add status message at the bottom
+    const statusDiv = document.createElement('div');
+    statusDiv.style.marginTop = '15px';
+    statusDiv.style.padding = '10px';
+    statusDiv.style.backgroundColor = '#e6f7e6';
+    statusDiv.style.borderRadius = '4px';
+    statusDiv.style.textAlign = 'center';
+    statusDiv.textContent = 'Images générées avec succès!';
+    container.appendChild(statusDiv);
+
+    console.error('Display complete, checking final state...');
+
+    // Final visibility check
     setTimeout(() => {
-        const imgElements = imageDiv.querySelectorAll('img');
-        console.error(`DEBUG: Found ${imgElements.length} images in DOM`);
+        const allImgs = imageDiv.querySelectorAll('img');
+        console.error(`Final check: Found ${allImgs.length} images in DOM`);
 
-        if (imgElements.length > 0) {
-            const firstImg = imgElements[0];
+        // Force main containers to be visible again (in case something changed)
+        imageDiv.style.display = 'block';
+        imageDiv.style.visibility = 'visible';
+
+        if (allImgs.length > 0) {
+            const firstImg = allImgs[0];
             const rect = firstImg.getBoundingClientRect();
-
-            console.error('DEBUG: First image details:', {
-                src: firstImg.src,
-                displayStyle: window.getComputedStyle(firstImg).display,
+            console.error('First image rect:', {
                 width: rect.width,
                 height: rect.height,
-                visible: rect.width > 0 && rect.height > 0,
-                inViewport: rect.top < window.innerHeight && rect.bottom > 0
+                top: rect.top,
+                left: rect.left,
+                visible: rect.width > 0 && rect.height > 0
             });
+
+            // If image has no size, try to force it
+            if (rect.width === 0 || rect.height === 0) {
+                console.error('Attempting to force image visibility...');
+                firstImg.style.minWidth = '200px';
+                firstImg.style.minHeight = '200px';
+                firstImg.style.border = '2px solid red';
+            }
+        }
+
+        // Try to ensure any parent container is visible
+        let currentElement = imageDiv;
+        while (currentElement && currentElement !== document.body) {
+            if (currentElement.style) {
+                currentElement.style.display = currentElement.style.display === 'none' ? 'block' : currentElement.style.display;
+                currentElement.style.visibility = 'visible';
+                currentElement.style.opacity = '1';
+            }
+            currentElement = currentElement.parentElement;
+        }
+
+        // Update history if that function exists
+        if (typeof loadHistory === 'function') {
+            loadHistory(1, false);
         }
     }, 500);
 }
