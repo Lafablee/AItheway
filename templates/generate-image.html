@@ -925,11 +925,9 @@ function checkTwentyTwentyInterference() {
     }
 }
 
-// Replace your current displayMidjourneyGroup function with this one
-// This version focuses on maximum visibility with explicit inline styles
 
 function displayMidjourneyGroup(groupData) {
-    console.error('Starting enhanced displayMidjourneyGroup...');
+    console.error('Starting dark theme displayMidjourneyGroup...');
 
     // Make sure we have valid data
     if (!groupData || !Array.isArray(groupData.images) || groupData.images.length === 0) {
@@ -959,20 +957,20 @@ function displayMidjourneyGroup(groupData) {
         parent = parent.parentElement;
     }
 
-    // Reset the container with explicit styles
+    // Reset the container with dark theme styles
     imageDiv.innerHTML = '';
     imageDiv.style.display = 'block';
     imageDiv.style.visibility = 'visible';
     imageDiv.style.opacity = '1';
     imageDiv.style.width = '100%';
     imageDiv.style.minHeight = '400px';
-    imageDiv.style.backgroundColor = '#ffffff';
+    imageDiv.style.backgroundColor = '#1a1a1a'; // Dark background
     imageDiv.style.padding = '15px';
     imageDiv.style.boxSizing = 'border-box';
-    imageDiv.style.border = '1px solid #e0e0e0';
+    imageDiv.style.border = '1px solid #333'; // Darker border
     imageDiv.style.borderRadius = '8px';
     imageDiv.style.margin = '20px 0';
-    imageDiv.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+    imageDiv.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.3)';
 
     // Create main container
     const container = document.createElement('div');
@@ -980,24 +978,26 @@ function displayMidjourneyGroup(groupData) {
     container.style.padding = '10px';
     container.style.boxSizing = 'border-box';
 
-    // Add prompt section
+    // Add prompt section with dark theme
     const promptDiv = document.createElement('div');
     promptDiv.style.marginBottom = '15px';
     promptDiv.style.padding = '10px';
-    promptDiv.style.backgroundColor = '#f5f5f5';
+    promptDiv.style.backgroundColor = '#2a2a2a'; // Darker background
     promptDiv.style.borderRadius = '4px';
+    promptDiv.style.color = '#e0e0e0'; // Light text for dark background
 
     const promptText = document.createElement('h3');
     promptText.textContent = groupData.prompt || 'No prompt available';
     promptText.style.margin = '0 0 5px 0';
     promptText.style.fontSize = '16px';
     promptText.style.fontWeight = 'bold';
+    promptText.style.color = '#ffffff'; // White text
 
     const timestampText = document.createElement('p');
     timestampText.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
     timestampText.style.margin = '0';
     timestampText.style.fontSize = '12px';
-    timestampText.style.color = '#666';
+    timestampText.style.color = '#aaaaaa'; // Light gray text
 
     promptDiv.appendChild(promptText);
     promptDiv.appendChild(timestampText);
@@ -1050,16 +1050,27 @@ function displayMidjourneyGroup(groupData) {
 
         console.error(`Creating image ${index} with URL:`, imageUrl);
 
-        // Create container with explicit styles for maximum visibility
+        // Create container with explicit styles for dark theme
         const imageContainer = document.createElement('div');
         imageContainer.style.position = 'relative';
-        imageContainer.style.backgroundColor = '#f0f0f0';
-        imageContainer.style.border = '1px solid #ddd';
+        imageContainer.style.backgroundColor = '#2a2a2a'; // Dark gray background
+        imageContainer.style.border = '1px solid #444'; // Dark border
         imageContainer.style.borderRadius = '8px';
         imageContainer.style.overflow = 'hidden';
-        imageContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-        imageContainer.style.transition = 'transform 0.2s';
+        imageContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+        imageContainer.style.transition = 'transform 0.2s, box-shadow 0.2s';
         imageContainer.style.cursor = 'pointer';
+
+        // Add hover effect
+        imageContainer.addEventListener('mouseenter', () => {
+            imageContainer.style.transform = 'scale(1.03)';
+            imageContainer.style.boxShadow = '0 4px 8px rgba(0,0,0,0.5)';
+        });
+
+        imageContainer.addEventListener('mouseleave', () => {
+            imageContainer.style.transform = 'scale(1)';
+            imageContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
+        });
 
         // Create image element with explicit styles
         const imgElement = document.createElement('img');
@@ -1069,21 +1080,19 @@ function displayMidjourneyGroup(groupData) {
         imgElement.style.height = 'auto';
         imgElement.style.display = 'block';
         imgElement.style.minHeight = '150px';
-        imgElement.style.backgroundColor = '#eee';
+        imgElement.style.backgroundColor = '#333'; // Dark placeholder color
 
         // Add load and error handlers with visual feedback
         imgElement.onload = () => {
             console.error(`Image ${index} loaded successfully`);
-            imageContainer.style.backgroundColor = '#fff';
-            // Add a subtle border to show it's loaded
-            imageContainer.style.border = '1px solid #ccc';
+            imageContainer.style.backgroundColor = '#1a1a1a'; // Return to background color when loaded
         };
 
         imgElement.onerror = () => {
             console.error(`Image ${index} failed to load`);
             imgElement.src = '/static/assets/img/placeholder.png';
-            imageContainer.style.backgroundColor = '#ffeeee';
-            imageContainer.style.border = '1px solid #ffcccc';
+            imageContainer.style.backgroundColor = '#3a2a2a'; // Slightly reddish dark color for errors
+            imageContainer.style.border = '1px solid #553333';
         };
 
         // Add variation number label
@@ -1093,20 +1102,21 @@ function displayMidjourneyGroup(groupData) {
         variationLabel.style.bottom = '8px';
         variationLabel.style.left = '8px';
         variationLabel.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        variationLabel.style.color = 'white';
+        variationLabel.style.color = '#fff'; // White text
         variationLabel.style.padding = '4px 8px';
         variationLabel.style.borderRadius = '4px';
         variationLabel.style.fontSize = '12px';
+        variationLabel.style.fontWeight = 'bold';
 
-        // Add download button (optional)
+        // Add download button with dark theme
         const downloadBtn = document.createElement('button');
         downloadBtn.textContent = 'Download';
         downloadBtn.style.position = 'absolute';
         downloadBtn.style.top = '8px';
         downloadBtn.style.right = '8px';
-        downloadBtn.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        downloadBtn.style.color = 'white';
-        downloadBtn.style.border = 'none';
+        downloadBtn.style.backgroundColor = 'rgba(40,40,40,0.8)';
+        downloadBtn.style.color = '#fff';
+        downloadBtn.style.border = '1px solid #555';
         downloadBtn.style.padding = '4px 8px';
         downloadBtn.style.borderRadius = '4px';
         downloadBtn.style.fontSize = '12px';
@@ -1153,7 +1163,7 @@ function displayMidjourneyGroup(groupData) {
             modalImg.style.maxWidth = '90%';
             modalImg.style.maxHeight = '90%';
             modalImg.style.objectFit = 'contain';
-            modalImg.style.border = '2px solid white';
+            modalImg.style.border = '2px solid #444';
 
             const closeBtn = document.createElement('button');
             closeBtn.textContent = '×';
@@ -1210,9 +1220,10 @@ function displayMidjourneyGroup(groupData) {
     const statusDiv = document.createElement('div');
     statusDiv.style.marginTop = '15px';
     statusDiv.style.padding = '10px';
-    statusDiv.style.backgroundColor = '#e6f7e6';
+    statusDiv.style.backgroundColor = '#2a3a2a'; // Dark greenish background
     statusDiv.style.borderRadius = '4px';
     statusDiv.style.textAlign = 'center';
+    statusDiv.style.color = '#90EE90'; // Light green text
     statusDiv.textContent = 'Images générées avec succès!';
     container.appendChild(statusDiv);
 
@@ -1245,17 +1256,6 @@ function displayMidjourneyGroup(groupData) {
                 firstImg.style.minHeight = '200px';
                 firstImg.style.border = '2px solid red';
             }
-        }
-
-        // Try to ensure any parent container is visible
-        let currentElement = imageDiv;
-        while (currentElement && currentElement !== document.body) {
-            if (currentElement.style) {
-                currentElement.style.display = currentElement.style.display === 'none' ? 'block' : currentElement.style.display;
-                currentElement.style.visibility = 'visible';
-                currentElement.style.opacity = '1';
-            }
-            currentElement = currentElement.parentElement;
         }
 
         // Update history if that function exists
@@ -1467,6 +1467,76 @@ function showErrorOverlay(title, message) {
         document.getElementById('download-section').style.display = 'none';
         document.getElementById('generate-text').textContent = 'Générer l\'image';
     }
+
+    function handleGroupClick(taskId) {
+        console.error(`Handling click on group ${taskId}`);
+        if (!taskId) {
+            console.error("No taks ID porvided");
+            return;
+        }
+
+        const mainContainer = document.getElementById('generated-image');
+        if (mainContainer) {
+            mainContainer.innerHTML = `
+                <div style="display: flex; justify-content: center; align-items: center; min-height: 200px;">
+                    <div style="text-align: center;">
+                        <div style="border: 3px solid #555; border-top: 3px solid #fff; border-radius: 50%;
+                                    width: 30px; height: 30px; margin: 0 auto; animation: spin 1s linear infinite;"></div>
+                        <p style="margin-top: 15px; color: #ccc;">Chargement des images...</p>
+                    </div>
+                </div>
+                <style>
+                    @keyframes spin {
+                        0% { transform: rotate(0deg); }
+                        100% { transform: rotate(360deg); }
+                    }
+                </style>
+            `;
+        }
+        // Get token for authentication
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        // Fetch the task status
+        fetch(`/check_midjourney_status/${taskId}?token=${encodeURIComponent(token)}`, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.error("Got midjourney status data:", data);
+            if (data.success && data.data) {
+                // Call the display function with the group data
+                displayMidjourneyGroup(data.data);
+
+                // Update other UI elements
+                if (document.getElementById('prompt')) {
+                    document.getElementById('prompt').value = data.data.prompt || '';
+                }
+
+                // Show the download section
+                const downloadSection = document.getElementById('download-section');
+                if (downloadSection) {
+                    downloadSection.style.display = 'block';
+                }
+            } else {
+                console.error("Failed to load midjourney group data");
+                if (mainContainer) {
+                    mainContainer.innerHTML = `<p style="color: #ff6b6b; text-align: center; padding: 20px;">
+                        Impossible de charger les images. Veuillez réessayer.</p>`;
+                }
+            }
+        })
+        .catch(error => {
+            console.error("Error fetching group data:", error);
+            if (mainContainer) {
+                mainContainer.innerHTML = `<p style="color: #ff6b6b; text-align: center; padding: 20px;">
+                    Erreur lors du chargement des images.</p>`;
+            }
+        });
+
+    }
     function downloadImage(url, format) {
         console.error('Starting download:', {url, format});
         if (!url) {
@@ -1531,37 +1601,64 @@ function showErrorOverlay(title, message) {
         img.src = url;
     }
 
-    function createHistoryItem(item, delay) {
+    function createHistoryItem(item, delay=0) {
+            console.error("creating history with item:", item)
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
             const fullImageUrl = `${item.url}?token=${encodeURIComponent(token)}`;
             const listItem = document.createElement('li');
             listItem.className = 'fn__gl_item';
 
-            if (item.model === 'midjourney' && item.images && item.images.length === 4) {
+            if (item.model === 'midjourney' && item.images && item.images.length > 0) {
                 // Créer un aperçu du groupe Midjourney
+
+                listItem.dataset.taskId = item.task_id || '';
+
+                let thumbnailsHtml = '';
+
+                const imagesToShow = item.images.slice(0, 4);
+                imagesToShow.forEach((img, index) => {
+                   // Ensure image URL is properly formatted
+                    let imageUrl = img.url;
+                    if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+                        imageUrl = `/image/${img.key}`;
+                    }
+                    if (!imageUrl.includes('token=') && token) {
+                        imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+                    }
+
+                    thumbnailsHtml += `
+                        <div style="width: 50%; height: 50%; padding: 1px; box-sizing: border-box;">
+                            <img src="${imageUrl}"
+                                 alt="V${index + 1}"
+                                 style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                        </div>
+                    `;
+                });
+
                 listItem.innerHTML = `
                     <div class="fn__gl__item">
-                        <div class="abs_item midjourney-group" data-group-id="${item.task_id}">
-                            <div class="midjourney-group-preview">
-                                ${item.images.map((img, index) => `
-                                    <img src="${img.url}?token=${encodeURIComponent(token)}"
-                                         alt="Variation ${index + 1}"
-                                         loading="lazy">
-                                `).join('')}
+                        <div class="abs_item">
+                            <div style="position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
+                                <div style="display: flex; flex-wrap: wrap; width: 100%; height: 100%;">
+                                    ${thumbnailsHtml}
+                                </div>
+                                <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7);
+                                            color: white; padding: 4px; font-size: 10px; text-overflow: ellipsis;
+                                            overflow: hidden; white-space: nowrap;">
+                                    ${item.prompt || ''}
+                                </div>
                             </div>
-                            <div class="midjourney-group-overlay">
-                                <span>Voir les 4 variations</span>
-                            </div>
-                            <div class="prompt">${item.prompt}</div>
-                            <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
                         </div>
                     </div>
                 `;
+
+
                 // Gestionnaire d'événements pour l'ouverture du groupe
-                listItem.querySelector('.midjourney-group').addEventListener('click', () => {
-                    showMidjourneyDetail(item);
+                listItem.addEventListener('click', () => {
+                    handleGroupClick(item.taskId);
                 });
+
             } else {
                 listItem.innerHTML = `
                 <div class="fn__gl__item">
