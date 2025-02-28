@@ -5,6 +5,221 @@
 {% block content %}
 
 <style>
+    .midjourney-enhanced-container {
+        position: relative;
+        width: 100%;
+        max-width: 1100px;
+        margin: 0 auto 20px;
+        background-color: #18191d;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+
+    .midjourney-header {
+        padding: 16px 20px;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .midjourney-prompt {
+        flex: 1;
+        overflow: hidden;
+    }
+
+    .midjourney-prompt h3 {
+        font-size: 16px;
+        font-weight: 600;
+        color: #ffffff;
+        margin: 0 0 4px 0;
+        text-overflow: ellipsis;
+        overflow: hidden;
+        white-space: nowrap;
+    }
+
+    .midjourney-prompt div {
+        font-size: 12px;
+        color: rgba(255, 255, 255, 0.5);
+    }
+
+    .midjourney-close-btn {
+        width: 28px;
+        height: 28px;
+        border-radius: 50%;
+        border: none;
+        background-color: rgba(255, 255, 255, 0.1);
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 18px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        transition: all 0.2s ease;
+        margin-left: 10px;
+    }
+
+    .midjourney-close-btn:hover {
+        background-color: rgba(255, 255, 255, 0.2);
+        color: rgba(255, 255, 255, 0.9);
+    }
+
+    .midjourney-image-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        padding: 8px;
+    }
+
+    .midjourney-image-card {
+        position: relative;
+        border-radius: 8px;
+        overflow: hidden;
+        background-color: #22232a;
+        aspect-ratio: 1;
+        cursor: pointer;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+
+    .midjourney-image-card:hover {
+        transform: scale(1.02);
+        box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+    }
+
+    .midjourney-image-card img {
+        width: 100%;
+        height: 100%;
+        object-fit: cover;
+        display: block;
+        transition: transform 0.3s ease;
+    }
+
+    .midjourney-image-card:hover img {
+        transform: scale(1.05);
+    }
+
+    .version-badge {
+        position: absolute;
+        bottom: 10px;
+        left: 10px;
+        background-color: rgba(0, 0, 0, 0.75);
+        color: #fff;
+        padding: 4px 8px;
+        border-radius: 4px;
+        font-size: 12px;
+        font-weight: 600;
+        letter-spacing: 0.5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        z-index: 1;
+    }
+
+    .image-overlay {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0);
+        transition: background-color 0.3s ease;
+        display: flex;
+        flex-direction: column;
+        justify-content: flex-start;
+        align-items: flex-end;
+        padding: 10px;
+        box-sizing: border-box;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
+    .midjourney-image-card:hover .image-overlay {
+        background-color: rgba(0, 0, 0, 0.2);
+        opacity: 1;
+    }
+
+    .download-container {
+        position: relative;
+        z-index: 2;
+    }
+
+    .download-button {
+        background-color: rgba(0, 0, 0, 0.75);
+        border: none;
+        border-radius: 4px;
+        color: #fff;
+        width: 32px;
+        height: 32px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        transition: background-color 0.2s ease;
+    }
+
+    .download-button:hover {
+        background-color: rgba(0, 0, 0, 0.9);
+    }
+
+    .format-dropdown {
+        position: absolute;
+        top: 100%;
+        right: 0;
+        margin-top: 5px;
+        background-color: #2a2b31;
+        border-radius: 4px;
+        overflow: hidden;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+        display: none;
+        z-index: 3;
+    }
+
+    .format-option {
+        padding: 8px 16px;
+        cursor: pointer;
+        color: #fff;
+        transition: background-color 0.2s ease;
+        font-size: 12px;
+    }
+
+    .format-option:hover {
+        background-color: #3a3b42;
+    }
+
+    .success-message {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 12px;
+        background-color: rgba(0, 200, 83, 0.15);
+        color: #00c853;
+        border-top: 1px solid rgba(0, 200, 83, 0.2);
+        overflow: hidden;
+        transition: all 0.5s ease-out;
+    }
+
+    .success-message svg {
+        margin-right: 8px;
+    }
+
+    /* Lightbox styles */
+    .midjourney-lightbox {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.9);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        z-index: 9999;
+        opacity: 0;
+        transition: opacity 0.3s ease;
+    }
+
     .midjourney-group {
         position: relative;
         width: 100%;
@@ -926,8 +1141,9 @@ function checkTwentyTwentyInterference() {
 }
 
 
+// Main function to display Midjourney images with enhanced UI
 function displayMidjourneyGroup(groupData) {
-    console.error('Starting dark theme displayMidjourneyGroup...');
+    console.error('Starting enhanced UI displayMidjourneyGroup...');
 
     // Make sure we have valid data
     if (!groupData || !Array.isArray(groupData.images) || groupData.images.length === 0) {
@@ -939,90 +1155,110 @@ function displayMidjourneyGroup(groupData) {
     const imageDiv = document.getElementById('generated-image');
     if (!imageDiv) {
         console.error('Cannot find generated-image container');
-        alert('Error: Image container not found!');
         return;
     }
 
-    // Force any containing elements to be visible
-    let parent = imageDiv;
-    for (let i = 0; i < 5; i++) { // Check up to 5 parent levels
-        if (!parent) break;
-
-        parent.style.display = 'block';
-        parent.style.visibility = 'visible';
-        parent.style.opacity = '1';
-        parent.style.height = 'auto';
-        parent.style.overflow = 'visible';
-
-        parent = parent.parentElement;
-    }
-
-    // Reset the container with dark theme styles
+    // Reset the container
     imageDiv.innerHTML = '';
-    imageDiv.style.display = 'block';
-    imageDiv.style.visibility = 'visible';
-    imageDiv.style.opacity = '1';
-    imageDiv.style.width = '100%';
-    imageDiv.style.minHeight = '400px';
-    imageDiv.style.backgroundColor = '#1a1a1a'; // Dark background
-    imageDiv.style.padding = '15px';
-    imageDiv.style.boxSizing = 'border-box';
-    imageDiv.style.border = '1px solid #333'; // Darker border
-    imageDiv.style.borderRadius = '8px';
-    imageDiv.style.margin = '20px 0';
-    imageDiv.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.3)';
-
-    // Create main container
-    const container = document.createElement('div');
-    container.style.width = '100%';
-    container.style.padding = '10px';
-    container.style.boxSizing = 'border-box';
-
-    // Add prompt section with dark theme
-    const promptDiv = document.createElement('div');
-    promptDiv.style.marginBottom = '15px';
-    promptDiv.style.padding = '10px';
-    promptDiv.style.backgroundColor = '#2a2a2a'; // Darker background
-    promptDiv.style.borderRadius = '4px';
-    promptDiv.style.color = '#e0e0e0'; // Light text for dark background
-
-    const promptText = document.createElement('h3');
-    promptText.textContent = groupData.prompt || 'No prompt available';
-    promptText.style.margin = '0 0 5px 0';
-    promptText.style.fontSize = '16px';
-    promptText.style.fontWeight = 'bold';
-    promptText.style.color = '#ffffff'; // White text
-
-    const timestampText = document.createElement('p');
-    timestampText.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
-    timestampText.style.margin = '0';
-    timestampText.style.fontSize = '12px';
-    timestampText.style.color = '#aaaaaa'; // Light gray text
-
-    promptDiv.appendChild(promptText);
-    promptDiv.appendChild(timestampText);
-    container.appendChild(promptDiv);
-
-    // Create grid with pure inline styles
-    const grid = document.createElement('div');
-    grid.style.display = 'grid';
-    grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
-    grid.style.gap = '15px';
-    grid.style.padding = '0';
-    grid.style.width = '100%';
-    grid.style.boxSizing = 'border-box';
 
     // Get token for URLs
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
 
-    console.error(`Processing ${groupData.images.length} images`);
+    // Create the enhanced UI container
+    const enhancedContainer = document.createElement('div');
+    enhancedContainer.className = 'midjourney-enhanced-container';
+    enhancedContainer.style.position = 'relative';
+    enhancedContainer.style.width = '100%';
+    enhancedContainer.style.maxWidth = '1100px';
+    enhancedContainer.style.margin = '0 auto 20px';
+    enhancedContainer.style.backgroundColor = '#18191d';
+    enhancedContainer.style.borderRadius = '12px';
+    enhancedContainer.style.overflow = 'hidden';
+    enhancedContainer.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.2)';
+    enhancedContainer.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
 
-    // Create image elements with maximum visibility
+    // Create header section
+    const headerSection = document.createElement('div');
+    headerSection.className = 'midjourney-header';
+    headerSection.style.padding = '16px 20px';
+    headerSection.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
+    headerSection.style.display = 'flex';
+    headerSection.style.justifyContent = 'space-between';
+    headerSection.style.alignItems = 'center';
+
+    // Prompt display
+    const promptDisplay = document.createElement('div');
+    promptDisplay.className = 'midjourney-prompt';
+    promptDisplay.style.flex = '1';
+    promptDisplay.style.overflow = 'hidden';
+
+    const promptHeading = document.createElement('h3');
+    promptHeading.textContent = groupData.prompt || 'Generated Image';
+    promptHeading.style.fontSize = '16px';
+    promptHeading.style.fontWeight = '600';
+    promptHeading.style.color = '#ffffff';
+    promptHeading.style.margin = '0 0 4px 0';
+    promptHeading.style.textOverflow = 'ellipsis';
+    promptHeading.style.overflow = 'hidden';
+    promptHeading.style.whiteSpace = 'nowrap';
+
+    const timestampText = document.createElement('div');
+    timestampText.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
+    timestampText.style.fontSize = '12px';
+    timestampText.style.color = 'rgba(255, 255, 255, 0.5)';
+
+    promptDisplay.appendChild(promptHeading);
+    promptDisplay.appendChild(timestampText);
+
+    // Close button
+    const closeButton = document.createElement('button');
+    closeButton.className = 'midjourney-close-btn';
+    closeButton.innerHTML = '×';
+    closeButton.style.width = '28px';
+    closeButton.style.height = '28px';
+    closeButton.style.borderRadius = '50%';
+    closeButton.style.border = 'none';
+    closeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+    closeButton.style.color = 'rgba(255, 255, 255, 0.7)';
+    closeButton.style.fontSize = '18px';
+    closeButton.style.display = 'flex';
+    closeButton.style.alignItems = 'center';
+    closeButton.style.justifyContent = 'center';
+    closeButton.style.cursor = 'pointer';
+    closeButton.style.transition = 'all 0.2s ease';
+    closeButton.style.marginLeft = '10px';
+    closeButton.title = 'Close';
+
+    closeButton.addEventListener('mouseenter', () => {
+        closeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+        closeButton.style.color = 'rgba(255, 255, 255, 0.9)';
+    });
+
+    closeButton.addEventListener('mouseleave', () => {
+        closeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+        closeButton.style.color = 'rgba(255, 255, 255, 0.7)';
+    });
+
+    closeButton.addEventListener('click', () => {
+        imageDiv.innerHTML = '';
+    });
+
+    headerSection.appendChild(promptDisplay);
+    headerSection.appendChild(closeButton);
+
+    // Create image grid with modern styling
+    const imageGrid = document.createElement('div');
+    imageGrid.className = 'midjourney-image-grid';
+    imageGrid.style.display = 'grid';
+    imageGrid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    imageGrid.style.gap = '8px';
+    imageGrid.style.padding = '8px';
+
+    // Process images
     groupData.images.forEach((imageData, index) => {
+        // Parse image if needed
         let image = imageData;
-
-        // Parse image if it's a string
         if (typeof imageData === 'string') {
             try {
                 image = JSON.parse(imageData);
@@ -1034,7 +1270,6 @@ function displayMidjourneyGroup(groupData) {
 
         // Skip invalid images
         if (!image || !image.url) {
-            console.error('Missing URL for image:', image);
             return;
         }
 
@@ -1045,164 +1280,250 @@ function displayMidjourneyGroup(groupData) {
             index;
 
         // Ensure URL has token
-        const imageUrl = image.url.includes('token=') ? image.url :
-            `${image.url}${image.url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+        let imageUrl = image.url;
+        if (!imageUrl.includes('token=') && token) {
+            imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+        }
 
-        console.error(`Creating image ${index} with URL:`, imageUrl);
+        // Create image card
+        const imageCard = document.createElement('div');
+        imageCard.className = 'midjourney-image-card';
+        imageCard.style.position = 'relative';
+        imageCard.style.borderRadius = '8px';
+        imageCard.style.overflow = 'hidden';
+        imageCard.style.backgroundColor = '#22232a';
+        imageCard.style.aspectRatio = '1';
+        imageCard.style.cursor = 'pointer';
+        imageCard.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease';
 
-        // Create container with explicit styles for dark theme
-        const imageContainer = document.createElement('div');
-        imageContainer.style.position = 'relative';
-        imageContainer.style.backgroundColor = '#2a2a2a'; // Dark gray background
-        imageContainer.style.border = '1px solid #444'; // Dark border
-        imageContainer.style.borderRadius = '8px';
-        imageContainer.style.overflow = 'hidden';
-        imageContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-        imageContainer.style.transition = 'transform 0.2s, box-shadow 0.2s';
-        imageContainer.style.cursor = 'pointer';
-
-        // Add hover effect
-        imageContainer.addEventListener('mouseenter', () => {
-            imageContainer.style.transform = 'scale(1.03)';
-            imageContainer.style.boxShadow = '0 4px 8px rgba(0,0,0,0.5)';
-        });
-
-        imageContainer.addEventListener('mouseleave', () => {
-            imageContainer.style.transform = 'scale(1)';
-            imageContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.3)';
-        });
-
-        // Create image element with explicit styles
+        // Image element
         const imgElement = document.createElement('img');
         imgElement.src = imageUrl;
         imgElement.alt = `Variation ${variationNum + 1}`;
         imgElement.style.width = '100%';
-        imgElement.style.height = 'auto';
+        imgElement.style.height = '100%';
+        imgElement.style.objectFit = 'cover';
         imgElement.style.display = 'block';
-        imgElement.style.minHeight = '150px';
-        imgElement.style.backgroundColor = '#333'; // Dark placeholder color
+        imgElement.style.transition = 'transform 0.3s ease';
 
-        // Add load and error handlers with visual feedback
-        imgElement.onload = () => {
-            console.error(`Image ${index} loaded successfully`);
-            imageContainer.style.backgroundColor = '#1a1a1a'; // Return to background color when loaded
-        };
+        // Version badge
+        const versionBadge = document.createElement('div');
+        versionBadge.className = 'version-badge';
+        versionBadge.textContent = `V${variationNum + 1}`;
+        versionBadge.style.position = 'absolute';
+        versionBadge.style.bottom = '10px';
+        versionBadge.style.left = '10px';
+        versionBadge.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+        versionBadge.style.color = '#fff';
+        versionBadge.style.padding = '4px 8px';
+        versionBadge.style.borderRadius = '4px';
+        versionBadge.style.fontSize = '12px';
+        versionBadge.style.fontWeight = '600';
+        versionBadge.style.letterSpacing = '0.5px';
+        versionBadge.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.3)';
+        versionBadge.style.zIndex = '1';
 
-        imgElement.onerror = () => {
-            console.error(`Image ${index} failed to load`);
-            imgElement.src = '/static/assets/img/placeholder.png';
-            imageContainer.style.backgroundColor = '#3a2a2a'; // Slightly reddish dark color for errors
-            imageContainer.style.border = '1px solid #553333';
-        };
+        // Overlay for hover effects
+        const overlay = document.createElement('div');
+        overlay.className = 'image-overlay';
+        overlay.style.position = 'absolute';
+        overlay.style.top = '0';
+        overlay.style.left = '0';
+        overlay.style.width = '100%';
+        overlay.style.height = '100%';
+        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+        overlay.style.transition = 'background-color 0.3s ease';
+        overlay.style.display = 'flex';
+        overlay.style.flexDirection = 'column';
+        overlay.style.justifyContent = 'flex-start';
+        overlay.style.alignItems = 'flex-end';
+        overlay.style.padding = '10px';
+        overlay.style.boxSizing = 'border-box';
+        overlay.style.opacity = '0';
+        overlay.style.transition = 'opacity 0.3s ease';
 
-        // Add variation number label
-        const variationLabel = document.createElement('div');
-        variationLabel.textContent = `V${variationNum + 1}`;
-        variationLabel.style.position = 'absolute';
-        variationLabel.style.bottom = '8px';
-        variationLabel.style.left = '8px';
-        variationLabel.style.backgroundColor = 'rgba(0,0,0,0.7)';
-        variationLabel.style.color = '#fff'; // White text
-        variationLabel.style.padding = '4px 8px';
-        variationLabel.style.borderRadius = '4px';
-        variationLabel.style.fontSize = '12px';
-        variationLabel.style.fontWeight = 'bold';
+        // Download button/dropdown container
+        const downloadContainer = document.createElement('div');
+        downloadContainer.className = 'download-container';
+        downloadContainer.style.position = 'relative';
+        downloadContainer.style.zIndex = '2';
 
-        // Add download button with dark theme
+        // Download button with icon
         const downloadBtn = document.createElement('button');
-        downloadBtn.textContent = 'Download';
-        downloadBtn.style.position = 'absolute';
-        downloadBtn.style.top = '8px';
-        downloadBtn.style.right = '8px';
-        downloadBtn.style.backgroundColor = 'rgba(40,40,40,0.8)';
-        downloadBtn.style.color = '#fff';
-        downloadBtn.style.border = '1px solid #555';
-        downloadBtn.style.padding = '4px 8px';
+        downloadBtn.className = 'download-button';
+        downloadBtn.innerHTML = `
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+            </svg>
+        `;
+        downloadBtn.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+        downloadBtn.style.border = 'none';
         downloadBtn.style.borderRadius = '4px';
-        downloadBtn.style.fontSize = '12px';
+        downloadBtn.style.color = '#fff';
+        downloadBtn.style.width = '32px';
+        downloadBtn.style.height = '32px';
+        downloadBtn.style.display = 'flex';
+        downloadBtn.style.alignItems = 'center';
+        downloadBtn.style.justifyContent = 'center';
         downloadBtn.style.cursor = 'pointer';
-        downloadBtn.style.opacity = '0';
-        downloadBtn.style.transition = 'opacity 0.2s';
+        downloadBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.3)';
+        downloadBtn.style.transition = 'background-color 0.2s ease';
+        downloadBtn.title = 'Download';
 
-        // Show download button on hover
-        imageContainer.addEventListener('mouseenter', () => {
-            downloadBtn.style.opacity = '1';
+        // Format dropdown
+        const formatDropdown = document.createElement('div');
+        formatDropdown.className = 'format-dropdown';
+        formatDropdown.style.position = 'absolute';
+        formatDropdown.style.top = '100%';
+        formatDropdown.style.right = '0';
+        formatDropdown.style.marginTop = '5px';
+        formatDropdown.style.backgroundColor = '#2a2b31';
+        formatDropdown.style.borderRadius = '4px';
+        formatDropdown.style.overflow = 'hidden';
+        formatDropdown.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
+        formatDropdown.style.display = 'none';
+        formatDropdown.style.zIndex = '3';
+
+        // Format options
+        const formats = [
+            { label: 'PNG', format: 'png' },
+            { label: 'JPG', format: 'jpg' },
+            { label: 'WEBP', format: 'webp' }
+        ];
+
+        formats.forEach(format => {
+            const option = document.createElement('div');
+            option.className = 'format-option';
+            option.textContent = format.label;
+            option.style.padding = '8px 16px';
+            option.style.cursor = 'pointer';
+            option.style.color = '#fff';
+            option.style.transition = 'background-color 0.2s ease';
+            option.style.fontSize = '12px';
+
+            option.addEventListener('mouseenter', () => {
+                option.style.backgroundColor = '#3a3b42';
+            });
+
+            option.addEventListener('mouseleave', () => {
+                option.style.backgroundColor = 'transparent';
+            });
+
+            option.addEventListener('click', (e) => {
+                e.stopPropagation();
+                downloadImage(imageUrl, format.format);
+                formatDropdown.style.display = 'none';
+            });
+
+            formatDropdown.appendChild(option);
         });
 
-        imageContainer.addEventListener('mouseleave', () => {
-            downloadBtn.style.opacity = '0';
-        });
-
-        // Add download functionality
+        // Toggle dropdown
         downloadBtn.addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent opening the large view
-            if (typeof downloadImage === 'function') {
-                downloadImage(imageUrl, 'png');
+            e.stopPropagation();
+            if (formatDropdown.style.display === 'none') {
+                formatDropdown.style.display = 'block';
+
+                // Close dropdown when clicking elsewhere
+                const closeHandler = (event) => {
+                    if (!downloadContainer.contains(event.target)) {
+                        formatDropdown.style.display = 'none';
+                        document.removeEventListener('click', closeHandler);
+                    }
+                };
+
+                setTimeout(() => {
+                    document.addEventListener('click', closeHandler);
+                }, 10);
             } else {
-                window.open(imageUrl, '_blank');
+                formatDropdown.style.display = 'none';
             }
         });
 
-        // Add click for large image view
-        imageContainer.addEventListener('click', () => {
-            // Create a modal for viewing the full image
-            const modal = document.createElement('div');
-            modal.style.position = 'fixed';
-            modal.style.top = '0';
-            modal.style.left = '0';
-            modal.style.width = '100%';
-            modal.style.height = '100%';
-            modal.style.backgroundColor = 'rgba(0,0,0,0.9)';
-            modal.style.display = 'flex';
-            modal.style.alignItems = 'center';
-            modal.style.justifyContent = 'center';
-            modal.style.zIndex = '9999';
-
-            const modalImg = document.createElement('img');
-            modalImg.src = imageUrl;
-            modalImg.style.maxWidth = '90%';
-            modalImg.style.maxHeight = '90%';
-            modalImg.style.objectFit = 'contain';
-            modalImg.style.border = '2px solid #444';
-
-            const closeBtn = document.createElement('button');
-            closeBtn.textContent = '×';
-            closeBtn.style.position = 'absolute';
-            closeBtn.style.top = '20px';
-            closeBtn.style.right = '20px';
-            closeBtn.style.backgroundColor = 'transparent';
-            closeBtn.style.color = 'white';
-            closeBtn.style.border = 'none';
-            closeBtn.style.fontSize = '30px';
-            closeBtn.style.cursor = 'pointer';
-
-            closeBtn.addEventListener('click', () => {
-                document.body.removeChild(modal);
-            });
-
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    document.body.removeChild(modal);
-                }
-            });
-
-            modal.appendChild(modalImg);
-            modal.appendChild(closeBtn);
-            document.body.appendChild(modal);
+        // Add hover effects
+        imageCard.addEventListener('mouseenter', () => {
+            imageCard.style.transform = 'scale(1.02)';
+            imageCard.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
+            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
+            overlay.style.opacity = '1';
+            imgElement.style.transform = 'scale(1.05)';
         });
 
-        // Assemble components
-        imageContainer.appendChild(imgElement);
-        imageContainer.appendChild(variationLabel);
-        imageContainer.appendChild(downloadBtn);
-        grid.appendChild(imageContainer);
+        imageCard.addEventListener('mouseleave', () => {
+            imageCard.style.transform = 'scale(1)';
+            imageCard.style.boxShadow = 'none';
+            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
+            overlay.style.opacity = '0';
+            imgElement.style.transform = 'scale(1)';
+        });
+
+        // Enlarge image on click
+        imageCard.addEventListener('click', (e) => {
+            if (!downloadContainer.contains(e.target)) {
+                createLightbox(imageUrl, variationNum + 1, groupData.prompt);
+            }
+        });
+
+        // Assemble elements
+        downloadContainer.appendChild(downloadBtn);
+        downloadContainer.appendChild(formatDropdown);
+        overlay.appendChild(downloadContainer);
+
+        imageCard.appendChild(imgElement);
+        imageCard.appendChild(overlay);
+        imageCard.appendChild(versionBadge);
+
+        imageGrid.appendChild(imageCard);
     });
 
-    // Add grid to container
-    container.appendChild(grid);
+    // Create the success message
+    const successMessage = document.createElement('div');
+    successMessage.className = 'success-message';
+    successMessage.style.display = 'flex';
+    successMessage.style.alignItems = 'center';
+    successMessage.style.justifyContent = 'center';
+    successMessage.style.padding = '12px';
+    successMessage.style.backgroundColor = 'rgba(0, 200, 83, 0.15)';
+    successMessage.style.color = '#00c853';
+    successMessage.style.borderTop = '1px solid rgba(0, 200, 83, 0.2)';
+    successMessage.style.overflow = 'hidden';
+    successMessage.style.transition = 'all 0.5s ease-out';
 
-    // Add container to page
-    imageDiv.appendChild(container);
+    // Success icon
+    const successIcon = document.createElement('div');
+    successIcon.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+    `;
+    successIcon.style.marginRight = '8px';
+
+    // Success text
+    const successText = document.createElement('span');
+    successText.textContent = 'Images générées avec succès!';
+    successText.style.fontWeight = '500';
+
+    // Assemble success message
+    successMessage.appendChild(successIcon);
+    successMessage.appendChild(successText);
+
+    // Auto-hide success message
+    setTimeout(() => {
+        successMessage.style.height = '0';
+        successMessage.style.padding = '0';
+        successMessage.style.opacity = '0';
+    }, 5000);
+
+    // Assemble container
+    enhancedContainer.appendChild(headerSection);
+    enhancedContainer.appendChild(imageGrid);
+    enhancedContainer.appendChild(successMessage);
+
+    // Add to page
+    imageDiv.appendChild(enhancedContainer);
 
     // Show download section if it exists
     const downloadSection = document.getElementById('download-section');
@@ -1210,60 +1531,186 @@ function displayMidjourneyGroup(groupData) {
         downloadSection.style.display = 'block';
     }
 
-    // Update text
+    // Update generate button text
     const generateText = document.getElementById('generate-text');
     if (generateText) {
         generateText.textContent = 'Générer une nouvelle image';
     }
-
-    // Add status message at the bottom
-    const statusDiv = document.createElement('div');
-    statusDiv.style.marginTop = '15px';
-    statusDiv.style.padding = '10px';
-    statusDiv.style.backgroundColor = '#2a3a2a'; // Dark greenish background
-    statusDiv.style.borderRadius = '4px';
-    statusDiv.style.textAlign = 'center';
-    statusDiv.style.color = '#90EE90'; // Light green text
-    statusDiv.textContent = 'Images générées avec succès!';
-    container.appendChild(statusDiv);
-
-    console.error('Display complete, checking final state...');
-
-    // Final visibility check
-    setTimeout(() => {
-        const allImgs = imageDiv.querySelectorAll('img');
-        console.error(`Final check: Found ${allImgs.length} images in DOM`);
-
-        // Force main containers to be visible again (in case something changed)
-        imageDiv.style.display = 'block';
-        imageDiv.style.visibility = 'visible';
-
-        if (allImgs.length > 0) {
-            const firstImg = allImgs[0];
-            const rect = firstImg.getBoundingClientRect();
-            console.error('First image rect:', {
-                width: rect.width,
-                height: rect.height,
-                top: rect.top,
-                left: rect.left,
-                visible: rect.width > 0 && rect.height > 0
-            });
-
-            // If image has no size, try to force it
-            if (rect.width === 0 || rect.height === 0) {
-                console.error('Attempting to force image visibility...');
-                firstImg.style.minWidth = '200px';
-                firstImg.style.minHeight = '200px';
-                firstImg.style.border = '2px solid red';
-            }
-        }
-
-        // Update history if that function exists
-        if (typeof loadHistory === 'function') {
-            loadHistory(1, false);
-        }
-    }, 500);
 }
+
+// Create lightbox for fullscreen image viewing
+function createLightbox(imageUrl, variationNumber, prompt) {
+    // Create and style lightbox container
+    const lightbox = document.createElement('div');
+    lightbox.className = 'midjourney-lightbox';
+    lightbox.style.position = 'fixed';
+    lightbox.style.top = '0';
+    lightbox.style.left = '0';
+    lightbox.style.width = '100%';
+    lightbox.style.height = '100%';
+    lightbox.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+    lightbox.style.display = 'flex';
+    lightbox.style.flexDirection = 'column';
+    lightbox.style.alignItems = 'center';
+    lightbox.style.justifyContent = 'center';
+    lightbox.style.zIndex = '9999';
+    lightbox.style.opacity = '0';
+    lightbox.style.transition = 'opacity 0.3s ease';
+
+    // Lightbox header
+    const lightboxHeader = document.createElement('div');
+    lightboxHeader.style.position = 'absolute';
+    lightboxHeader.style.top = '0';
+    lightboxHeader.style.left = '0';
+    lightboxHeader.style.width = '100%';
+    lightboxHeader.style.padding = '16px';
+    lightboxHeader.style.display = 'flex';
+    lightboxHeader.style.justifyContent = 'space-between';
+    lightboxHeader.style.alignItems = 'center';
+    lightboxHeader.style.boxSizing = 'border-box';
+    lightboxHeader.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+
+    // Prompt and variation info
+    const lightboxInfo = document.createElement('div');
+    lightboxInfo.style.color = '#fff';
+
+    const lightboxPrompt = document.createElement('div');
+    lightboxPrompt.textContent = prompt || 'Generated Image';
+    lightboxPrompt.style.fontSize = '14px';
+    lightboxPrompt.style.fontWeight = '500';
+    lightboxPrompt.style.marginBottom = '4px';
+
+    const lightboxVariation = document.createElement('div');
+    lightboxVariation.textContent = `Variation ${variationNumber}`;
+    lightboxVariation.style.fontSize = '12px';
+    lightboxVariation.style.color = 'rgba(255, 255, 255, 0.7)';
+
+    lightboxInfo.appendChild(lightboxPrompt);
+    lightboxInfo.appendChild(lightboxVariation);
+
+    // Close button
+    const lightboxClose = document.createElement('button');
+    lightboxClose.innerHTML = '×';
+    lightboxClose.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    lightboxClose.style.color = '#fff';
+    lightboxClose.style.border = 'none';
+    lightboxClose.style.borderRadius = '50%';
+    lightboxClose.style.width = '36px';
+    lightboxClose.style.height = '36px';
+    lightboxClose.style.fontSize = '24px';
+    lightboxClose.style.display = 'flex';
+    lightboxClose.style.alignItems = 'center';
+    lightboxClose.style.justifyContent = 'center';
+    lightboxClose.style.cursor = 'pointer';
+    lightboxClose.style.transition = 'background-color 0.2s ease';
+
+    lightboxClose.addEventListener('mouseenter', () => {
+        lightboxClose.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+    });
+
+    lightboxClose.addEventListener('mouseleave', () => {
+        lightboxClose.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    });
+
+    lightboxClose.addEventListener('click', () => {
+        lightbox.style.opacity = '0';
+        setTimeout(() => {
+            document.body.removeChild(lightbox);
+        }, 300);
+    });
+
+    // Image container
+    const lightboxImageContainer = document.createElement('div');
+    lightboxImageContainer.style.maxWidth = '90%';
+    lightboxImageContainer.style.maxHeight = '80%';
+    lightboxImageContainer.style.display = 'flex';
+    lightboxImageContainer.style.alignItems = 'center';
+    lightboxImageContainer.style.justifyContent = 'center';
+
+    // Image element
+    const lightboxImage = document.createElement('img');
+    lightboxImage.src = imageUrl;
+    lightboxImage.alt = `Variation ${variationNumber}`;
+    lightboxImage.style.maxWidth = '100%';
+    lightboxImage.style.maxHeight = '100%';
+    lightboxImage.style.objectFit = 'contain';
+    lightboxImage.style.borderRadius = '4px';
+    lightboxImage.style.boxShadow = '0 5px 25px rgba(0, 0, 0, 0.5)';
+
+    // Download button
+    const lightboxDownload = document.createElement('div');
+    lightboxDownload.style.position = 'absolute';
+    lightboxDownload.style.bottom = '20px';
+    lightboxDownload.style.right = '20px';
+
+    const downloadBtn = document.createElement('button');
+    downloadBtn.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right: 8px;">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+        </svg>
+        Télécharger
+    `;
+    downloadBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    downloadBtn.style.color = '#fff';
+    downloadBtn.style.border = 'none';
+    downloadBtn.style.borderRadius = '4px';
+    downloadBtn.style.padding = '8px 16px';
+    downloadBtn.style.fontSize = '14px';
+    downloadBtn.style.display = 'flex';
+    downloadBtn.style.alignItems = 'center';
+    downloadBtn.style.cursor = 'pointer';
+    downloadBtn.style.transition = 'background-color 0.2s ease';
+
+    downloadBtn.addEventListener('mouseenter', () => {
+        downloadBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.3)';
+    });
+
+    downloadBtn.addEventListener('mouseleave', () => {
+        downloadBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    });
+
+    downloadBtn.addEventListener('click', () => {
+        if (typeof downloadImage === 'function') {
+            downloadImage(imageUrl, 'png');
+        } else {
+            window.open(imageUrl, '_blank');
+        }
+    });
+
+    // Close lightbox when clicking the background
+    lightbox.addEventListener('click', (e) => {
+        if (e.target === lightbox) {
+            lightbox.style.opacity = '0';
+            setTimeout(() => {
+                document.body.removeChild(lightbox);
+            }, 300);
+        }
+    });
+
+    // Assemble elements
+    lightboxHeader.appendChild(lightboxInfo);
+    lightboxHeader.appendChild(lightboxClose);
+
+    lightboxImageContainer.appendChild(lightboxImage);
+
+    lightboxDownload.appendChild(downloadBtn);
+
+    lightbox.appendChild(lightboxHeader);
+    lightbox.appendChild(lightboxImageContainer);
+    lightbox.appendChild(lightboxDownload);
+
+    // Add to body and show
+    document.body.appendChild(lightbox);
+
+    // Force layout calculation before adding opacity transition
+    void lightbox.offsetWidth;
+
+    // Show lightbox with transition
+    lightbox.style.opacity = '1';
+}
+
 
 // Helper function to test the display with mock data
 function testMidjourneyDisplay() {
