@@ -1141,9 +1141,12 @@ function checkTwentyTwentyInterference() {
 }
 
 
-// Main function to display Midjourney images with enhanced UI
+/**
+ * Fixed Midjourney Display Function
+ * Simplified version that ensures images display correctly
+ */
 function displayMidjourneyGroup(groupData) {
-    console.error('Starting enhanced UI displayMidjourneyGroup...');
+    console.error('Starting fixed displayMidjourneyGroup...');
 
     // Make sure we have valid data
     if (!groupData || !Array.isArray(groupData.images) || groupData.images.length === 0) {
@@ -1158,110 +1161,93 @@ function displayMidjourneyGroup(groupData) {
         return;
     }
 
-    // Reset the container
+    // Clear the container
     imageDiv.innerHTML = '';
 
     // Get token for URLs
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
 
-    // Create the enhanced UI container
-    const enhancedContainer = document.createElement('div');
-    enhancedContainer.className = 'midjourney-enhanced-container';
-    enhancedContainer.style.position = 'relative';
-    enhancedContainer.style.width = '100%';
-    enhancedContainer.style.maxWidth = '1100px';
-    enhancedContainer.style.margin = '0 auto 20px';
-    enhancedContainer.style.backgroundColor = '#18191d';
-    enhancedContainer.style.borderRadius = '12px';
-    enhancedContainer.style.overflow = 'hidden';
-    enhancedContainer.style.boxShadow = '0 8px 24px rgba(0, 0, 0, 0.2)';
-    enhancedContainer.style.transition = 'transform 0.3s ease, box-shadow 0.3s ease';
+    // Create main container
+    const mainContainer = document.createElement('div');
+    mainContainer.style.width = '100%';
+    mainContainer.style.maxWidth = '100%';
+    mainContainer.style.backgroundColor = '#18191D';
+    mainContainer.style.borderRadius = '8px';
+    mainContainer.style.overflow = 'hidden';
+    mainContainer.style.position = 'relative';
+    mainContainer.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.15)';
 
-    // Create header section
-    const headerSection = document.createElement('div');
-    headerSection.className = 'midjourney-header';
-    headerSection.style.padding = '16px 20px';
-    headerSection.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
-    headerSection.style.display = 'flex';
-    headerSection.style.justifyContent = 'space-between';
-    headerSection.style.alignItems = 'center';
+    // Create header with prompt and close button
+    const header = document.createElement('div');
+    header.style.padding = '14px 16px';
+    header.style.borderBottom = '1px solid rgba(255, 255, 255, 0.1)';
+    header.style.display = 'flex';
+    header.style.justifyContent = 'space-between';
+    header.style.alignItems = 'center';
 
-    // Prompt display
-    const promptDisplay = document.createElement('div');
-    promptDisplay.className = 'midjourney-prompt';
-    promptDisplay.style.flex = '1';
-    promptDisplay.style.overflow = 'hidden';
+    // Prompt text
+    const promptDiv = document.createElement('div');
+    promptDiv.style.flexGrow = '1';
 
     const promptHeading = document.createElement('h3');
-    promptHeading.textContent = groupData.prompt || 'Generated Image';
-    promptHeading.style.fontSize = '16px';
-    promptHeading.style.fontWeight = '600';
-    promptHeading.style.color = '#ffffff';
+    promptHeading.textContent = groupData.prompt || 'Generated Images';
     promptHeading.style.margin = '0 0 4px 0';
-    promptHeading.style.textOverflow = 'ellipsis';
+    promptHeading.style.fontSize = '15px';
+    promptHeading.style.fontWeight = '500';
+    promptHeading.style.color = '#fff';
     promptHeading.style.overflow = 'hidden';
+    promptHeading.style.textOverflow = 'ellipsis';
     promptHeading.style.whiteSpace = 'nowrap';
 
-    const timestampText = document.createElement('div');
-    timestampText.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
-    timestampText.style.fontSize = '12px';
-    timestampText.style.color = 'rgba(255, 255, 255, 0.5)';
+    // Timestamp
+    const timestamp = document.createElement('div');
+    timestamp.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
+    timestamp.style.fontSize = '12px';
+    timestamp.style.color = '#888';
 
-    promptDisplay.appendChild(promptHeading);
-    promptDisplay.appendChild(timestampText);
+    promptDiv.appendChild(promptHeading);
+    promptDiv.appendChild(timestamp);
 
     // Close button
-    const closeButton = document.createElement('button');
-    closeButton.className = 'midjourney-close-btn';
-    closeButton.innerHTML = '×';
-    closeButton.style.width = '28px';
-    closeButton.style.height = '28px';
-    closeButton.style.borderRadius = '50%';
-    closeButton.style.border = 'none';
-    closeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-    closeButton.style.color = 'rgba(255, 255, 255, 0.7)';
-    closeButton.style.fontSize = '18px';
-    closeButton.style.display = 'flex';
-    closeButton.style.alignItems = 'center';
-    closeButton.style.justifyContent = 'center';
-    closeButton.style.cursor = 'pointer';
-    closeButton.style.transition = 'all 0.2s ease';
-    closeButton.style.marginLeft = '10px';
-    closeButton.title = 'Close';
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
+    closeBtn.style.border = 'none';
+    closeBtn.style.borderRadius = '50%';
+    closeBtn.style.width = '28px';
+    closeBtn.style.height = '28px';
+    closeBtn.style.color = '#fff';
+    closeBtn.style.fontSize = '20px';
+    closeBtn.style.lineHeight = '1';
+    closeBtn.style.cursor = 'pointer';
+    closeBtn.style.marginLeft = '8px';
+    closeBtn.style.display = 'flex';
+    closeBtn.style.alignItems = 'center';
+    closeBtn.style.justifyContent = 'center';
 
-    closeButton.addEventListener('mouseenter', () => {
-        closeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
-        closeButton.style.color = 'rgba(255, 255, 255, 0.9)';
-    });
-
-    closeButton.addEventListener('mouseleave', () => {
-        closeButton.style.backgroundColor = 'rgba(255, 255, 255, 0.1)';
-        closeButton.style.color = 'rgba(255, 255, 255, 0.7)';
-    });
-
-    closeButton.addEventListener('click', () => {
+    closeBtn.addEventListener('click', () => {
         imageDiv.innerHTML = '';
     });
 
-    headerSection.appendChild(promptDisplay);
-    headerSection.appendChild(closeButton);
+    header.appendChild(promptDiv);
+    header.appendChild(closeBtn);
 
-    // Create image grid with modern styling
-    const imageGrid = document.createElement('div');
-    imageGrid.className = 'midjourney-image-grid';
-    imageGrid.style.display = 'grid';
-    imageGrid.style.gridTemplateColumns = 'repeat(2, 1fr)';
-    imageGrid.style.gap = '8px';
-    imageGrid.style.padding = '8px';
+    // Create image grid
+    const grid = document.createElement('div');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    grid.style.gap = '8px';
+    grid.style.padding = '8px';
 
     // Process images
     groupData.images.forEach((imageData, index) => {
-        // Parse image if needed
+        // Parse image if it's a string
         let image = imageData;
         if (typeof imageData === 'string') {
             try {
                 image = JSON.parse(imageData);
+                console.error(`Parsed image ${index} from string`);
             } catch (e) {
                 console.error(`Failed to parse image ${index}:`, e);
                 return;
@@ -1270,6 +1256,7 @@ function displayMidjourneyGroup(groupData) {
 
         // Skip invalid images
         if (!image || !image.url) {
+            console.error('Missing URL for image:', image);
             return;
         }
 
@@ -1279,129 +1266,102 @@ function displayMidjourneyGroup(groupData) {
             typeof image.choice === 'number' ? image.choice :
             index;
 
-        // Ensure URL has token
+        // Ensure URL has token - handle various URL formats
         let imageUrl = image.url;
-        if (!imageUrl.includes('token=') && token) {
+
+        // Make sure URL is properly formatted
+        if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
+            imageUrl = `/image/${image.key || imageUrl}`;
+        }
+
+        // Add token if needed and not already present
+        if (token && !imageUrl.includes('token=')) {
             imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
         }
 
+        console.error(`Processing image ${index}, URL: ${imageUrl}`);
+
         // Create image card
-        const imageCard = document.createElement('div');
-        imageCard.className = 'midjourney-image-card';
-        imageCard.style.position = 'relative';
-        imageCard.style.borderRadius = '8px';
-        imageCard.style.overflow = 'hidden';
-        imageCard.style.backgroundColor = '#22232a';
-        imageCard.style.aspectRatio = '1';
-        imageCard.style.cursor = 'pointer';
-        imageCard.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease';
+        const card = document.createElement('div');
+        card.style.position = 'relative';
+        card.style.borderRadius = '6px';
+        card.style.overflow = 'hidden';
+        card.style.backgroundColor = '#22232a';
+        card.style.aspectRatio = '1';
 
-        // Image element
-        const imgElement = document.createElement('img');
-        imgElement.src = imageUrl;
-        imgElement.alt = `Variation ${variationNum + 1}`;
-        imgElement.style.width = '100%';
-        imgElement.style.height = '100%';
-        imgElement.style.objectFit = 'cover';
-        imgElement.style.display = 'block';
-        imgElement.style.transition = 'transform 0.3s ease';
+        // Create image element
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.alt = `Variation ${variationNum + 1}`;
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        img.style.display = 'block';
 
-        // Version badge
-        const versionBadge = document.createElement('div');
-        versionBadge.className = 'version-badge';
-        versionBadge.textContent = `V${variationNum + 1}`;
-        versionBadge.style.position = 'absolute';
-        versionBadge.style.bottom = '10px';
-        versionBadge.style.left = '10px';
-        versionBadge.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
-        versionBadge.style.color = '#fff';
-        versionBadge.style.padding = '4px 8px';
-        versionBadge.style.borderRadius = '4px';
-        versionBadge.style.fontSize = '12px';
-        versionBadge.style.fontWeight = '600';
-        versionBadge.style.letterSpacing = '0.5px';
-        versionBadge.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.3)';
-        versionBadge.style.zIndex = '1';
+        // Add loading and error handling
+        img.onload = () => {
+            console.error(`Image ${index} loaded successfully`);
+        };
 
-        // Overlay for hover effects
-        const overlay = document.createElement('div');
-        overlay.className = 'image-overlay';
-        overlay.style.position = 'absolute';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100%';
-        overlay.style.height = '100%';
-        overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
-        overlay.style.transition = 'background-color 0.3s ease';
-        overlay.style.display = 'flex';
-        overlay.style.flexDirection = 'column';
-        overlay.style.justifyContent = 'flex-start';
-        overlay.style.alignItems = 'flex-end';
-        overlay.style.padding = '10px';
-        overlay.style.boxSizing = 'border-box';
-        overlay.style.opacity = '0';
-        overlay.style.transition = 'opacity 0.3s ease';
+        img.onerror = () => {
+            console.error(`Image ${index} failed to load, URL: ${imageUrl}`);
+            img.src = '/static/assets/img/placeholder.png';
+            card.style.backgroundColor = '#3a2a2a';
+        };
 
-        // Download button/dropdown container
-        const downloadContainer = document.createElement('div');
-        downloadContainer.className = 'download-container';
-        downloadContainer.style.position = 'relative';
-        downloadContainer.style.zIndex = '2';
+        // Add version badge
+        const badge = document.createElement('div');
+        badge.textContent = `V${variationNum + 1}`;
+        badge.style.position = 'absolute';
+        badge.style.bottom = '8px';
+        badge.style.left = '8px';
+        badge.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        badge.style.color = '#fff';
+        badge.style.padding = '4px 8px';
+        badge.style.borderRadius = '4px';
+        badge.style.fontSize = '12px';
+        badge.style.fontWeight = 'bold';
 
-        // Download button with icon
+        // Add download button
         const downloadBtn = document.createElement('button');
-        downloadBtn.className = 'download-button';
-        downloadBtn.innerHTML = `
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-                <polyline points="7 10 12 15 17 10"></polyline>
-                <line x1="12" y1="15" x2="12" y2="3"></line>
-            </svg>
-        `;
-        downloadBtn.style.backgroundColor = 'rgba(0, 0, 0, 0.75)';
+        downloadBtn.innerHTML = '↓';
+        downloadBtn.title = 'Download';
+        downloadBtn.style.position = 'absolute';
+        downloadBtn.style.top = '8px';
+        downloadBtn.style.right = '8px';
+        downloadBtn.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        downloadBtn.style.color = '#fff';
         downloadBtn.style.border = 'none';
         downloadBtn.style.borderRadius = '4px';
-        downloadBtn.style.color = '#fff';
-        downloadBtn.style.width = '32px';
-        downloadBtn.style.height = '32px';
+        downloadBtn.style.width = '28px';
+        downloadBtn.style.height = '28px';
+        downloadBtn.style.fontSize = '14px';
+        downloadBtn.style.cursor = 'pointer';
         downloadBtn.style.display = 'flex';
         downloadBtn.style.alignItems = 'center';
         downloadBtn.style.justifyContent = 'center';
-        downloadBtn.style.cursor = 'pointer';
-        downloadBtn.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.3)';
-        downloadBtn.style.transition = 'background-color 0.2s ease';
-        downloadBtn.title = 'Download';
 
-        // Format dropdown
-        const formatDropdown = document.createElement('div');
-        formatDropdown.className = 'format-dropdown';
-        formatDropdown.style.position = 'absolute';
-        formatDropdown.style.top = '100%';
-        formatDropdown.style.right = '0';
-        formatDropdown.style.marginTop = '5px';
-        formatDropdown.style.backgroundColor = '#2a2b31';
-        formatDropdown.style.borderRadius = '4px';
-        formatDropdown.style.overflow = 'hidden';
-        formatDropdown.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.4)';
-        formatDropdown.style.display = 'none';
-        formatDropdown.style.zIndex = '3';
+        // Simple dropdown for format selection
+        const dropdown = document.createElement('div');
+        dropdown.style.position = 'absolute';
+        dropdown.style.top = '40px';
+        dropdown.style.right = '8px';
+        dropdown.style.backgroundColor = '#2a2b31';
+        dropdown.style.borderRadius = '4px';
+        dropdown.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.3)';
+        dropdown.style.display = 'none';
+        dropdown.style.zIndex = '10';
 
         // Format options
-        const formats = [
-            { label: 'PNG', format: 'png' },
-            { label: 'JPG', format: 'jpg' },
-            { label: 'WEBP', format: 'webp' }
-        ];
-
+        const formats = ['PNG', 'JPG', 'WEBP'];
         formats.forEach(format => {
             const option = document.createElement('div');
-            option.className = 'format-option';
-            option.textContent = format.label;
-            option.style.padding = '8px 16px';
-            option.style.cursor = 'pointer';
+            option.textContent = format;
+            option.style.padding = '6px 12px';
             option.style.color = '#fff';
-            option.style.transition = 'background-color 0.2s ease';
+            option.style.cursor = 'pointer';
             option.style.fontSize = '12px';
+            option.style.whiteSpace = 'nowrap';
 
             option.addEventListener('mouseenter', () => {
                 option.style.backgroundColor = '#3a3b42';
@@ -1413,117 +1373,123 @@ function displayMidjourneyGroup(groupData) {
 
             option.addEventListener('click', (e) => {
                 e.stopPropagation();
-                downloadImage(imageUrl, format.format);
-                formatDropdown.style.display = 'none';
+                if (typeof downloadImage === 'function') {
+                    downloadImage(imageUrl, format.toLowerCase());
+                } else {
+                    window.open(imageUrl, '_blank');
+                }
+                dropdown.style.display = 'none';
             });
 
-            formatDropdown.appendChild(option);
+            dropdown.appendChild(option);
         });
 
         // Toggle dropdown
         downloadBtn.addEventListener('click', (e) => {
             e.stopPropagation();
-            if (formatDropdown.style.display === 'none') {
-                formatDropdown.style.display = 'block';
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
 
-                // Close dropdown when clicking elsewhere
-                const closeHandler = (event) => {
-                    if (!downloadContainer.contains(event.target)) {
-                        formatDropdown.style.display = 'none';
-                        document.removeEventListener('click', closeHandler);
+            // Close dropdown when clicking outside
+            const closeDropdown = (event) => {
+                if (!downloadBtn.contains(event.target) && !dropdown.contains(event.target)) {
+                    dropdown.style.display = 'none';
+                    document.removeEventListener('click', closeDropdown);
+                }
+            };
+
+            setTimeout(() => {
+                document.addEventListener('click', closeDropdown);
+            }, 0);
+        });
+
+        // Fullscreen view on click
+        card.addEventListener('click', (e) => {
+            if (!downloadBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                const modal = document.createElement('div');
+                modal.style.position = 'fixed';
+                modal.style.top = '0';
+                modal.style.left = '0';
+                modal.style.width = '100%';
+                modal.style.height = '100%';
+                modal.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+                modal.style.display = 'flex';
+                modal.style.alignItems = 'center';
+                modal.style.justifyContent = 'center';
+                modal.style.zIndex = '9999';
+
+                const modalImg = document.createElement('img');
+                modalImg.src = imageUrl;
+                modalImg.style.maxWidth = '90%';
+                modalImg.style.maxHeight = '90%';
+                modalImg.style.objectFit = 'contain';
+
+                const closeModalBtn = document.createElement('button');
+                closeModalBtn.innerHTML = '×';
+                closeModalBtn.style.position = 'absolute';
+                closeModalBtn.style.top = '20px';
+                closeModalBtn.style.right = '20px';
+                closeModalBtn.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+                closeModalBtn.style.color = '#fff';
+                closeModalBtn.style.border = 'none';
+                closeModalBtn.style.borderRadius = '50%';
+                closeModalBtn.style.width = '36px';
+                closeModalBtn.style.height = '36px';
+                closeModalBtn.style.fontSize = '24px';
+                closeModalBtn.style.cursor = 'pointer';
+                closeModalBtn.style.display = 'flex';
+                closeModalBtn.style.alignItems = 'center';
+                closeModalBtn.style.justifyContent = 'center';
+
+                closeModalBtn.addEventListener('click', () => {
+                    document.body.removeChild(modal);
+                });
+
+                modal.addEventListener('click', (e) => {
+                    if (e.target === modal) {
+                        document.body.removeChild(modal);
                     }
-                };
+                });
 
-                setTimeout(() => {
-                    document.addEventListener('click', closeHandler);
-                }, 10);
-            } else {
-                formatDropdown.style.display = 'none';
+                modal.appendChild(modalImg);
+                modal.appendChild(closeModalBtn);
+                document.body.appendChild(modal);
             }
         });
 
-        // Add hover effects
-        imageCard.addEventListener('mouseenter', () => {
-            imageCard.style.transform = 'scale(1.02)';
-            imageCard.style.boxShadow = '0 5px 15px rgba(0, 0, 0, 0.3)';
-            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.2)';
-            overlay.style.opacity = '1';
-            imgElement.style.transform = 'scale(1.05)';
-        });
-
-        imageCard.addEventListener('mouseleave', () => {
-            imageCard.style.transform = 'scale(1)';
-            imageCard.style.boxShadow = 'none';
-            overlay.style.backgroundColor = 'rgba(0, 0, 0, 0)';
-            overlay.style.opacity = '0';
-            imgElement.style.transform = 'scale(1)';
-        });
-
-        // Enlarge image on click
-        imageCard.addEventListener('click', (e) => {
-            if (!downloadContainer.contains(e.target)) {
-                createLightbox(imageUrl, variationNum + 1, groupData.prompt);
-            }
-        });
-
-        // Assemble elements
-        downloadContainer.appendChild(downloadBtn);
-        downloadContainer.appendChild(formatDropdown);
-        overlay.appendChild(downloadContainer);
-
-        imageCard.appendChild(imgElement);
-        imageCard.appendChild(overlay);
-        imageCard.appendChild(versionBadge);
-
-        imageGrid.appendChild(imageCard);
+        // Assemble components
+        card.appendChild(img);
+        card.appendChild(badge);
+        card.appendChild(downloadBtn);
+        card.appendChild(dropdown);
+        grid.appendChild(card);
     });
 
-    // Create the success message
-    const successMessage = document.createElement('div');
-    successMessage.className = 'success-message';
-    successMessage.style.display = 'flex';
-    successMessage.style.alignItems = 'center';
-    successMessage.style.justifyContent = 'center';
-    successMessage.style.padding = '12px';
-    successMessage.style.backgroundColor = 'rgba(0, 200, 83, 0.15)';
-    successMessage.style.color = '#00c853';
-    successMessage.style.borderTop = '1px solid rgba(0, 200, 83, 0.2)';
-    successMessage.style.overflow = 'hidden';
-    successMessage.style.transition = 'all 0.5s ease-out';
+    // Success message
+    const successMsg = document.createElement('div');
+    successMsg.style.display = 'flex';
+    successMsg.style.alignItems = 'center';
+    successMsg.style.justifyContent = 'center';
+    successMsg.style.padding = '10px 0';
+    successMsg.style.backgroundColor = 'rgba(0, 200, 83, 0.15)';
+    successMsg.style.color = '#00c853';
+    successMsg.style.fontSize = '14px';
+    successMsg.style.borderTop = '1px solid rgba(0, 200, 83, 0.2)';
+    successMsg.textContent = 'Images générées avec succès!';
 
-    // Success icon
-    const successIcon = document.createElement('div');
-    successIcon.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-        </svg>
-    `;
-    successIcon.style.marginRight = '8px';
-
-    // Success text
-    const successText = document.createElement('span');
-    successText.textContent = 'Images générées avec succès!';
-    successText.style.fontWeight = '500';
-
-    // Assemble success message
-    successMessage.appendChild(successIcon);
-    successMessage.appendChild(successText);
-
-    // Auto-hide success message
+    // Auto-hide success message after 5 seconds
     setTimeout(() => {
-        successMessage.style.height = '0';
-        successMessage.style.padding = '0';
-        successMessage.style.opacity = '0';
+        successMsg.style.opacity = '0';
+        successMsg.style.height = '0';
+        successMsg.style.padding = '0';
+        successMsg.style.overflow = 'hidden';
+        successMsg.style.transition = 'all 0.5s ease';
     }, 5000);
 
-    // Assemble container
-    enhancedContainer.appendChild(headerSection);
-    enhancedContainer.appendChild(imageGrid);
-    enhancedContainer.appendChild(successMessage);
-
-    // Add to page
-    imageDiv.appendChild(enhancedContainer);
+    // Assemble final container
+    mainContainer.appendChild(header);
+    mainContainer.appendChild(grid);
+    mainContainer.appendChild(successMsg);
+    imageDiv.appendChild(mainContainer);
 
     // Show download section if it exists
     const downloadSection = document.getElementById('download-section');
@@ -1536,8 +1502,21 @@ function displayMidjourneyGroup(groupData) {
     if (generateText) {
         generateText.textContent = 'Générer une nouvelle image';
     }
+
+    console.error('Display function completed');
 }
 
+// Helper function for image downloads if not already defined
+if (typeof downloadImage !== 'function') {
+    window.downloadImage = function(url, format) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `image.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+}
 // Create lightbox for fullscreen image viewing
 function createLightbox(imageUrl, variationNumber, prompt) {
     // Create and style lightbox container
