@@ -144,6 +144,65 @@ class ImageManager:
         image_keys = [k for k in all_keys if not k.endswith(b':meta')]
         app.logger.error(f"Filtered image keys: {image_keys}")
 
+        if history_type == "generated":
+            user_midjourney_key = f"user:{user_id}:midjourney_history"
+            midjourney_task_ids = self.redis.smembers(user_midjourney_key)
+
+            if midjourney_task_ids:
+                # Convertir les task_ids en bytes si nécessaire
+                task_ids = [task_id.decode('utf-8') if isinstance(task_id, bytes) else task_id
+                            for task_id in midjourney_task_ids]
+
+                app.logger.error(f"Found Midjourney tasks for user {user_id}: {task_ids}")
+
+                # Pour chaque tâche Midjourney associée à l'utilisateur
+                for task_id in task_ids:
+                    # Vérifier si on a déjà traité ce groupe
+                    if task_id in processed_groups:
+                        continue
+
+                    # Récupérer les données du groupe Midjourney
+                    group_key = f"midjourney_group:{task_id}"
+                    group_data_bytes = self.redis.get(group_key)
+
+                    if group_data_bytes:
+                        try:
+                            group = json.loads(group_data_bytes)
+                            # Vérifier si le groupe est complet
+                            if group and (group.get('status') == 'completed' or group.get('status') == 'complete'):
+                                # S'assurer que le groupe a des images
+                                if len(group.get('images', [])) > 0:
+                                    processed_groups.add(task_id)
+
+                                    # Formatage des URLs pour chaque image du groupe
+                                    formatted_images = []
+                                    for img in group['images']:
+                                        # Générer la clé si elle n'existe pas
+                                        img_key = img.get('key')
+                                        if not img_key:
+                                            variation = img.get('variation_number') or img.get('choice') or 0
+                                            img_key = f"midjourney_image:{task_id}:{variation}"
+
+                                        formatted_images.append({
+                                            'url': f"/image/{img_key}",
+                                            'key': img_key,
+                                            'number': img.get('variation_number') or img.get('choice') or 0
+                                        })
+
+                                    image_data = {
+                                        'model': 'midjourney',
+                                        'task_id': task_id,
+                                        'prompt': group.get('prompt', 'Unknown prompt'),
+                                        'timestamp': group.get('timestamp', datetime.now().isoformat()),
+                                        'images': formatted_images,
+                                        'status': 'completed'
+                                    }
+                                    images.append(image_data)
+                                    app.logger.error(f"Added Midjourney group from user index: {image_data}")
+                        except json.JSONDecodeError as e:
+                            app.logger.error(f"Error parsing Midjourney group data: {e}")
+                            continue
+
         for key in image_keys:
             try:
                 # Construire la clé des métadonnées
@@ -1280,6 +1339,16 @@ def generate_image(wp_user_id):
 
                 if result['success']:
                     if model == 'midjourney':
+                        # Mise à jour des métadonnées pour inclure wp_user_id
+                        metadata_key = f"midjourney_task:{result['task_id']}"
+                        redis_client.hset(metadata_key, 'wp_user_id', str(wp_user_id).encode('utf-8'))
+
+                        # Ajouter également une entrée dans l'index utilisateur
+                        user_history_key = f"user:{wp_user_id}:midjourney_history"
+                        redis_client.sadd(user_history_key, result['task_id'])
+                        redis_client.expire(user_history_key, TEMP_STORAGE_DURATION)
+
+                        redis_client.expire(metadata_key, TEMP_STORAGE_DURATION)
                         # Pour Midjourney, on retourne le task_id pour le suivi
                         return jsonify({
                             'success': True,
@@ -1650,7 +1719,6 @@ def get_enhanced_history(wp_user_id):
 
     return jsonify(response), status_code
 
-
 @app.route('/check_midjourney_status/<task_id>')
 @token_required
 def check_midjourney_status(wp_user_id, task_id=None):
@@ -1924,12 +1992,6 @@ def catch_all(path):
     app.logger.error(f"Path: {path}")
     app.logger.error(f"Method: {request.method}")
     return jsonify({"error": "Route not found"}), 404
-
-@app.after_request
-def after_request(response):
-    app.logger.error("=== CORS Headers Debug ===")
-    app.logger.error(f"Response Headers: {dict(response.headers)}")
-    return response
 
 
 @app.route('/debug_task/<task_id>', methods=['GET'])

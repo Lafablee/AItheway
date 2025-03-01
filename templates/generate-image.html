@@ -1149,44 +1149,75 @@ function checkTwentyTwentyInterference() {
 function displayMidjourneyGroup(groupData) {
     console.error('Starting displayMidjourneyGroup with data:', groupData);
 
-    // Vérification des données
-    if (!groupData || !Array.isArray(groupData.images) || groupData.images.length === 0) {
-        console.error('Invalid or empty group data');
-        return;
-    }
-
-    // Récupérer le conteneur principal
+    // Get the main container
     const imageDiv = document.getElementById('generated-image');
     if (!imageDiv) {
         console.error('Cannot find generated-image container');
-        return;
+        return false;
     }
 
-    // Vider le conteneur
+    // Clear the container
     imageDiv.innerHTML = '';
 
-    // Obtenir le token pour les URLs
+    // Get token for URLs
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
 
-    // Créer le conteneur principal
+    // Create main container
     const mainContainer = document.createElement('div');
     mainContainer.className = 'midjourney-enhanced-container';
+    mainContainer.setAttribute('data-task-id', groupData.task_id || '');
 
-    // En-tête avec le prompt
+    // Set essential styles directly to avoid CSS conflicts
+    mainContainer.style.cssText = `
+        display: block !important;
+        visibility: visible !important;
+        width: 100% !important;
+        min-height: 300px !important;
+        margin: 20px auto !important;
+        background-color: #18191d !important;
+        border-radius: 12px !important;
+        overflow: hidden !important;
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+        position: relative !important;
+    `;
+
+    // Header with prompt
     const header = document.createElement('div');
     header.className = 'midjourney-header';
+    header.style.cssText = `
+        padding: 16px 20px !important;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+        display: flex !important;
+        justify-content: space-between !important;
+        align-items: center !important;
+    `;
 
     const promptDiv = document.createElement('div');
     promptDiv.className = 'midjourney-prompt';
+    promptDiv.style.cssText = `
+        flex: 1 !important;
+        overflow: hidden !important;
+    `;
 
     const promptHeading = document.createElement('h3');
     promptHeading.textContent = groupData.prompt || 'Images générées';
-    promptHeading.style.cssText = 'font-size: 16px !important; font-weight: 600 !important; color: #ffffff !important; margin: 0 0 4px 0 !important; text-overflow: ellipsis !important; overflow: hidden !important; white-space: nowrap !important;';
+    promptHeading.style.cssText = `
+        font-size: 16px !important;
+        font-weight: 600 !important;
+        color: #ffffff !important;
+        margin: 0 0 4px 0 !important;
+        text-overflow: ellipsis !important;
+        overflow: hidden !important;
+        white-space: nowrap !important;
+    `;
 
     const timestamp = document.createElement('div');
     timestamp.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
-    timestamp.style.cssText = 'font-size: 12px !important; color: rgba(255, 255, 255, 0.5) !important;';
+    timestamp.style.cssText = `
+        font-size: 12px !important;
+        color: rgba(255, 255, 255, 0.5) !important;
+    `;
 
     promptDiv.appendChild(promptHeading);
     promptDiv.appendChild(timestamp);
@@ -1194,6 +1225,20 @@ function displayMidjourneyGroup(groupData) {
     const closeBtn = document.createElement('button');
     closeBtn.innerHTML = '×';
     closeBtn.className = 'midjourney-close-btn';
+    closeBtn.style.cssText = `
+        width: 28px !important;
+        height: 28px !important;
+        border-radius: 50% !important;
+        border: none !important;
+        background-color: rgba(255, 255, 255, 0.1) !important;
+        color: rgba(255, 255, 255, 0.7) !important;
+        font-size: 18px !important;
+        display: flex !important;
+        align-items: center !important;
+        justify-content: center !important;
+        cursor: pointer !important;
+        margin-left: 10px !important;
+    `;
 
     closeBtn.addEventListener('click', () => {
         imageDiv.innerHTML = '';
@@ -1202,15 +1247,38 @@ function displayMidjourneyGroup(groupData) {
     header.appendChild(promptDiv);
     header.appendChild(closeBtn);
 
-    // Grille d'images
+    // Image grid
     const grid = document.createElement('div');
     grid.className = 'midjourney-image-grid';
+    grid.style.cssText = `
+        display: grid !important;
+        grid-template-columns: repeat(2, 1fr) !important;
+        gap: 10px !important;
+        padding: 16px !important;
+        min-height: 200px !important;
+    `;
 
-    // Traiter chaque image
-    for (let i = 0; i < groupData.images.length; i++) {
-        let image = groupData.images[i];
+    // Debug info element
+    const debugContainer = document.createElement('div');
+    debugContainer.style.cssText = `
+        padding: 6px 12px !important;
+        background-color: rgba(0, 0, 0, 0.5) !important;
+        color: #fff !important;
+        font-size: 10px !important;
+        text-align: center !important;
+    `;
+    debugContainer.textContent = `Processing ${groupData.images?.length || 0} images`;
 
-        // Si l'image est une chaîne, la parser
+    // Process each image
+    let successfulImages = 0;
+    const images = groupData.images || [];
+
+    console.error(`Processing ${images.length} images`);
+
+    for (let i = 0; i < images.length; i++) {
+        let image = images[i];
+
+        // Ensure image is an object
         if (typeof image === 'string') {
             try {
                 image = JSON.parse(image);
@@ -1221,55 +1289,126 @@ function displayMidjourneyGroup(groupData) {
         }
 
         if (!image || !image.url) {
-            console.error(`Missing URL for image ${i}`);
+            console.error(`Missing URL for image ${i}:`, image);
             continue;
         }
 
-        // Variation/numéro de l'image
+        // Variation number
         const variationNum =
             typeof image.variation_number === 'number' ? image.variation_number :
             typeof image.choice === 'number' ? image.choice : i;
 
-        // URL complète avec token
+        // Complete URL with token
         let imageUrl = image.url;
         if (token && !imageUrl.includes('token=')) {
             imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
         }
 
-        // Carte d'image
+        console.error(`Processing image ${i}, URL: ${imageUrl}`);
+
+        // Image card
         const card = document.createElement('div');
         card.className = 'midjourney-image-card';
+        card.style.cssText = `
+            position: relative !important;
+            border-radius: 10px !important;
+            overflow: hidden !important;
+            background-color: #22232a !important;
+            aspect-ratio: 1 !important;
+            min-height: 150px !important;
+            cursor: pointer !important;
+            transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+        `;
 
-        // Image
+        // Image element
         const img = document.createElement('img');
         img.src = imageUrl;
         img.alt = `Variation ${variationNum + 1}`;
+        img.style.cssText = `
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: cover !important;
+            display: block !important;
+        `;
 
-        // Gestion des erreurs
-        img.onload = () => console.error(`Image ${i} loaded successfully`);
+        // Error handling
+        img.onload = () => {
+            console.error(`Image ${i} loaded successfully`);
+            successfulImages++;
+            debugContainer.textContent = `Loaded: ${successfulImages}/${images.length} images`;
+        };
+
         img.onerror = () => {
             console.error(`Image ${i} failed to load:`, imageUrl);
             img.src = '/static/assets/img/placeholder.png';
         };
 
-        // Badge de variation
+        // Variation badge
         const badge = document.createElement('div');
         badge.className = 'version-badge';
         badge.textContent = `V${variationNum + 1}`;
+        badge.style.cssText = `
+            position: absolute !important;
+            bottom: 10px !important;
+            left: 10px !important;
+            background-color: rgba(0, 0, 0, 0.75) !important;
+            color: #fff !important;
+            padding: 4px 8px !important;
+            border-radius: 4px !important;
+            font-size: 12px !important;
+            font-weight: 600 !important;
+            z-index: 1 !important;
+        `;
 
-        // Overlay pour les actions
+        // Image overlay with download button
         const overlay = document.createElement('div');
         overlay.className = 'image-overlay';
+        overlay.style.cssText = `
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100% !important;
+            height: 100% !important;
+            background-color: rgba(0, 0, 0, 0) !important;
+            transition: background-color 0.3s ease !important;
+            display: flex !important;
+            flex-direction: column !important;
+            justify-content: flex-start !important;
+            align-items: flex-end !important;
+            padding: 10px !important;
+            box-sizing: border-box !important;
+            opacity: 0 !important;
+            transition: opacity 0.3s ease !important;
+        `;
 
-        // Bouton de téléchargement
+        // Download container
         const downloadContainer = document.createElement('div');
         downloadContainer.className = 'download-container';
+        downloadContainer.style.cssText = `
+            position: relative !important;
+            z-index: 2 !important;
+        `;
 
+        // Download button
         const downloadBtn = document.createElement('button');
         downloadBtn.className = 'download-button';
         downloadBtn.innerHTML = '↓';
         downloadBtn.title = 'Télécharger';
+        downloadBtn.style.cssText = `
+            background-color: rgba(0, 0, 0, 0.75) !important;
+            border: none !important;
+            border-radius: 4px !important;
+            color: #fff !important;
+            width: 32px !important;
+            height: 32px !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            cursor: pointer !important;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+        `;
 
+        // Download logic
         downloadBtn.addEventListener('click', (e) => {
             e.stopPropagation();
             if (typeof downloadImage === 'function') {
@@ -1282,38 +1421,227 @@ function displayMidjourneyGroup(groupData) {
         downloadContainer.appendChild(downloadBtn);
         overlay.appendChild(downloadContainer);
 
-        // Afficher l'image en grand au clic
+        // Open lightbox on click
         card.addEventListener('click', () => {
             createLightbox(imageUrl, variationNum + 1, groupData.prompt || 'Generated image');
         });
 
+        // Assemble card
         card.appendChild(img);
         card.appendChild(badge);
         card.appendChild(overlay);
         grid.appendChild(card);
     }
 
-    // Assembler le conteneur
+    // Assemble main container
     mainContainer.appendChild(header);
+    mainContainer.appendChild(debugContainer);
     mainContainer.appendChild(grid);
 
-    // Ajouter le conteneur à la page
-    imageDiv.appendChild(mainContainer);
+    // Add success message
+    const successMsg = document.createElement('div');
+    successMsg.className = 'success-message';
+    successMsg.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Images générées avec succès!';
+    successMsg.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 12px 16px;
+        background-color: rgba(0, 200, 83, 0.9);
+        color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        z-index: 9999;
+        transition: opacity 0.5s ease, transform 0.5s ease;
+        opacity: 0;
+        transform: translateY(-20px);
+        display: flex;
+        align-items: center;
+    `;
 
-    // Afficher la section de téléchargement
+    // Add container to the page
+    imageDiv.appendChild(mainContainer);
+    document.body.appendChild(successMsg);
+
+    // Animate success message
+    setTimeout(() => {
+        successMsg.style.opacity = '1';
+        successMsg.style.transform = 'translateY(0)';
+
+        // Hide message after 5 seconds
+        setTimeout(() => {
+            successMsg.style.opacity = '0';
+            successMsg.style.transform = 'translateY(-20px)';
+
+            // Remove after animation
+            setTimeout(() => {
+                if (successMsg.parentNode) {
+                    successMsg.parentNode.removeChild(successMsg);
+                }
+            }, 500);
+        }, 5000);
+    }, 100);
+
+    // Show download section
     const downloadSection = document.getElementById('download-section');
     if (downloadSection) {
         downloadSection.style.display = 'block';
     }
 
-    // Afficher message de succès avec timeout
-    showSuccessMessage('Images générées avec succès!', 5000);
+    // Force a reflow to ensure everything is visible
+    setTimeout(() => {
+        console.error('Forcing reflow to ensure visibility');
+        // Force a reflow
+        void mainContainer.offsetHeight;
 
-    // Enregistrer dans l'historique
-    addToHistory(groupData);
+        // Check dimensions
+        const containerRect = mainContainer.getBoundingClientRect();
+        console.error('Container dimensions:', {
+            width: containerRect.width,
+            height: containerRect.height,
+            visible: containerRect.height > 0
+        });
+
+        // If still invisible, force minimum dimensions
+        if (containerRect.height < 10) {
+            mainContainer.style.minHeight = '500px !important';
+            console.error('Container was invisible, forcing min-height');
+        }
+    }, 300);
+
+    // Update generation button
+    const generateText = document.getElementById('generate-text');
+    if (generateText) {
+        generateText.textContent = 'Générer une nouvelle image';
+    }
 
     console.error('Display function completed');
+
+    // Add to history (only if not already there)
+    addToHistory(groupData);
+
+    return true;
 }
+
+// Fonction pour ajouter à l'historique DOM
+function addToHistoryDOM(groupData) {
+    console.error('Adding to history DOM:', groupData);
+
+    const sidebar = document.querySelector('.fn__generation_list.sidebar');
+    if (!sidebar) {
+        console.error('History sidebar not found');
+        return false;
+    }
+
+    // Vérifier si l'élément existe déjà (pas de duplication)
+    const existingItem = document.querySelector(`.fn__gl_item[data-task-id="${groupData.task_id}"]`);
+    if (existingItem) {
+        console.error('Item already exists in history, not adding duplicate');
+        return false;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    // Créer un nouvel élément pour l'historique
+    const historyItem = document.createElement('li');
+    historyItem.className = 'fn__gl_item';
+    historyItem.dataset.taskId = groupData.task_id || '';
+    historyItem.style.cssText = `
+        display: block !important;
+        width: calc(50% - 10px) !important;
+        margin: 5px !important;
+        min-height: 150px !important;
+    `;
+
+    // Créer la miniature du groupe
+    let thumbnailsHtml = '';
+    const imagesToShow = (groupData.images || []).slice(0, 4);
+
+    if (!imagesToShow.length && groupData.initial_grid) {
+        // Utiliser l'image initiale si pas d'images
+        const gridUrl = groupData.initial_grid + (token ? `&token=${encodeURIComponent(token)}` : '');
+        thumbnailsHtml = `
+            <div style="width: 100%; height: 100%; padding: 1px; box-sizing: border-box;">
+                <img src="${gridUrl}"
+                     alt="Initial grid"
+                     style="width: 100%; height: 100%; object-fit: cover; display: block;">
+            </div>
+        `;
+    } else {
+        // Créer les miniatures pour chaque image
+        for (let i = 0; i < imagesToShow.length; i++) {
+            const img = imagesToShow[i];
+            // Assurer que l'URL de l'image est correctement formatée
+            let imageUrl = typeof img === 'string' ? img : (img.url || '');
+
+            if (!imageUrl && img.key) {
+                imageUrl = `/image/${img.key}`;
+            }
+
+            if (!imageUrl) {
+                console.error("Missing image URL for thumbnail:", img);
+                continue;
+            }
+
+            if (!imageUrl.includes('token=') && token) {
+                imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+            }
+
+            thumbnailsHtml += `
+                <div style="width: 50%; height: 50%; padding: 1px; box-sizing: border-box;">
+                    <img src="${imageUrl}"
+                         alt="V${i + 1}"
+                         style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                </div>
+            `;
+        }
+    }
+
+    // Définir le HTML de l'élément
+    historyItem.innerHTML = `
+        <div class="fn__gl__item">
+            <div class="abs_item">
+                <div style="position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
+                    <div style="display: flex; flex-wrap: wrap; width: 100%; height: 100%;">
+                        ${thumbnailsHtml}
+                    </div>
+                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7);
+                                color: white; padding: 4px; font-size: 10px; text-overflow: ellipsis;
+                                overflow: hidden; white-space: nowrap;">
+                        ${groupData.prompt || ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Gestionnaire d'événements pour l'ouverture du groupe
+    historyItem.addEventListener('click', function(e) {
+        // Empêcher la propagation pour éviter les duplications
+        e.stopPropagation();
+        e.preventDefault();
+
+        const taskId = this.dataset.taskId;
+        if (taskId) {
+            console.error("Clicked on history item with task_id:", taskId);
+            handleHistoryClick(taskId);
+        } else {
+            console.error("Missing task_id for this history item!");
+        }
+    });
+
+    // Ajouter au début de l'historique
+    if (sidebar.firstChild) {
+        sidebar.insertBefore(historyItem, sidebar.firstChild);
+    } else {
+        sidebar.appendChild(historyItem);
+    }
+
+    console.error('Added to history successfully');
+    return true;
+}
+
 
 // Fonction pour afficher un message de succès temporaire
 function showSuccessMessage(message, duration = 5000) {
@@ -1519,7 +1847,8 @@ function handleHistoryClick(taskId) {
         if (data.success && data.data) {
             // Appeler la fonction d'affichage avec les données du groupe
             // Passer false pour indiquer de ne pas enregistrer à nouveau dans l'historique
-            displayMidjourneyGroupFromHistory(data.data);
+            const success = displayMidjourneyGroup(data.data);
+            console.error("Display function returned:", success);
 
             // Mettre à jour le prompt
             if (document.getElementById('prompt')) {
@@ -1718,10 +2047,22 @@ function displayMidjourneyGroupFromHistory(groupData) {
 function addToHistory(groupData) {
     console.error('Adding to history:', groupData);
 
+    if (!groupData || !groupData.task_id) {
+        console.error('Invalid or missing task_id in group data');
+        return false;
+    }
+
     const sidebar = document.querySelector('.fn__generation_list.sidebar');
     if (!sidebar) {
         console.error('History sidebar not found');
         return;
+    }
+
+    // Vérifier si l'élément existe déjà
+    const existingItem = document.querySelector(`.fn__gl_item[data-task-id="${groupData.task_id}"]`);
+    if (existingItem) {
+        console.error('Item already exists in history, not adding duplicate');
+        return false;
     }
 
     const urlParams = new URLSearchParams(window.location.search);
@@ -2363,6 +2704,8 @@ function showErrorOverlay(title, message) {
     function createHistoryItem(item, delay=0) {
         console.error("Creating history item:", item);
 
+        if (!item) return null;
+
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
 
@@ -2381,32 +2724,46 @@ function showErrorOverlay(title, message) {
 
             // Limiter à 4 images maximum
             const imagesToShow = item.images.slice(0, 4);
-            imagesToShow.forEach((img, index) => {
-                // Assurer que l'URL de l'image est correctement formatée
-                let imageUrl = typeof img === 'string' ? img : img.url;
-
-                if (!imageUrl) {
-                    console.error("Missing image URL for thumbnail:", img);
-                    return;
-                }
-
-                if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
-                    imageUrl = `/image/${img.key || ''}`;
-                }
-
-                if (!imageUrl.includes('token=') && token) {
-                    imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-                }
-
-                thumbnailsHtml += `
-                    <div style="width: 50%; height: 50%; padding: 1px; box-sizing: border-box;">
-                        <img src="${imageUrl}"
-                             alt="V${index + 1}"
+            // Handle case with no images but initial grid
+            if (!imagesToShow.length && item.initial_grid) {
+                const gridUrl = item.initial_grid + (token ? (item.initial_grid.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}` : '');
+                thumbnailsHtml = `
+                    <div style="width: 100%; height: 100%; padding: 1px; box-sizing: border-box;">
+                        <img src="${gridUrl}"
+                             alt="Initial grid"
                              style="width: 100%; height: 100%; object-fit: cover; display: block;">
                     </div>
                 `;
-            });
+            } else {
+                // Create thumbnails for each image
+                imagesToShow.forEach((img, index) => {
+                    // Ensure proper image URL format
+                    let imageUrl = typeof img === 'string' ? img : img.url;
 
+                    // Try to get URL from key if needed
+                    if (!imageUrl && img.key) {
+                        imageUrl = `/image/${img.key}`;
+                    }
+
+                    if (!imageUrl) {
+                        console.error("Missing image URL for thumbnail:", img);
+                        return;
+                    }
+
+                    // Add token if needed
+                    if (!imageUrl.includes('token=') && token) {
+                        imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+                    }
+
+                    thumbnailsHtml += `
+                        <div style="width: 50%; height: 50%; padding: 1px; box-sizing: border-box;">
+                            <img src="${imageUrl}"
+                                 alt="V${index + 1}"
+                                 style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                        </div>
+                    `;
+                });
+            }
             listItem.innerHTML = `
                 <div class="fn__gl__item">
                     <div class="abs_item">
@@ -2426,21 +2783,35 @@ function showErrorOverlay(title, message) {
 
             // Gestionnaire d'événements pour l'ouverture du groupe
             // Important : utiliser une fonction fléchée pour conserver le contexte
-            listItem.addEventListener('click', () => {
+            listItem.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+
                 const taskId = listItem.dataset.taskId;
                 console.error("Clicked on history item with task_id:", taskId);
                 if (taskId) {
-                    handleGroupClick(taskId);
+                    handleHistoryClick(taskId);
                 } else {
                     console.error("Missing task_id for this history item!");
                 }
             });
             } else {
+            let imageUrl = item.url || '';
+            if (!imageUrl.startsWith('/') && item.key) {
+                imageUrl = `/image/${item.key}`;
+            }
+
+            // Add token if needed
+            const fullImageUrl = imageUrl.includes('token=') ? imageUrl :
+                `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
+
                 listItem.innerHTML = `
                 <div class="fn__gl__item">
                     <div class="abs_item">
                         <img src="${fullImageUrl}" alt="Generated image" loading="lazy">
-                        <div class="prompt">${item.prompt}</div>
+                        <div class="prompt"style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: white; padding: 4px; font-size: 10px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
+                            ${item.prompt || ''}
+                        </div>
                         <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
                         <!-- Ajout du bouton de téléchargement similaire à celui des nouvelles images -->
                         <div class="all_options">
@@ -2663,7 +3034,9 @@ function showErrorOverlay(title, message) {
 
                         const delay = index * 100;
                         const historyItem = createHistoryItem(normalizedItem, delay);
+                            if (historyItem) {
                         historyContent.appendChild(historyItem);
+                    }
                     });
 
                     hasMore = data.data?.pagination?.has_more || false;
@@ -2676,8 +3049,18 @@ function showErrorOverlay(title, message) {
                             loadMoreBtn.id = 'loadMoreBtn';
                             loadMoreBtn.className = 'load-more';
                             loadMoreBtn.textContent = 'Charger plus';
+                            loadMoreBtn.style.cssText = `
+                                display: block;
+                                margin: 10px auto;
+                                padding: 8px 16px;
+                                background-color: #2a2b31;
+                                color: #fff;
+                                border: none;
+                                border-radius: 4px;
+                                cursor: pointer;
+                            `;
                             loadMoreBtn.onclick = () => loadHistory(currentPage + 1, true);
-                            historyContent.after(loadMoreBtn);
+                            historyContent.parentNode.appendChild(loadMoreBtn);
                         }
                     } else {
                         const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -2697,7 +3080,7 @@ function showErrorOverlay(title, message) {
                 }
             } finally {
                 isLoading = false;
-                historyLoader.classList.add('d-none');
+                if (historyLoader) historyLoader.classList.add('d-none');
             }
         }
         async function validateImageUrl(imageUrl, token) {
