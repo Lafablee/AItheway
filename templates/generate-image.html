@@ -613,66 +613,6 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
     let isLoading = false;
     let hasMore = true;
 
-    document.addEventListener('DOMContentLoaded', function() {
-        // Ajouter des styles globaux pour forcer l'affichage des conteneurs Midjourney
-        const styleEl = document.createElement('style');
-        styleEl.textContent = `
-            .midjourney-enhanced-container {
-                display: block !important;
-                visibility: visible !important;
-                width: 100% !important;
-                min-height: 300px !important;
-                margin: 20px auto !important;
-                background-color: #18191d !important;
-                border-radius: 12px !important;
-                overflow: hidden !important;
-                box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
-            }
-
-            .midjourney-image-grid {
-                display: grid !important;
-                grid-template-columns: repeat(2, 1fr) !important;
-                gap: 8px !important;
-                padding: 8px !important;
-                min-height: 200px !important;
-            }
-
-            .midjourney-image-card {
-                position: relative !important;
-                border-radius: 8px !important;
-                overflow: hidden !important;
-                background-color: #22232a !important;
-                aspect-ratio: 1 !important;
-                min-height: 150px !important;
-            }
-
-            .midjourney-image-card img {
-                width: 100% !important;
-                height: 100% !important;
-                object-fit: cover !important;
-                display: block !important;
-            }
-
-            #generated-image {
-                min-height: 300px !important;
-                display: block !important;
-            }
-
-            .fn__generation_list {
-                display: flex !important;
-                flex-wrap: wrap !important;
-            }
-
-            .fn__gl_item {
-                display: block !important;
-                width: calc(50% - 10px) !important;
-                margin: 5px !important;
-                min-height: 150px !important;
-            }
-        `;
-        document.head.appendChild(styleEl);
-    });
-
     // Écouteur pour le changement de modèle
     document.querySelectorAll('.all_models a').forEach(modelLink => {
         modelLink.addEventListener('click', function(e) {
@@ -1207,14 +1147,15 @@ function checkTwentyTwentyInterference() {
  */
 // Version corrigée de displayMidjourneyGroup avec focus sur le problème d'affichage
 function displayMidjourneyGroup(groupData) {
-    console.error('Starting fixed displayMidjourneyGroup...');
+    console.error('Starting displayMidjourneyGroup with data:', groupData);
 
+    // Vérification des données
     if (!groupData || !Array.isArray(groupData.images) || groupData.images.length === 0) {
         console.error('Invalid or empty group data');
         return;
     }
 
-    // Récupérer et vider le conteneur principal
+    // Récupérer le conteneur principal
     const imageDiv = document.getElementById('generated-image');
     if (!imageDiv) {
         console.error('Cannot find generated-image container');
@@ -1228,77 +1169,31 @@ function displayMidjourneyGroup(groupData) {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
 
-    // Créer un conteneur avec style forcé
-    const container = document.createElement('div');
-    // Classe pour le style
-    container.className = 'midjourney-enhanced-container';
-    // Styles inline pour éviter les conflits CSS
-    container.style.cssText = `
-        display: block !important;
-        visibility: visible !important;
-        width: 100% !important;
-        min-height: 300px !important;
-        margin: 20px auto !important;
-        background-color: #18191d !important;
-        border-radius: 12px !important;
-        overflow: hidden !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
-    `;
+    // Créer le conteneur principal
+    const mainContainer = document.createElement('div');
+    mainContainer.className = 'midjourney-enhanced-container';
 
-    // Entête avec le prompt
+    // En-tête avec le prompt
     const header = document.createElement('div');
-    header.style.cssText = `
-        padding: 16px 20px !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-    `;
+    header.className = 'midjourney-header';
 
     const promptDiv = document.createElement('div');
-    promptDiv.style.cssText = `
-        flex: 1 !important;
-        overflow: hidden !important;
-    `;
+    promptDiv.className = 'midjourney-prompt';
 
-    const promptTitle = document.createElement('h3');
-    promptTitle.textContent = groupData.prompt || 'Images générées';
-    promptTitle.style.cssText = `
-        font-size: 16px !important;
-        font-weight: 600 !important;
-        color: #ffffff !important;
-        margin: 0 0 4px 0 !important;
-        text-overflow: ellipsis !important;
-        overflow: hidden !important;
-        white-space: nowrap !important;
-    `;
+    const promptHeading = document.createElement('h3');
+    promptHeading.textContent = groupData.prompt || 'Images générées';
+    promptHeading.style.cssText = 'font-size: 16px !important; font-weight: 600 !important; color: #ffffff !important; margin: 0 0 4px 0 !important; text-overflow: ellipsis !important; overflow: hidden !important; white-space: nowrap !important;';
 
     const timestamp = document.createElement('div');
     timestamp.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
-    timestamp.style.cssText = `
-        font-size: 12px !important;
-        color: rgba(255, 255, 255, 0.5) !important;
-    `;
+    timestamp.style.cssText = 'font-size: 12px !important; color: rgba(255, 255, 255, 0.5) !important;';
 
-    promptDiv.appendChild(promptTitle);
+    promptDiv.appendChild(promptHeading);
     promptDiv.appendChild(timestamp);
 
     const closeBtn = document.createElement('button');
     closeBtn.innerHTML = '×';
-    closeBtn.style.cssText = `
-        width: 28px !important;
-        height: 28px !important;
-        border-radius: 50% !important;
-        border: none !important;
-        background-color: rgba(255, 255, 255, 0.1) !important;
-        color: rgba(255, 255, 255, 0.7) !important;
-        font-size: 18px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        cursor: pointer !important;
-        margin-left: 10px !important;
-    `;
+    closeBtn.className = 'midjourney-close-btn';
 
     closeBtn.addEventListener('click', () => {
         imageDiv.innerHTML = '';
@@ -1310,13 +1205,6 @@ function displayMidjourneyGroup(groupData) {
     // Grille d'images
     const grid = document.createElement('div');
     grid.className = 'midjourney-image-grid';
-    grid.style.cssText = `
-        display: grid !important;
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 8px !important;
-        padding: 8px !important;
-        min-height: 200px !important;
-    `;
 
     // Traiter chaque image
     for (let i = 0; i < groupData.images.length; i++) {
@@ -1351,26 +1239,11 @@ function displayMidjourneyGroup(groupData) {
         // Carte d'image
         const card = document.createElement('div');
         card.className = 'midjourney-image-card';
-        card.style.cssText = `
-            position: relative !important;
-            border-radius: 8px !important;
-            overflow: hidden !important;
-            background-color: #22232a !important;
-            aspect-ratio: 1 !important;
-            min-height: 150px !important;
-            cursor: pointer !important;
-        `;
 
         // Image
         const img = document.createElement('img');
         img.src = imageUrl;
         img.alt = `Variation ${variationNum + 1}`;
-        img.style.cssText = `
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover !important;
-            display: block !important;
-        `;
 
         // Gestion des erreurs
         img.onload = () => console.error(`Image ${i} loaded successfully`);
@@ -1381,40 +1254,21 @@ function displayMidjourneyGroup(groupData) {
 
         // Badge de variation
         const badge = document.createElement('div');
+        badge.className = 'version-badge';
         badge.textContent = `V${variationNum + 1}`;
-        badge.style.cssText = `
-            position: absolute !important;
-            bottom: 10px !important;
-            left: 10px !important;
-            background-color: rgba(0, 0, 0, 0.75) !important;
-            color: #fff !important;
-            padding: 4px 8px !important;
-            border-radius: 4px !important;
-            font-size: 12px !important;
-            font-weight: 600 !important;
-            z-index: 1 !important;
-        `;
+
+        // Overlay pour les actions
+        const overlay = document.createElement('div');
+        overlay.className = 'image-overlay';
 
         // Bouton de téléchargement
+        const downloadContainer = document.createElement('div');
+        downloadContainer.className = 'download-container';
+
         const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'download-button';
         downloadBtn.innerHTML = '↓';
         downloadBtn.title = 'Télécharger';
-        downloadBtn.style.cssText = `
-            position: absolute !important;
-            top: 10px !important;
-            right: 10px !important;
-            background-color: rgba(0, 0, 0, 0.75) !important;
-            border: none !important;
-            border-radius: 4px !important;
-            color: #fff !important;
-            width: 32px !important;
-            height: 32px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            z-index: 2 !important;
-        `;
 
         downloadBtn.addEventListener('click', (e) => {
             e.stopPropagation();
@@ -1425,103 +1279,26 @@ function displayMidjourneyGroup(groupData) {
             }
         });
 
+        downloadContainer.appendChild(downloadBtn);
+        overlay.appendChild(downloadContainer);
+
         // Afficher l'image en grand au clic
         card.addEventListener('click', () => {
-            const modal = document.createElement('div');
-            modal.style.cssText = `
-                position: fixed !important;
-                top: 0 !important;
-                left: 0 !important;
-                width: 100% !important;
-                height: 100% !important;
-                background-color: rgba(0, 0, 0, 0.9) !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                z-index: 9999 !important;
-            `;
-
-            const modalImg = document.createElement('img');
-            modalImg.src = imageUrl;
-            modalImg.style.cssText = `
-                max-width: 90% !important;
-                max-height: 90% !important;
-                object-fit: contain !important;
-            `;
-
-            const modalCloseBtn = document.createElement('button');
-            modalCloseBtn.innerHTML = '×';
-            modalCloseBtn.style.cssText = `
-                position: absolute !important;
-                top: 20px !important;
-                right: 20px !important;
-                background-color: rgba(255, 255, 255, 0.2) !important;
-                color: #fff !important;
-                border: none !important;
-                border-radius: 50% !important;
-                width: 36px !important;
-                height: 36px !important;
-                font-size: 24px !important;
-                display: flex !important;
-                align-items: center !important;
-                justify-content: center !important;
-                cursor: pointer !important;
-            `;
-
-            modalCloseBtn.addEventListener('click', () => {
-                document.body.removeChild(modal);
-            });
-
-            modal.addEventListener('click', (e) => {
-                if (e.target === modal) {
-                    document.body.removeChild(modal);
-                }
-            });
-
-            modal.appendChild(modalImg);
-            modal.appendChild(modalCloseBtn);
-            document.body.appendChild(modal);
+            createLightbox(imageUrl, variationNum + 1, groupData.prompt || 'Generated image');
         });
 
         card.appendChild(img);
         card.appendChild(badge);
-        card.appendChild(downloadBtn);
+        card.appendChild(overlay);
         grid.appendChild(card);
     }
 
-    // Message de succès
-    const successMsg = document.createElement('div');
-    successMsg.className = 'success-message';
-    successMsg.innerHTML = 'Images générées avec succès!';
-    successMsg.style.cssText = `
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        padding: 12px !important;
-        background-color: rgba(0, 200, 83, 0.15) !important;
-        color: #00c853 !important;
-        border-top: 1px solid rgba(0, 200, 83, 0.2) !important;
-    `;
-
     // Assembler le conteneur
-    container.appendChild(header);
-    container.appendChild(grid);
-    container.appendChild(successMsg);
-
-    // Ajouter un élément de débogage visible
-    const debugElement = document.createElement('div');
-    debugElement.style.cssText = `
-        padding: 8px !important;
-        background-color: rgba(255, 0, 0, 0.1) !important;
-        color: white !important;
-        text-align: center !important;
-        font-size: 12px !important;
-    `;
-    debugElement.textContent = `Debug: Affichage de ${groupData.images.length} images - ${new Date().toLocaleString()}`;
-    container.appendChild(debugElement);
+    mainContainer.appendChild(header);
+    mainContainer.appendChild(grid);
 
     // Ajouter le conteneur à la page
-    imageDiv.appendChild(container);
+    imageDiv.appendChild(mainContainer);
 
     // Afficher la section de téléchargement
     const downloadSection = document.getElementById('download-section');
@@ -1529,29 +1306,413 @@ function displayMidjourneyGroup(groupData) {
         downloadSection.style.display = 'block';
     }
 
-    // Ajouter l'élément à l'historique
+    // Afficher message de succès avec timeout
+    showSuccessMessage('Images générées avec succès!', 5000);
+
+    // Enregistrer dans l'historique
     addToHistory(groupData);
 
-    console.error('Display function completed with container dimensions:', {
-        width: container.offsetWidth,
-        height: container.offsetHeight
+    console.error('Display function completed');
+}
+
+// Fonction pour afficher un message de succès temporaire
+function showSuccessMessage(message, duration = 5000) {
+    // Supprimer tout message existant
+    const existingMsg = document.querySelector('.success-message');
+    if (existingMsg) {
+        existingMsg.remove();
+    }
+
+    // Créer le message
+    const successMsg = document.createElement('div');
+    successMsg.className = 'success-message';
+    successMsg.innerHTML = `
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+        </svg>
+        ${message}
+    `;
+
+    // Ajouter au document
+    document.body.appendChild(successMsg);
+
+    // Afficher avec animation
+    setTimeout(() => {
+        successMsg.classList.add('show');
+    }, 10);
+
+    // Masquer après la durée spécifiée
+    setTimeout(() => {
+        successMsg.classList.remove('show');
+        setTimeout(() => {
+            successMsg.remove();
+        }, 500);
+    }, duration);
+}
+
+// Fonction pour sauvegarder les données dans l'historique
+function saveToHistory(groupData) {
+    console.error('Saving to history:', groupData);
+
+    if (!groupData || !groupData.task_id) {
+        console.error('Missing task_id in group data');
+        return;
+    }
+
+    // 1. Créer l'élément visuel dans l'historique (sans duplication)
+    addToHistoryView(groupData);
+
+    // 2. Sauvegarder du côté serveur pour la persistance
+    saveHistoryToServer(groupData);
+}
+
+// Fonction pour ajouter visuellement à l'historique (sans duplication)
+function addToHistoryView(groupData) {
+    const sidebar = document.querySelector('.fn__generation_list.sidebar');
+    if (!sidebar) {
+        console.error('History sidebar not found');
+        return;
+    }
+
+    // Vérifier si l'élément existe déjà (pas de duplication)
+    const existingItem = document.querySelector(`.fn__gl_item[data-task-id="${groupData.task_id}"]`);
+    if (existingItem) {
+        console.error('Item already exists in history, not adding duplicate');
+        return;
+    }
+
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    // Créer un nouvel élément pour l'historique
+    const historyItem = document.createElement('li');
+    historyItem.className = 'fn__gl_item';
+    historyItem.dataset.taskId = groupData.task_id;
+
+    // Créer la miniature du groupe
+    let thumbnailsHtml = '';
+    const imagesToShow = (groupData.images || []).slice(0, 4);
+
+    if (!imagesToShow.length && groupData.initial_grid) {
+        // Utiliser l'image initiale
+        thumbnailsHtml = `
+            <div style="width: 100%; height: 100%; padding: 1px; box-sizing: border-box;">
+                <img src="${groupData.initial_grid}${token ? (groupData.initial_grid.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}` : ''}"
+                     alt="Initial grid"
+                     style="width: 100%; height: 100%; object-fit: cover; display: block;">
+            </div>
+        `;
+    } else {
+        // Créer les miniatures pour chaque image
+        imagesToShow.forEach((img, index) => {
+            // Assurer que l'URL de l'image est correctement formatée
+            let imageUrl = typeof img === 'string' ? img : (img.url || '');
+
+            if (!imageUrl && img.key) {
+                imageUrl = `/image/${img.key}`;
+            }
+
+            if (!imageUrl) {
+                return;
+            }
+
+            if (!imageUrl.includes('token=') && token) {
+                imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+            }
+
+            thumbnailsHtml += `
+                <div style="width: 50%; height: 50%; padding: 1px; box-sizing: border-box;">
+                    <img src="${imageUrl}"
+                         alt="V${index + 1}"
+                         style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                </div>
+            `;
+        });
+    }
+
+    // Définir le HTML de l'élément
+    historyItem.innerHTML = `
+        <div class="fn__gl__item">
+            <div class="abs_item">
+                <div style="position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
+                    <div style="display: flex; flex-wrap: wrap; width: 100%; height: 100%;">
+                        ${thumbnailsHtml}
+                    </div>
+                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7);
+                                color: white; padding: 4px; font-size: 10px; text-overflow: ellipsis;
+                                overflow: hidden; white-space: nowrap;">
+                        ${groupData.prompt || ''}
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Gestionnaire d'événements pour l'ouverture du groupe
+    historyItem.addEventListener('click', function(e) {
+        // Empêcher la propagation pour éviter les duplications
+        e.stopPropagation();
+
+        const taskId = this.dataset.taskId;
+        if (taskId) {
+            console.error("Clicked on history item with task_id:", taskId);
+            // Appeler handleGroupClick sans créer de duplications
+            handleHistoryClick(taskId);
+        }
     });
 
-    // Forcer le rendu après un court délai
-    setTimeout(() => {
-        console.error('Forcing visibility after timeout');
-        container.style.visibility = 'visible';
-        container.style.display = 'block';
-
-        // Mettre à jour le style de la grille
-        grid.style.display = 'grid';
-
-        console.error('Container dimensions after timeout:', {
-            width: container.offsetWidth,
-            height: container.offsetHeight
-        });
-    }, 100);
+    // Ajouter au début de l'historique
+    if (sidebar.firstChild) {
+        sidebar.insertBefore(historyItem, sidebar.firstChild);
+    } else {
+        sidebar.appendChild(historyItem);
+    }
 }
+
+// Version modifiée de handleGroupClick pour éviter les duplications
+function handleHistoryClick(taskId) {
+    console.error(`Handling history click for task ${taskId}`);
+    if (!taskId) {
+        console.error("No task ID provided");
+        return;
+    }
+
+    // Afficher un indicateur de chargement
+    const mainContainer = document.getElementById('generated-image');
+    if (mainContainer) {
+        mainContainer.innerHTML = `
+            <div style="display: flex; justify-content: center; align-items: center; min-height: 200px;">
+                <div style="text-align: center;">
+                    <div style="border: 3px solid #555; border-top: 3px solid #fff; border-radius: 50%;
+                                width: 30px; height: 30px; margin: 0 auto; animation: spin 1s linear infinite;"></div>
+                    <p style="margin-top: 15px; color: #333;">Chargement des images...</p>
+                </div>
+            </div>
+            <style>
+                @keyframes spin {
+                    0% { transform: rotate(0deg); }
+                    100% { transform: rotate(360deg); }
+                }
+            </style>
+        `;
+    }
+
+    // Récupérer le token pour l'authentification
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    // Récupérer les données du groupe
+    fetch(`/check_midjourney_status/${taskId}?token=${encodeURIComponent(token)}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.error("Got midjourney status data:", data);
+        if (data.success && data.data) {
+            // Appeler la fonction d'affichage avec les données du groupe
+            // Passer false pour indiquer de ne pas enregistrer à nouveau dans l'historique
+            displayMidjourneyGroupFromHistory(data.data);
+
+            // Mettre à jour le prompt
+            if (document.getElementById('prompt')) {
+                document.getElementById('prompt').value = data.data.prompt || '';
+            }
+
+            // Afficher la section de téléchargement
+            const downloadSection = document.getElementById('download-section');
+            if (downloadSection) {
+                downloadSection.style.display = 'block';
+            }
+        } else {
+            console.error("Failed to load midjourney group data");
+            if (mainContainer) {
+                mainContainer.innerHTML = `<p style="color: #ff6b6b; text-align: center; padding: 20px;">
+                    Impossible de charger les images. Veuillez réessayer.</p>`;
+            }
+        }
+    })
+    .catch(error => {
+        console.error("Error fetching group data:", error);
+        if (mainContainer) {
+            mainContainer.innerHTML = `<p style="color: #ff6b6b; text-align: center; padding: 20px;">
+                Erreur lors du chargement des images: ${error.message}</p>`;
+        }
+    });
+}
+
+// Version spécifique pour l'affichage depuis l'historique (évite les duplications)
+function displayMidjourneyGroupFromHistory(groupData) {
+    // Cette fonction est identique à displayMidjourneyGroup mais sans appel à saveToHistory
+    console.error('Displaying from history:', groupData);
+
+    // Vérification des données
+    if (!groupData || !Array.isArray(groupData.images) || groupData.images.length === 0) {
+        console.error('Invalid or empty group data');
+        return;
+    }
+
+    // Récupérer le conteneur principal
+    const imageDiv = document.getElementById('generated-image');
+    if (!imageDiv) {
+        console.error('Cannot find generated-image container');
+        return;
+    }
+
+    // Vider le conteneur
+    imageDiv.innerHTML = '';
+
+    // Obtenir le token pour les URLs
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+
+    // Créer le conteneur principal
+    const mainContainer = document.createElement('div');
+    mainContainer.className = 'midjourney-enhanced-container';
+
+    // En-tête avec le prompt
+    const header = document.createElement('div');
+    header.className = 'midjourney-header';
+
+    const promptDiv = document.createElement('div');
+    promptDiv.className = 'midjourney-prompt';
+
+    const promptHeading = document.createElement('h3');
+    promptHeading.textContent = groupData.prompt || 'Images générées';
+    promptHeading.style.cssText = 'font-size: 16px !important; font-weight: 600 !important; color: #ffffff !important; margin: 0 0 4px 0 !important; text-overflow: ellipsis !important; overflow: hidden !important; white-space: nowrap !important;';
+
+    const timestamp = document.createElement('div');
+    timestamp.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
+    timestamp.style.cssText = 'font-size: 12px !important; color: rgba(255, 255, 255, 0.5) !important;';
+
+    promptDiv.appendChild(promptHeading);
+    promptDiv.appendChild(timestamp);
+
+    const closeBtn = document.createElement('button');
+    closeBtn.innerHTML = '×';
+    closeBtn.className = 'midjourney-close-btn';
+
+    closeBtn.addEventListener('click', () => {
+        imageDiv.innerHTML = '';
+    });
+
+    header.appendChild(promptDiv);
+    header.appendChild(closeBtn);
+
+    // Grille d'images
+    const grid = document.createElement('div');
+    grid.className = 'midjourney-image-grid';
+
+    // Traiter chaque image
+    for (let i = 0; i < groupData.images.length; i++) {
+        let image = groupData.images[i];
+
+        // Si l'image est une chaîne, la parser
+        if (typeof image === 'string') {
+            try {
+                image = JSON.parse(image);
+            } catch (e) {
+                console.error(`Failed to parse image ${i}:`, e);
+                continue;
+            }
+        }
+
+        if (!image || !image.url) {
+            console.error(`Missing URL for image ${i}`);
+            continue;
+        }
+
+        // Variation/numéro de l'image
+        const variationNum =
+            typeof image.variation_number === 'number' ? image.variation_number :
+            typeof image.choice === 'number' ? image.choice : i;
+
+        // URL complète avec token
+        let imageUrl = image.url;
+        if (token && !imageUrl.includes('token=')) {
+            imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
+        }
+
+        // Carte d'image
+        const card = document.createElement('div');
+        card.className = 'midjourney-image-card';
+
+        // Image
+        const img = document.createElement('img');
+        img.src = imageUrl;
+        img.alt = `Variation ${variationNum + 1}`;
+
+        // Gestion des erreurs
+        img.onload = () => console.error(`Image ${i} loaded successfully`);
+        img.onerror = () => {
+            console.error(`Image ${i} failed to load:`, imageUrl);
+            img.src = '/static/assets/img/placeholder.png';
+        };
+
+        // Badge de variation
+        const badge = document.createElement('div');
+        badge.className = 'version-badge';
+        badge.textContent = `V${variationNum + 1}`;
+
+        // Overlay pour les actions
+        const overlay = document.createElement('div');
+        overlay.className = 'image-overlay';
+
+        // Bouton de téléchargement
+        const downloadContainer = document.createElement('div');
+        downloadContainer.className = 'download-container';
+
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'download-button';
+        downloadBtn.innerHTML = '↓';
+        downloadBtn.title = 'Télécharger';
+
+        downloadBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (typeof downloadImage === 'function') {
+                downloadImage(imageUrl, 'png');
+            } else {
+                window.open(imageUrl, '_blank');
+            }
+        });
+
+        downloadContainer.appendChild(downloadBtn);
+        overlay.appendChild(downloadContainer);
+
+        // Afficher l'image en grand au clic
+        card.addEventListener('click', () => {
+            createLightbox(imageUrl, variationNum + 1, groupData.prompt || 'Generated image');
+        });
+
+        card.appendChild(img);
+        card.appendChild(badge);
+        card.appendChild(overlay);
+        grid.appendChild(card);
+    }
+
+    // Assembler le conteneur
+    mainContainer.appendChild(header);
+    mainContainer.appendChild(grid);
+
+    // Ajouter le conteneur à la page
+    imageDiv.appendChild(mainContainer);
+
+    // Afficher la section de téléchargement
+    const downloadSection = document.getElementById('download-section');
+    if (downloadSection) {
+        downloadSection.style.display = 'block';
+    }
+
+    console.error('Display from history completed');
+}
+
 
 // Fonction pour ajouter l'élément à l'historique
 function addToHistory(groupData) {
@@ -1664,6 +1825,31 @@ document.getElementById('generate-image-form')?.addEventListener('submit', funct
     }, 5000);
 });
 
+
+const originalLoadHistory = window.loadHistory;
+window.loadHistory = async function(page = 1, append = false) {
+    // Appeler la fonction originale d'abord
+    if (typeof originalLoadHistory === 'function') {
+        await originalLoadHistory(page, append);
+    }
+
+    // Ajouter les items depuis localStorage
+    try {
+        // Chercher les clés Midjourney dans localStorage
+        for (let i = 0; i < localStorage.length; i++) {
+            const key = localStorage.key(i);
+            if (key && key.startsWith('midjourney_history_')) {
+                const data = JSON.parse(localStorage.getItem(key));
+                if (data && data.task_id) {
+                    // Ajouter à l'historique visuel
+                    addToHistoryView(data);
+                }
+            }
+        }
+    } catch (e) {
+        console.error('Error loading from localStorage:', e);
+    }
+};
 // Create lightbox for fullscreen image viewing
 function createLightbox(imageUrl, variationNumber, prompt) {
     // Create and style lightbox container
@@ -2534,6 +2720,203 @@ function showErrorOverlay(title, message) {
 
 
         document.addEventListener('DOMContentLoaded', function() {
+            // Ajout des styles améliorés pour Midjourney
+            const styleEl = document.createElement('style');
+            styleEl.textContent = `
+                /* Styles conteneur principal Midjourney */
+                .midjourney-enhanced-container {
+                    display: block !important;
+                    visibility: visible !important;
+                    width: 100% !important;
+                    min-height: 300px !important;
+                    margin: 20px auto !important;
+                    background-color: #18191d !important;
+                    border-radius: 12px !important;
+                    overflow: hidden !important;
+                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
+                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
+                }
+
+                /* Grille d'images */
+                .midjourney-image-grid {
+                    display: grid !important;
+                    grid-template-columns: repeat(2, 1fr) !important;
+                    gap: 10px !important;
+                    padding: 16px !important;
+                    min-height: 200px !important;
+                }
+
+                /* Carte d'image individuelle */
+                .midjourney-image-card {
+                    position: relative !important;
+                    border-radius: 10px !important;
+                    overflow: hidden !important;
+                    background-color: #22232a !important;
+                    aspect-ratio: 1 !important;
+                    min-height: 150px !important;
+                    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+                }
+
+                /* Effet de survol sur les cartes */
+                .midjourney-image-card:hover {
+                    transform: scale(1.02) !important;
+                    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3) !important;
+                }
+
+                /* Style des images */
+                .midjourney-image-card img {
+                    width: 100% !important;
+                    height: 100% !important;
+                    object-fit: cover !important;
+                    display: block !important;
+                    transition: transform 0.3s ease !important;
+                }
+
+                .midjourney-image-card:hover img {
+                    transform: scale(1.05) !important;
+                }
+
+                /* En-tête du conteneur */
+                .midjourney-header {
+                    padding: 16px 20px !important;
+                    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
+                    display: flex !important;
+                    justify-content: space-between !important;
+                    align-items: center !important;
+                }
+
+                /* Message de succès */
+                .success-message {
+                    position: fixed !important;
+                    top: 20px !important;
+                    right: 20px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    padding: 12px 16px !important;
+                    background-color: rgba(0, 200, 83, 0.9) !important;
+                    color: white !important;
+                    border-radius: 8px !important;
+                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
+                    z-index: 9999 !important;
+                    transition: opacity 0.5s ease, transform 0.5s ease !important;
+                    opacity: 0 !important;
+                    transform: translateY(-20px) !important;
+                }
+
+                .success-message.show {
+                    opacity: 1 !important;
+                    transform: translateY(0) !important;
+                }
+
+                .success-message svg {
+                    margin-right: 8px !important;
+                }
+
+                /* Style de l'historique */
+                #generated-image {
+                    min-height: 300px !important;
+                    display: block !important;
+                }
+
+                .fn__generation_list {
+                    display: flex !important;
+                    flex-wrap: wrap !important;
+                }
+
+                .fn__gl_item {
+                    display: block !important;
+                    width: calc(33.33% - 10px) !important;
+                    margin: 5px !important;
+                    min-height: 150px !important;
+                }
+
+                /* Badge de version */
+                .version-badge {
+                    position: absolute !important;
+                    bottom: 10px !important;
+                    left: 10px !important;
+                    background-color: rgba(0, 0, 0, 0.75) !important;
+                    color: #fff !important;
+                    padding: 4px 8px !important;
+                    border-radius: 4px !important;
+                    font-size: 12px !important;
+                    font-weight: 600 !important;
+                    z-index: 1 !important;
+                }
+
+                /* Overlay et boutons */
+                .image-overlay {
+                    position: absolute !important;
+                    top: 0 !important;
+                    left: 0 !important;
+                    width: 100% !important;
+                    height: 100% !important;
+                    background-color: rgba(0, 0, 0, 0) !important;
+                    transition: background-color 0.3s ease !important;
+                    display: flex !important;
+                    flex-direction: column !important;
+                    justify-content: flex-start !important;
+                    align-items: flex-end !important;
+                    padding: 10px !important;
+                    box-sizing: border-box !important;
+                    opacity: 0 !important;
+                    transition: opacity 0.3s ease !important;
+                }
+
+                .midjourney-image-card:hover .image-overlay {
+                    background-color: rgba(0, 0, 0, 0.2) !important;
+                    opacity: 1 !important;
+                }
+
+                .download-container {
+                    position: relative !important;
+                    z-index: 2 !important;
+                }
+
+                .download-button {
+                    background-color: rgba(0, 0, 0, 0.75) !important;
+                    border: none !important;
+                    border-radius: 4px !important;
+                    color: #fff !important;
+                    width: 32px !important;
+                    height: 32px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    cursor: pointer !important;
+                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
+                    transition: background-color 0.2s ease !important;
+                }
+
+                .download-button:hover {
+                    background-color: rgba(0, 0, 0, 0.9) !important;
+                }
+
+                /* Style du bouton de fermeture */
+                .midjourney-close-btn {
+                    width: 28px !important;
+                    height: 28px !important;
+                    border-radius: 50% !important;
+                    border: none !important;
+                    background-color: rgba(255, 255, 255, 0.1) !important;
+                    color: rgba(255, 255, 255, 0.7) !important;
+                    font-size: 18px !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    cursor: pointer !important;
+                    transition: all 0.2s ease !important;
+                    margin-left: 10px !important;
+                }
+
+                .midjourney-close-btn:hover {
+                    background-color: rgba(255, 255, 255, 0.2) !important;
+                    color: rgba(255, 255, 255, 0.9) !important;
+                }
+            `;
+            document.head.appendChild(styleEl);
+
             // Récupérer le token de l'URL actuelle
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
@@ -2558,6 +2941,7 @@ function showErrorOverlay(title, message) {
                 });
             }
 
+            // Gestionnaire d'événement pour les boutons de téléchargement
             document.addEventListener('click', function(event) {
                 const dropdownItem = event.target.closest('.dropdown-item');
                 if (dropdownItem) {
@@ -2577,7 +2961,7 @@ function showErrorOverlay(title, message) {
                 }
             });
 
-            // Intercepter fetch pour les  erreurs d'authentification
+            // Intercepter fetch pour les erreurs d'authentification
             fetch = (originalFetch => {
                 return async (...arguments) => {
                     try {
@@ -2596,6 +2980,66 @@ function showErrorOverlay(title, message) {
                 };
             })(fetch);
 
+            // Forcer le rechargement de l'historique après génération
+            document.getElementById('generate-image-form')?.addEventListener('submit', function() {
+                // Recharger l'historique après un court délai pour laisser le temps à la génération de terminer
+                setTimeout(() => {
+                    loadHistory(1, false);
+                }, 5000);
+            });
+
+            // Ajouter un observateur pour détecter les changements dans l'historique
+            const historyContainer = document.querySelector('.fn__generation_list.sidebar');
+            if (historyContainer) {
+                const observer = new MutationObserver(function(mutations) {
+                    mutations.forEach(function(mutation) {
+                        if (mutation.type === 'childList' && mutation.addedNodes.length) {
+                            // Mettre à jour les gestionnaires d'événements pour les éléments ajoutés
+                            mutation.addedNodes.forEach(function(node) {
+                                if (node.classList && node.classList.contains('fn__gl_item') && node.dataset.taskId) {
+                                    // Supprimer tous les événements existants
+                                    const clone = node.cloneNode(true);
+                                    node.parentNode.replaceChild(clone, node);
+
+                                    // Ajouter le bon gestionnaire d'événements
+                                    clone.addEventListener('click', function(e) {
+                                        e.stopPropagation();
+                                        const taskId = this.dataset.taskId;
+                                        if (taskId) {
+                                            handleHistoryClick(taskId);
+                                        }
+                                    });
+                                }
+                            });
+                        }
+                    });
+                });
+
+                observer.observe(historyContainer, { childList: true });
+            }
+
+            // Charger l'historique depuis localStorage
+            try {
+                // Chercher les clés Midjourney dans localStorage
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && key.startsWith('midjourney_history_')) {
+                        try {
+                            const data = JSON.parse(localStorage.getItem(key));
+                            if (data && data.task_id) {
+                                // Ajouter à l'historique visuel
+                                addToHistoryView(data);
+                            }
+                        } catch (e) {
+                            console.error('Error parsing localStorage item:', e);
+                        }
+                    }
+                }
+            } catch (e) {
+                console.error('Error loading from localStorage:', e);
+            }
+
+            // Charger l'historique depuis le serveur
             loadHistory(1, false);
         });
 </script>
