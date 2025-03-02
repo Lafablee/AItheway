@@ -1145,866 +1145,204 @@ function checkTwentyTwentyInterference() {
  * Fixed Midjourney Display Function
  * Simplified version that ensures images display correctly
  */
-// Version corrigée de displayMidjourneyGroup avec focus sur le problème d'affichage
 function displayMidjourneyGroup(groupData) {
-    console.error('Starting displayMidjourneyGroup with data:', groupData);
+    console.error('Starting enhanced displayMidjourneyGroup...');
 
-    // Get the main container
-    const imageDiv = document.getElementById('generated-image');
-    if (!imageDiv) {
-        console.error('Cannot find generated-image container');
-        return false;
-    }
-
-    // Clear the container
-    imageDiv.innerHTML = '';
-
-    // Get token for URLs
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-
-    // Create main container
-    const mainContainer = document.createElement('div');
-    mainContainer.className = 'midjourney-enhanced-container';
-    mainContainer.setAttribute('data-task-id', groupData.task_id || '');
-
-    // Set essential styles directly to avoid CSS conflicts
-    mainContainer.style.cssText = `
-        display: block !important;
-        visibility: visible !important;
-        width: 100% !important;
-        min-height: 300px !important;
-        margin: 20px auto !important;
-        background-color: #18191d !important;
-        border-radius: 12px !important;
-        overflow: hidden !important;
-        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
-        position: relative !important;
-    `;
-
-    // Header with prompt
-    const header = document.createElement('div');
-    header.className = 'midjourney-header';
-    header.style.cssText = `
-        padding: 16px 20px !important;
-        border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-        display: flex !important;
-        justify-content: space-between !important;
-        align-items: center !important;
-    `;
-
-    const promptDiv = document.createElement('div');
-    promptDiv.className = 'midjourney-prompt';
-    promptDiv.style.cssText = `
-        flex: 1 !important;
-        overflow: hidden !important;
-    `;
-
-    const promptHeading = document.createElement('h3');
-    promptHeading.textContent = groupData.prompt || 'Images générées';
-    promptHeading.style.cssText = `
-        font-size: 16px !important;
-        font-weight: 600 !important;
-        color: #ffffff !important;
-        margin: 0 0 4px 0 !important;
-        text-overflow: ellipsis !important;
-        overflow: hidden !important;
-        white-space: nowrap !important;
-    `;
-
-    const timestamp = document.createElement('div');
-    timestamp.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
-    timestamp.style.cssText = `
-        font-size: 12px !important;
-        color: rgba(255, 255, 255, 0.5) !important;
-    `;
-
-    promptDiv.appendChild(promptHeading);
-    promptDiv.appendChild(timestamp);
-
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '×';
-    closeBtn.className = 'midjourney-close-btn';
-    closeBtn.style.cssText = `
-        width: 28px !important;
-        height: 28px !important;
-        border-radius: 50% !important;
-        border: none !important;
-        background-color: rgba(255, 255, 255, 0.1) !important;
-        color: rgba(255, 255, 255, 0.7) !important;
-        font-size: 18px !important;
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        cursor: pointer !important;
-        margin-left: 10px !important;
-    `;
-
-    closeBtn.addEventListener('click', () => {
-        imageDiv.innerHTML = '';
-    });
-
-    header.appendChild(promptDiv);
-    header.appendChild(closeBtn);
-
-    // Image grid
-    const grid = document.createElement('div');
-    grid.className = 'midjourney-image-grid';
-    grid.style.cssText = `
-        display: grid !important;
-        grid-template-columns: repeat(2, 1fr) !important;
-        gap: 10px !important;
-        padding: 16px !important;
-        min-height: 200px !important;
-    `;
-
-    // Debug info element
-    const debugContainer = document.createElement('div');
-    debugContainer.style.cssText = `
-        padding: 6px 12px !important;
-        background-color: rgba(0, 0, 0, 0.5) !important;
-        color: #fff !important;
-        font-size: 10px !important;
-        text-align: center !important;
-    `;
-    debugContainer.textContent = `Processing ${groupData.images?.length || 0} images`;
-
-    // Process each image
-    let successfulImages = 0;
-    const images = groupData.images || [];
-
-    console.error(`Processing ${images.length} images`);
-
-    for (let i = 0; i < images.length; i++) {
-        let image = images[i];
-
-        // Ensure image is an object
-        if (typeof image === 'string') {
-            try {
-                image = JSON.parse(image);
-            } catch (e) {
-                console.error(`Failed to parse image ${i}:`, e);
-                continue;
-            }
-        }
-
-        if (!image || !image.url) {
-            console.error(`Missing URL for image ${i}:`, image);
-            continue;
-        }
-
-        // Variation number
-        const variationNum =
-            typeof image.variation_number === 'number' ? image.variation_number :
-            typeof image.choice === 'number' ? image.choice : i;
-
-        // Complete URL with token
-        let imageUrl = image.url;
-        if (token && !imageUrl.includes('token=')) {
-            imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-        }
-
-        console.error(`Processing image ${i}, URL: ${imageUrl}`);
-
-        // Image card
-        const card = document.createElement('div');
-        card.className = 'midjourney-image-card';
-        card.style.cssText = `
-            position: relative !important;
-            border-radius: 10px !important;
-            overflow: hidden !important;
-            background-color: #22232a !important;
-            aspect-ratio: 1 !important;
-            min-height: 150px !important;
-            cursor: pointer !important;
-            transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-        `;
-
-        // Image element
-        const img = document.createElement('img');
-        img.src = imageUrl;
-        img.alt = `Variation ${variationNum + 1}`;
-        img.style.cssText = `
-            width: 100% !important;
-            height: 100% !important;
-            object-fit: cover !important;
-            display: block !important;
-        `;
-
-        // Error handling
-        img.onload = () => {
-            console.error(`Image ${i} loaded successfully`);
-            successfulImages++;
-            debugContainer.textContent = `Loaded: ${successfulImages}/${images.length} images`;
-        };
-
-        img.onerror = () => {
-            console.error(`Image ${i} failed to load:`, imageUrl);
-            img.src = '/static/assets/img/placeholder.png';
-        };
-
-        // Variation badge
-        const badge = document.createElement('div');
-        badge.className = 'version-badge';
-        badge.textContent = `V${variationNum + 1}`;
-        badge.style.cssText = `
-            position: absolute !important;
-            bottom: 10px !important;
-            left: 10px !important;
-            background-color: rgba(0, 0, 0, 0.75) !important;
-            color: #fff !important;
-            padding: 4px 8px !important;
-            border-radius: 4px !important;
-            font-size: 12px !important;
-            font-weight: 600 !important;
-            z-index: 1 !important;
-        `;
-
-        // Image overlay with download button
-        const overlay = document.createElement('div');
-        overlay.className = 'image-overlay';
-        overlay.style.cssText = `
-            position: absolute !important;
-            top: 0 !important;
-            left: 0 !important;
-            width: 100% !important;
-            height: 100% !important;
-            background-color: rgba(0, 0, 0, 0) !important;
-            transition: background-color 0.3s ease !important;
-            display: flex !important;
-            flex-direction: column !important;
-            justify-content: flex-start !important;
-            align-items: flex-end !important;
-            padding: 10px !important;
-            box-sizing: border-box !important;
-            opacity: 0 !important;
-            transition: opacity 0.3s ease !important;
-        `;
-
-        // Download container
-        const downloadContainer = document.createElement('div');
-        downloadContainer.className = 'download-container';
-        downloadContainer.style.cssText = `
-            position: relative !important;
-            z-index: 2 !important;
-        `;
-
-        // Download button
-        const downloadBtn = document.createElement('button');
-        downloadBtn.className = 'download-button';
-        downloadBtn.innerHTML = '↓';
-        downloadBtn.title = 'Télécharger';
-        downloadBtn.style.cssText = `
-            background-color: rgba(0, 0, 0, 0.75) !important;
-            border: none !important;
-            border-radius: 4px !important;
-            color: #fff !important;
-            width: 32px !important;
-            height: 32px !important;
-            display: flex !important;
-            align-items: center !important;
-            justify-content: center !important;
-            cursor: pointer !important;
-            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
-        `;
-
-        // Download logic
-        downloadBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            if (typeof downloadImage === 'function') {
-                downloadImage(imageUrl, 'png');
-            } else {
-                window.open(imageUrl, '_blank');
-            }
-        });
-
-        downloadContainer.appendChild(downloadBtn);
-        overlay.appendChild(downloadContainer);
-
-        // Open lightbox on click
-        card.addEventListener('click', () => {
-            createLightbox(imageUrl, variationNum + 1, groupData.prompt || 'Generated image');
-        });
-
-        // Assemble card
-        card.appendChild(img);
-        card.appendChild(badge);
-        card.appendChild(overlay);
-        grid.appendChild(card);
-    }
-
-    // Assemble main container
-    mainContainer.appendChild(header);
-    mainContainer.appendChild(debugContainer);
-    mainContainer.appendChild(grid);
-
-    // Add success message
-    const successMsg = document.createElement('div');
-    successMsg.className = 'success-message';
-    successMsg.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>Images générées avec succès!';
-    successMsg.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 12px 16px;
-        background-color: rgba(0, 200, 83, 0.9);
-        color: white;
-        border-radius: 8px;
-        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-        z-index: 9999;
-        transition: opacity 0.5s ease, transform 0.5s ease;
-        opacity: 0;
-        transform: translateY(-20px);
-        display: flex;
-        align-items: center;
-    `;
-
-    // Add container to the page
-    imageDiv.appendChild(mainContainer);
-    document.body.appendChild(successMsg);
-
-    // Animate success message
-    setTimeout(() => {
-        successMsg.style.opacity = '1';
-        successMsg.style.transform = 'translateY(0)';
-
-        // Hide message after 5 seconds
-        setTimeout(() => {
-            successMsg.style.opacity = '0';
-            successMsg.style.transform = 'translateY(-20px)';
-
-            // Remove after animation
-            setTimeout(() => {
-                if (successMsg.parentNode) {
-                    successMsg.parentNode.removeChild(successMsg);
-                }
-            }, 500);
-        }, 5000);
-    }, 100);
-
-    // Show download section
-    const downloadSection = document.getElementById('download-section');
-    if (downloadSection) {
-        downloadSection.style.display = 'block';
-    }
-
-    // Force a reflow to ensure everything is visible
-    setTimeout(() => {
-        console.error('Forcing reflow to ensure visibility');
-        // Force a reflow
-        void mainContainer.offsetHeight;
-
-        // Check dimensions
-        const containerRect = mainContainer.getBoundingClientRect();
-        console.error('Container dimensions:', {
-            width: containerRect.width,
-            height: containerRect.height,
-            visible: containerRect.height > 0
-        });
-
-        // If still invisible, force minimum dimensions
-        if (containerRect.height < 10) {
-            mainContainer.style.minHeight = '500px !important';
-            console.error('Container was invisible, forcing min-height');
-        }
-    }, 300);
-
-    // Update generation button
-    const generateText = document.getElementById('generate-text');
-    if (generateText) {
-        generateText.textContent = 'Générer une nouvelle image';
-    }
-
-    console.error('Display function completed');
-
-    // Add to history (only if not already there)
-    addToHistory(groupData);
-
-    return true;
-}
-
-// Fonction pour ajouter à l'historique DOM
-function addToHistoryDOM(groupData) {
-    console.error('Adding to history DOM:', groupData);
-
-    const sidebar = document.querySelector('.fn__generation_list.sidebar');
-    if (!sidebar) {
-        console.error('History sidebar not found');
-        return false;
-    }
-
-    // Vérifier si l'élément existe déjà (pas de duplication)
-    const existingItem = document.querySelector(`.fn__gl_item[data-task-id="${groupData.task_id}"]`);
-    if (existingItem) {
-        console.error('Item already exists in history, not adding duplicate');
-        return false;
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-
-    // Créer un nouvel élément pour l'historique
-    const historyItem = document.createElement('li');
-    historyItem.className = 'fn__gl_item';
-    historyItem.dataset.taskId = groupData.task_id || '';
-    historyItem.style.cssText = `
-        display: block !important;
-        width: calc(50% - 10px) !important;
-        margin: 5px !important;
-        min-height: 150px !important;
-    `;
-
-    // Créer la miniature du groupe
-    let thumbnailsHtml = '';
-    const imagesToShow = (groupData.images || []).slice(0, 4);
-
-    if (!imagesToShow.length && groupData.initial_grid) {
-        // Utiliser l'image initiale si pas d'images
-        const gridUrl = groupData.initial_grid + (token ? `&token=${encodeURIComponent(token)}` : '');
-        thumbnailsHtml = `
-            <div style="width: 100%; height: 100%; padding: 1px; box-sizing: border-box;">
-                <img src="${gridUrl}"
-                     alt="Initial grid"
-                     style="width: 100%; height: 100%; object-fit: cover; display: block;">
-            </div>
-        `;
-    } else {
-        // Créer les miniatures pour chaque image
-        for (let i = 0; i < imagesToShow.length; i++) {
-            const img = imagesToShow[i];
-            // Assurer que l'URL de l'image est correctement formatée
-            let imageUrl = typeof img === 'string' ? img : (img.url || '');
-
-            if (!imageUrl && img.key) {
-                imageUrl = `/image/${img.key}`;
-            }
-
-            if (!imageUrl) {
-                console.error("Missing image URL for thumbnail:", img);
-                continue;
-            }
-
-            if (!imageUrl.includes('token=') && token) {
-                imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-            }
-
-            thumbnailsHtml += `
-                <div style="width: 50%; height: 50%; padding: 1px; box-sizing: border-box;">
-                    <img src="${imageUrl}"
-                         alt="V${i + 1}"
-                         style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                </div>
-            `;
-        }
-    }
-
-    // Définir le HTML de l'élément
-    historyItem.innerHTML = `
-        <div class="fn__gl__item">
-            <div class="abs_item">
-                <div style="position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
-                    <div style="display: flex; flex-wrap: wrap; width: 100%; height: 100%;">
-                        ${thumbnailsHtml}
-                    </div>
-                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7);
-                                color: white; padding: 4px; font-size: 10px; text-overflow: ellipsis;
-                                overflow: hidden; white-space: nowrap;">
-                        ${groupData.prompt || ''}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Gestionnaire d'événements pour l'ouverture du groupe
-    historyItem.addEventListener('click', function(e) {
-        // Empêcher la propagation pour éviter les duplications
-        e.stopPropagation();
-        e.preventDefault();
-
-        const taskId = this.dataset.taskId;
-        if (taskId) {
-            console.error("Clicked on history item with task_id:", taskId);
-            handleHistoryClick(taskId);
-        } else {
-            console.error("Missing task_id for this history item!");
-        }
-    });
-
-    // Ajouter au début de l'historique
-    if (sidebar.firstChild) {
-        sidebar.insertBefore(historyItem, sidebar.firstChild);
-    } else {
-        sidebar.appendChild(historyItem);
-    }
-
-    console.error('Added to history successfully');
-    return true;
-}
-
-
-// Fonction pour afficher un message de succès temporaire
-function showSuccessMessage(message, duration = 5000) {
-    // Supprimer tout message existant
-    const existingMsg = document.querySelector('.success-message');
-    if (existingMsg) {
-        existingMsg.remove();
-    }
-
-    // Créer le message
-    const successMsg = document.createElement('div');
-    successMsg.className = 'success-message';
-    successMsg.innerHTML = `
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
-            <polyline points="22 4 12 14.01 9 11.01"></polyline>
-        </svg>
-        ${message}
-    `;
-
-    // Ajouter au document
-    document.body.appendChild(successMsg);
-
-    // Afficher avec animation
-    setTimeout(() => {
-        successMsg.classList.add('show');
-    }, 10);
-
-    // Masquer après la durée spécifiée
-    setTimeout(() => {
-        successMsg.classList.remove('show');
-        setTimeout(() => {
-            successMsg.remove();
-        }, 500);
-    }, duration);
-}
-
-// Fonction pour sauvegarder les données dans l'historique
-function saveToHistory(groupData) {
-    console.error('Saving to history:', groupData);
-
-    if (!groupData || !groupData.task_id) {
-        console.error('Missing task_id in group data');
-        return;
-    }
-
-    // 1. Créer l'élément visuel dans l'historique (sans duplication)
-    addToHistoryView(groupData);
-
-    // 2. Sauvegarder du côté serveur pour la persistance
-    saveHistoryToServer(groupData);
-}
-
-// Fonction pour ajouter visuellement à l'historique (sans duplication)
-function addToHistoryView(groupData) {
-    const sidebar = document.querySelector('.fn__generation_list.sidebar');
-    if (!sidebar) {
-        console.error('History sidebar not found');
-        return;
-    }
-
-    // Vérifier si l'élément existe déjà (pas de duplication)
-    const existingItem = document.querySelector(`.fn__gl_item[data-task-id="${groupData.task_id}"]`);
-    if (existingItem) {
-        console.error('Item already exists in history, not adding duplicate');
-        return;
-    }
-
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-
-    // Créer un nouvel élément pour l'historique
-    const historyItem = document.createElement('li');
-    historyItem.className = 'fn__gl_item';
-    historyItem.dataset.taskId = groupData.task_id;
-
-    // Créer la miniature du groupe
-    let thumbnailsHtml = '';
-    const imagesToShow = (groupData.images || []).slice(0, 4);
-
-    if (!imagesToShow.length && groupData.initial_grid) {
-        // Utiliser l'image initiale
-        thumbnailsHtml = `
-            <div style="width: 100%; height: 100%; padding: 1px; box-sizing: border-box;">
-                <img src="${groupData.initial_grid}${token ? (groupData.initial_grid.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}` : ''}"
-                     alt="Initial grid"
-                     style="width: 100%; height: 100%; object-fit: cover; display: block;">
-            </div>
-        `;
-    } else {
-        // Créer les miniatures pour chaque image
-        imagesToShow.forEach((img, index) => {
-            // Assurer que l'URL de l'image est correctement formatée
-            let imageUrl = typeof img === 'string' ? img : (img.url || '');
-
-            if (!imageUrl && img.key) {
-                imageUrl = `/image/${img.key}`;
-            }
-
-            if (!imageUrl) {
-                return;
-            }
-
-            if (!imageUrl.includes('token=') && token) {
-                imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-            }
-
-            thumbnailsHtml += `
-                <div style="width: 50%; height: 50%; padding: 1px; box-sizing: border-box;">
-                    <img src="${imageUrl}"
-                         alt="V${index + 1}"
-                         style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                </div>
-            `;
-        });
-    }
-
-    // Définir le HTML de l'élément
-    historyItem.innerHTML = `
-        <div class="fn__gl__item">
-            <div class="abs_item">
-                <div style="position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
-                    <div style="display: flex; flex-wrap: wrap; width: 100%; height: 100%;">
-                        ${thumbnailsHtml}
-                    </div>
-                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7);
-                                color: white; padding: 4px; font-size: 10px; text-overflow: ellipsis;
-                                overflow: hidden; white-space: nowrap;">
-                        ${groupData.prompt || ''}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Gestionnaire d'événements pour l'ouverture du groupe
-    historyItem.addEventListener('click', function(e) {
-        // Empêcher la propagation pour éviter les duplications
-        e.stopPropagation();
-
-        const taskId = this.dataset.taskId;
-        if (taskId) {
-            console.error("Clicked on history item with task_id:", taskId);
-            // Appeler handleGroupClick sans créer de duplications
-            handleHistoryClick(taskId);
-        }
-    });
-
-    // Ajouter au début de l'historique
-    if (sidebar.firstChild) {
-        sidebar.insertBefore(historyItem, sidebar.firstChild);
-    } else {
-        sidebar.appendChild(historyItem);
-    }
-}
-
-// Version modifiée de handleGroupClick pour éviter les duplications
-function handleHistoryClick(taskId) {
-    console.error(`Handling history click for task ${taskId}`);
-    if (!taskId) {
-        console.error("No task ID provided");
-        return;
-    }
-
-    // Afficher un indicateur de chargement
-    const mainContainer = document.getElementById('generated-image');
-    if (mainContainer) {
-        mainContainer.innerHTML = `
-            <div style="display: flex; justify-content: center; align-items: center; min-height: 200px;">
-                <div style="text-align: center;">
-                    <div style="border: 3px solid #555; border-top: 3px solid #fff; border-radius: 50%;
-                                width: 30px; height: 30px; margin: 0 auto; animation: spin 1s linear infinite;"></div>
-                    <p style="margin-top: 15px; color: #333;">Chargement des images...</p>
-                </div>
-            </div>
-            <style>
-                @keyframes spin {
-                    0% { transform: rotate(0deg); }
-                    100% { transform: rotate(360deg); }
-                }
-            </style>
-        `;
-    }
-
-    // Récupérer le token pour l'authentification
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-
-    // Récupérer les données du groupe
-    fetch(`/check_midjourney_status/${taskId}?token=${encodeURIComponent(token)}`, {
-        headers: {
-            'X-Requested-With': 'XMLHttpRequest'
-        }
-    })
-    .then(response => {
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        return response.json();
-    })
-    .then(data => {
-        console.error("Got midjourney status data:", data);
-        if (data.success && data.data) {
-            // Appeler la fonction d'affichage avec les données du groupe
-            // Passer false pour indiquer de ne pas enregistrer à nouveau dans l'historique
-            const success = displayMidjourneyGroup(data.data);
-            console.error("Display function returned:", success);
-
-            // Mettre à jour le prompt
-            if (document.getElementById('prompt')) {
-                document.getElementById('prompt').value = data.data.prompt || '';
-            }
-
-            // Afficher la section de téléchargement
-            const downloadSection = document.getElementById('download-section');
-            if (downloadSection) {
-                downloadSection.style.display = 'block';
-            }
-        } else {
-            console.error("Failed to load midjourney group data");
-            if (mainContainer) {
-                mainContainer.innerHTML = `<p style="color: #ff6b6b; text-align: center; padding: 20px;">
-                    Impossible de charger les images. Veuillez réessayer.</p>`;
-            }
-        }
-    })
-    .catch(error => {
-        console.error("Error fetching group data:", error);
-        if (mainContainer) {
-            mainContainer.innerHTML = `<p style="color: #ff6b6b; text-align: center; padding: 20px;">
-                Erreur lors du chargement des images: ${error.message}</p>`;
-        }
-    });
-}
-
-// Version spécifique pour l'affichage depuis l'historique (évite les duplications)
-function displayMidjourneyGroupFromHistory(groupData) {
-    // Cette fonction est identique à displayMidjourneyGroup mais sans appel à saveToHistory
-    console.error('Displaying from history:', groupData);
-
-    // Vérification des données
+    // Make sure we have valid data
     if (!groupData || !Array.isArray(groupData.images) || groupData.images.length === 0) {
         console.error('Invalid or empty group data');
         return;
     }
 
-    // Récupérer le conteneur principal
+    // Get and reset the main container
     const imageDiv = document.getElementById('generated-image');
     if (!imageDiv) {
         console.error('Cannot find generated-image container');
+        alert('Error: Image container not found!');
         return;
     }
 
-    // Vider le conteneur
-    imageDiv.innerHTML = '';
+    // Force any containing elements to be visible
+    let parent = imageDiv;
+    for (let i = 0; i < 5; i++) { // Check up to 5 parent levels
+        if (!parent) break;
 
-    // Obtenir le token pour les URLs
+        parent.style.display = 'block';
+        parent.style.visibility = 'visible';
+        parent.style.opacity = '1';
+        parent.style.height = 'auto';
+        parent.style.overflow = 'visible';
+
+        parent = parent.parentElement;
+    }
+
+    // Reset the container with explicit styles
+    imageDiv.innerHTML = '';
+    imageDiv.style.display = 'block';
+    imageDiv.style.visibility = 'visible';
+    imageDiv.style.opacity = '1';
+    imageDiv.style.width = '100%';
+    imageDiv.style.minHeight = '400px';
+    imageDiv.style.backgroundColor = '#ffffff';
+    imageDiv.style.padding = '15px';
+    imageDiv.style.boxSizing = 'border-box';
+    imageDiv.style.border = '1px solid #e0e0e0';
+    imageDiv.style.borderRadius = '8px';
+    imageDiv.style.margin = '20px 0';
+    imageDiv.style.boxShadow = '0 4px 6px rgba(0, 0, 0, 0.1)';
+
+    // Create main container
+    const container = document.createElement('div');
+    container.style.width = '100%';
+    container.style.padding = '10px';
+    container.style.boxSizing = 'border-box';
+
+    // Add prompt section
+    const promptDiv = document.createElement('div');
+    promptDiv.style.marginBottom = '15px';
+    promptDiv.style.padding = '10px';
+    promptDiv.style.backgroundColor = '#f5f5f5';
+    promptDiv.style.borderRadius = '4px';
+
+    const promptText = document.createElement('h3');
+    promptText.textContent = groupData.prompt || 'No prompt available';
+    promptText.style.margin = '0 0 5px 0';
+    promptText.style.fontSize = '16px';
+    promptText.style.fontWeight = 'bold';
+
+    const timestampText = document.createElement('p');
+    timestampText.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
+    timestampText.style.margin = '0';
+    timestampText.style.fontSize = '12px';
+    timestampText.style.color = '#666';
+
+    promptDiv.appendChild(promptText);
+    promptDiv.appendChild(timestampText);
+    container.appendChild(promptDiv);
+
+    // Create grid with pure inline styles
+    const grid = document.createElement('div');
+    grid.style.display = 'grid';
+    grid.style.gridTemplateColumns = 'repeat(2, 1fr)';
+    grid.style.gap = '15px';
+    grid.style.padding = '0';
+    grid.style.width = '100%';
+    grid.style.boxSizing = 'border-box';
+
+    // Get token for URLs
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
 
-    // Créer le conteneur principal
-    const mainContainer = document.createElement('div');
-    mainContainer.className = 'midjourney-enhanced-container';
+    console.error(`Processing ${groupData.images.length} images`);
 
-    // En-tête avec le prompt
-    const header = document.createElement('div');
-    header.className = 'midjourney-header';
+    // Create image elements with maximum visibility
+    groupData.images.forEach((imageData, index) => {
+        let image = imageData;
 
-    const promptDiv = document.createElement('div');
-    promptDiv.className = 'midjourney-prompt';
-
-    const promptHeading = document.createElement('h3');
-    promptHeading.textContent = groupData.prompt || 'Images générées';
-    promptHeading.style.cssText = 'font-size: 16px !important; font-weight: 600 !important; color: #ffffff !important; margin: 0 0 4px 0 !important; text-overflow: ellipsis !important; overflow: hidden !important; white-space: nowrap !important;';
-
-    const timestamp = document.createElement('div');
-    timestamp.textContent = new Date(groupData.timestamp || Date.now()).toLocaleString();
-    timestamp.style.cssText = 'font-size: 12px !important; color: rgba(255, 255, 255, 0.5) !important;';
-
-    promptDiv.appendChild(promptHeading);
-    promptDiv.appendChild(timestamp);
-
-    const closeBtn = document.createElement('button');
-    closeBtn.innerHTML = '×';
-    closeBtn.className = 'midjourney-close-btn';
-
-    closeBtn.addEventListener('click', () => {
-        imageDiv.innerHTML = '';
-    });
-
-    header.appendChild(promptDiv);
-    header.appendChild(closeBtn);
-
-    // Grille d'images
-    const grid = document.createElement('div');
-    grid.className = 'midjourney-image-grid';
-
-    // Traiter chaque image
-    for (let i = 0; i < groupData.images.length; i++) {
-        let image = groupData.images[i];
-
-        // Si l'image est une chaîne, la parser
-        if (typeof image === 'string') {
+        // Parse image if it's a string
+        if (typeof imageData === 'string') {
             try {
-                image = JSON.parse(image);
+                image = JSON.parse(imageData);
             } catch (e) {
-                console.error(`Failed to parse image ${i}:`, e);
-                continue;
+                console.error(`Failed to parse image ${index}:`, e);
+                return;
             }
         }
 
+        // Skip invalid images
         if (!image || !image.url) {
-            console.error(`Missing URL for image ${i}`);
-            continue;
+            console.error('Missing URL for image:', image);
+            return;
         }
 
-        // Variation/numéro de l'image
+        // Get variation number
         const variationNum =
             typeof image.variation_number === 'number' ? image.variation_number :
-            typeof image.choice === 'number' ? image.choice : i;
+            typeof image.choice === 'number' ? image.choice :
+            index;
 
-        // URL complète avec token
-        let imageUrl = image.url;
-        if (token && !imageUrl.includes('token=')) {
-            imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-        }
+        // Ensure URL has token
+        const imageUrl = image.url.includes('token=') ? image.url :
+            `${image.url}${image.url.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
 
-        // Carte d'image
-        const card = document.createElement('div');
-        card.className = 'midjourney-image-card';
+        console.error(`Creating image ${index} with URL:`, imageUrl);
 
-        // Image
-        const img = document.createElement('img');
-        img.src = imageUrl;
-        img.alt = `Variation ${variationNum + 1}`;
+        // Create container with explicit styles for maximum visibility
+        const imageContainer = document.createElement('div');
+        imageContainer.style.position = 'relative';
+        imageContainer.style.backgroundColor = '#f0f0f0';
+        imageContainer.style.border = '1px solid #ddd';
+        imageContainer.style.borderRadius = '8px';
+        imageContainer.style.overflow = 'hidden';
+        imageContainer.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+        imageContainer.style.transition = 'transform 0.2s';
+        imageContainer.style.cursor = 'pointer';
 
-        // Gestion des erreurs
-        img.onload = () => console.error(`Image ${i} loaded successfully`);
-        img.onerror = () => {
-            console.error(`Image ${i} failed to load:`, imageUrl);
-            img.src = '/static/assets/img/placeholder.png';
+        // Create image element with explicit styles
+        const imgElement = document.createElement('img');
+        imgElement.src = imageUrl;
+        imgElement.alt = `Variation ${variationNum + 1}`;
+        imgElement.style.width = '100%';
+        imgElement.style.height = 'auto';
+        imgElement.style.display = 'block';
+        imgElement.style.minHeight = '150px';
+        imgElement.style.backgroundColor = '#eee';
+
+        // Add load and error handlers with visual feedback
+        imgElement.onload = () => {
+            console.error(`Image ${index} loaded successfully`);
+            imageContainer.style.backgroundColor = '#fff';
+            // Add a subtle border to show it's loaded
+            imageContainer.style.border = '1px solid #ccc';
         };
 
-        // Badge de variation
-        const badge = document.createElement('div');
-        badge.className = 'version-badge';
-        badge.textContent = `V${variationNum + 1}`;
+        imgElement.onerror = () => {
+            console.error(`Image ${index} failed to load`);
+            imgElement.src = '/static/assets/img/placeholder.png';
+            imageContainer.style.backgroundColor = '#ffeeee';
+            imageContainer.style.border = '1px solid #ffcccc';
+        };
 
-        // Overlay pour les actions
-        const overlay = document.createElement('div');
-        overlay.className = 'image-overlay';
+        // Add variation number label
+        const variationLabel = document.createElement('div');
+        variationLabel.textContent = `V${variationNum + 1}`;
+        variationLabel.style.position = 'absolute';
+        variationLabel.style.bottom = '8px';
+        variationLabel.style.left = '8px';
+        variationLabel.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        variationLabel.style.color = 'white';
+        variationLabel.style.padding = '4px 8px';
+        variationLabel.style.borderRadius = '4px';
+        variationLabel.style.fontSize = '12px';
 
-        // Bouton de téléchargement
-        const downloadContainer = document.createElement('div');
-        downloadContainer.className = 'download-container';
-
+        // Add download button (optional)
         const downloadBtn = document.createElement('button');
-        downloadBtn.className = 'download-button';
-        downloadBtn.innerHTML = '↓';
-        downloadBtn.title = 'Télécharger';
+        downloadBtn.textContent = 'Download';
+        downloadBtn.style.position = 'absolute';
+        downloadBtn.style.top = '8px';
+        downloadBtn.style.right = '8px';
+        downloadBtn.style.backgroundColor = 'rgba(0,0,0,0.7)';
+        downloadBtn.style.color = 'white';
+        downloadBtn.style.border = 'none';
+        downloadBtn.style.padding = '4px 8px';
+        downloadBtn.style.borderRadius = '4px';
+        downloadBtn.style.fontSize = '12px';
+        downloadBtn.style.cursor = 'pointer';
+        downloadBtn.style.opacity = '0';
+        downloadBtn.style.transition = 'opacity 0.2s';
 
+        // Show download button on hover
+        imageContainer.addEventListener('mouseenter', () => {
+            downloadBtn.style.opacity = '1';
+        });
+
+        imageContainer.addEventListener('mouseleave', () => {
+            downloadBtn.style.opacity = '0';
+        });
+
+        // Add download functionality
         downloadBtn.addEventListener('click', (e) => {
-            e.stopPropagation();
+            e.stopPropagation(); // Prevent opening the large view
             if (typeof downloadImage === 'function') {
                 downloadImage(imageUrl, 'png');
             } else {
@@ -2012,185 +1350,148 @@ function displayMidjourneyGroupFromHistory(groupData) {
             }
         });
 
-        downloadContainer.appendChild(downloadBtn);
-        overlay.appendChild(downloadContainer);
+        // Add click for large image view
+        imageContainer.addEventListener('click', () => {
+            // Create a modal for viewing the full image
+            const modal = document.createElement('div');
+            modal.style.position = 'fixed';
+            modal.style.top = '0';
+            modal.style.left = '0';
+            modal.style.width = '100%';
+            modal.style.height = '100%';
+            modal.style.backgroundColor = 'rgba(0,0,0,0.9)';
+            modal.style.display = 'flex';
+            modal.style.alignItems = 'center';
+            modal.style.justifyContent = 'center';
+            modal.style.zIndex = '9999';
 
-        // Afficher l'image en grand au clic
-        card.addEventListener('click', () => {
-            createLightbox(imageUrl, variationNum + 1, groupData.prompt || 'Generated image');
+            const modalImg = document.createElement('img');
+            modalImg.src = imageUrl;
+            modalImg.style.maxWidth = '90%';
+            modalImg.style.maxHeight = '90%';
+            modalImg.style.objectFit = 'contain';
+            modalImg.style.border = '2px solid white';
+
+            const closeBtn = document.createElement('button');
+            closeBtn.textContent = '×';
+            closeBtn.style.position = 'absolute';
+            closeBtn.style.top = '20px';
+            closeBtn.style.right = '20px';
+            closeBtn.style.backgroundColor = 'transparent';
+            closeBtn.style.color = 'white';
+            closeBtn.style.border = 'none';
+            closeBtn.style.fontSize = '30px';
+            closeBtn.style.cursor = 'pointer';
+
+            closeBtn.addEventListener('click', () => {
+                document.body.removeChild(modal);
+            });
+
+            modal.addEventListener('click', (e) => {
+                if (e.target === modal) {
+                    document.body.removeChild(modal);
+                }
+            });
+
+            modal.appendChild(modalImg);
+            modal.appendChild(closeBtn);
+            document.body.appendChild(modal);
         });
 
-        card.appendChild(img);
-        card.appendChild(badge);
-        card.appendChild(overlay);
-        grid.appendChild(card);
-    }
+        // Assemble components
+        imageContainer.appendChild(imgElement);
+        imageContainer.appendChild(variationLabel);
+        imageContainer.appendChild(downloadBtn);
+        grid.appendChild(imageContainer);
+    });
 
-    // Assembler le conteneur
-    mainContainer.appendChild(header);
-    mainContainer.appendChild(grid);
+    // Add grid to container
+    container.appendChild(grid);
 
-    // Ajouter le conteneur à la page
-    imageDiv.appendChild(mainContainer);
+    // Add container to page
+    imageDiv.appendChild(container);
 
-    // Afficher la section de téléchargement
+    // Show download section if it exists
     const downloadSection = document.getElementById('download-section');
     if (downloadSection) {
         downloadSection.style.display = 'block';
     }
 
-    console.error('Display from history completed');
-}
-
-
-// Fonction pour ajouter l'élément à l'historique
-function addToHistory(groupData) {
-    console.error('Adding to history:', groupData);
-
-    if (!groupData || !groupData.task_id) {
-        console.error('Invalid or missing task_id in group data');
-        return false;
+    // Update text
+    const generateText = document.getElementById('generate-text');
+    if (generateText) {
+        generateText.textContent = 'Générer une nouvelle image';
     }
 
-    const sidebar = document.querySelector('.fn__generation_list.sidebar');
-    if (!sidebar) {
-        console.error('History sidebar not found');
-        return;
-    }
+    // Add status message at the bottom
+    const statusDiv = document.createElement('div');
+    statusDiv.style.marginTop = '15px';
+    statusDiv.style.padding = '10px';
+    statusDiv.style.backgroundColor = '#e6f7e6';
+    statusDiv.style.borderRadius = '4px';
+    statusDiv.style.textAlign = 'center';
+    statusDiv.textContent = 'Images générées avec succès!';
+    container.appendChild(statusDiv);
 
-    // Vérifier si l'élément existe déjà
-    const existingItem = document.querySelector(`.fn__gl_item[data-task-id="${groupData.task_id}"]`);
-    if (existingItem) {
-        console.error('Item already exists in history, not adding duplicate');
-        return false;
-    }
+    console.error('Display complete, checking final state...');
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-
-    // Créer un nouvel élément pour l'historique
-    const historyItem = document.createElement('li');
-    historyItem.className = 'fn__gl_item';
-
-    // Stocker le task_id pour pouvoir retrouver cet élément
-    historyItem.dataset.taskId = groupData.task_id || '';
-
-    // Créer la miniature du groupe
-    let thumbnailsHtml = '';
-
-    // Limiter à 4 images maximum et vérifier que chaque image a une URL
-    const imagesToShow = (groupData.images || []).slice(0, 4);
-
-    // Si pas d'images ou groupe vide, utiliser l'image initiale
-    if (!imagesToShow.length && groupData.initial_grid) {
-        thumbnailsHtml = `
-            <div style="width: 100%; height: 100%; padding: 1px; box-sizing: border-box;">
-                <img src="${groupData.initial_grid}${token ? (groupData.initial_grid.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}` : ''}"
-                     alt="Initial grid"
-                     style="width: 100%; height: 100%; object-fit: cover; display: block;">
-            </div>
-        `;
-    } else {
-        // Créer les miniatures pour chaque image
-        imagesToShow.forEach((img, index) => {
-            // Assurer que l'URL de l'image est correctement formatée
-            let imageUrl = typeof img === 'string' ? img : (img.url || '');
-
-            if (!imageUrl && img.key) {
-                imageUrl = `/image/${img.key}`;
-            }
-
-            if (!imageUrl) {
-                console.error("Missing image URL for thumbnail:", img);
-                return;
-            }
-
-            if (!imageUrl.includes('token=') && token) {
-                imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
-            }
-
-            thumbnailsHtml += `
-                <div style="width: 50%; height: 50%; padding: 1px; box-sizing: border-box;">
-                    <img src="${imageUrl}"
-                         alt="V${index + 1}"
-                         style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                </div>
-            `;
-        });
-    }
-
-    // Définir le HTML de l'élément
-    historyItem.innerHTML = `
-        <div class="fn__gl__item">
-            <div class="abs_item">
-                <div style="position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
-                    <div style="display: flex; flex-wrap: wrap; width: 100%; height: 100%;">
-                        ${thumbnailsHtml}
-                    </div>
-                    <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7);
-                                color: white; padding: 4px; font-size: 10px; text-overflow: ellipsis;
-                                overflow: hidden; white-space: nowrap;">
-                        ${groupData.prompt || ''}
-                    </div>
-                </div>
-            </div>
-        </div>
-    `;
-
-    // Gestionnaire d'événements pour l'ouverture du groupe
-    historyItem.addEventListener('click', () => {
-        const taskId = historyItem.dataset.taskId;
-        if (taskId) {
-            console.error("Clicked on history item with task_id:", taskId);
-            handleGroupClick(taskId);
-        } else {
-            console.error("Missing task_id for this history item!");
-        }
-    });
-
-    // Ajouter au début de l'historique
-    if (sidebar.firstChild) {
-        sidebar.insertBefore(historyItem, sidebar.firstChild);
-    } else {
-        sidebar.appendChild(historyItem);
-    }
-
-    console.error('Added to history successfully');
-}
-
-// Forcer le rechargement de l'historique après génération
-document.getElementById('generate-image-form')?.addEventListener('submit', function() {
-    // Recharger l'historique après un court délai pour laisser le temps à la génération de terminer
+    // Final visibility check
     setTimeout(() => {
-        loadHistory(1, false);
-    }, 5000);
-});
+        const allImgs = imageDiv.querySelectorAll('img');
+        console.error(`Final check: Found ${allImgs.length} images in DOM`);
 
+        // Force main containers to be visible again (in case something changed)
+        imageDiv.style.display = 'block';
+        imageDiv.style.visibility = 'visible';
 
-const originalLoadHistory = window.loadHistory;
-window.loadHistory = async function(page = 1, append = false) {
-    // Appeler la fonction originale d'abord
-    if (typeof originalLoadHistory === 'function') {
-        await originalLoadHistory(page, append);
-    }
+        if (allImgs.length > 0) {
+            const firstImg = allImgs[0];
+            const rect = firstImg.getBoundingClientRect();
+            console.error('First image rect:', {
+                width: rect.width,
+                height: rect.height,
+                top: rect.top,
+                left: rect.left,
+                visible: rect.width > 0 && rect.height > 0
+            });
 
-    // Ajouter les items depuis localStorage
-    try {
-        // Chercher les clés Midjourney dans localStorage
-        for (let i = 0; i < localStorage.length; i++) {
-            const key = localStorage.key(i);
-            if (key && key.startsWith('midjourney_history_')) {
-                const data = JSON.parse(localStorage.getItem(key));
-                if (data && data.task_id) {
-                    // Ajouter à l'historique visuel
-                    addToHistoryView(data);
-                }
+            // If image has no size, try to force it
+            if (rect.width === 0 || rect.height === 0) {
+                console.error('Attempting to force image visibility...');
+                firstImg.style.minWidth = '200px';
+                firstImg.style.minHeight = '200px';
+                firstImg.style.border = '2px solid red';
             }
         }
-    } catch (e) {
-        console.error('Error loading from localStorage:', e);
-    }
-};
+
+        // Try to ensure any parent container is visible
+        let currentElement = imageDiv;
+        while (currentElement && currentElement !== document.body) {
+            if (currentElement.style) {
+                currentElement.style.display = currentElement.style.display === 'none' ? 'block' : currentElement.style.display;
+                currentElement.style.visibility = 'visible';
+                currentElement.style.opacity = '1';
+            }
+            currentElement = currentElement.parentElement;
+        }
+
+        // Update history if that function exists
+        if (typeof loadHistory === 'function') {
+            loadHistory(1, false);
+        }
+    }, 500);
+}
+// Helper function for image downloads if not already defined
+if (typeof downloadImage !== 'function') {
+    window.downloadImage = function(url, format) {
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `image.${format}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+}
 // Create lightbox for fullscreen image viewing
 function createLightbox(imageUrl, variationNumber, prompt) {
     // Create and style lightbox container
@@ -2702,55 +2003,27 @@ function showErrorOverlay(title, message) {
     }
 
     function createHistoryItem(item, delay=0) {
-        console.error("Creating history item:", item);
+            console.error("creating history with item:", item)
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            const fullImageUrl = `${item.url}?token=${encodeURIComponent(token)}`;
+            const listItem = document.createElement('li');
+            listItem.className = 'fn__gl_item';
 
-        if (!item) return null;
+            if (item.model === 'midjourney' && item.images && item.images.length > 0) {
+                // Créer un aperçu du groupe Midjourney
 
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+                listItem.dataset.taskId = item.task_id || '';
 
-        const listItem = document.createElement('li');
-        listItem.className = 'fn__gl_item';
+                let thumbnailsHtml = '';
 
-        if (item.model === 'midjourney' && item.images && item.images.length > 0) {
-            // S'assurer que task_id est correctement défini
-            listItem.dataset.taskId = item.task_id || '';
-
-            if (!item.task_id) {
-                console.error("WARNING: Missing task_id for Midjourney item:", item);
-            }
-
-            let thumbnailsHtml = '';
-
-            // Limiter à 4 images maximum
-            const imagesToShow = item.images.slice(0, 4);
-            // Handle case with no images but initial grid
-            if (!imagesToShow.length && item.initial_grid) {
-                const gridUrl = item.initial_grid + (token ? (item.initial_grid.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}` : '');
-                thumbnailsHtml = `
-                    <div style="width: 100%; height: 100%; padding: 1px; box-sizing: border-box;">
-                        <img src="${gridUrl}"
-                             alt="Initial grid"
-                             style="width: 100%; height: 100%; object-fit: cover; display: block;">
-                    </div>
-                `;
-            } else {
-                // Create thumbnails for each image
+                const imagesToShow = item.images.slice(0, 4);
                 imagesToShow.forEach((img, index) => {
-                    // Ensure proper image URL format
-                    let imageUrl = typeof img === 'string' ? img : img.url;
-
-                    // Try to get URL from key if needed
-                    if (!imageUrl && img.key) {
+                   // Ensure image URL is properly formatted
+                    let imageUrl = img.url;
+                    if (!imageUrl.startsWith('http') && !imageUrl.startsWith('/')) {
                         imageUrl = `/image/${img.key}`;
                     }
-
-                    if (!imageUrl) {
-                        console.error("Missing image URL for thumbnail:", img);
-                        return;
-                    }
-
-                    // Add token if needed
                     if (!imageUrl.includes('token=') && token) {
                         imageUrl += (imageUrl.includes('?') ? '&' : '?') + `token=${encodeURIComponent(token)}`;
                     }
@@ -2763,55 +2036,36 @@ function showErrorOverlay(title, message) {
                         </div>
                     `;
                 });
-            }
-            listItem.innerHTML = `
-                <div class="fn__gl__item">
-                    <div class="abs_item">
-                        <div style="position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
-                            <div style="display: flex; flex-wrap: wrap; width: 100%; height: 100%;">
-                                ${thumbnailsHtml}
-                            </div>
-                            <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7);
-                                        color: white; padding: 4px; font-size: 10px; text-overflow: ellipsis;
-                                        overflow: hidden; white-space: nowrap;">
-                                ${item.prompt || ''}
+
+                listItem.innerHTML = `
+                    <div class="fn__gl__item">
+                        <div class="abs_item">
+                            <div style="position: relative; width: 100%; height: 100%; border-radius: 8px; overflow: hidden;">
+                                <div style="display: flex; flex-wrap: wrap; width: 100%; height: 100%;">
+                                    ${thumbnailsHtml}
+                                </div>
+                                <div style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7);
+                                            color: white; padding: 4px; font-size: 10px; text-overflow: ellipsis;
+                                            overflow: hidden; white-space: nowrap;">
+                                    ${item.prompt || ''}
+                                </div>
                             </div>
                         </div>
                     </div>
-                </div>
-            `;
+                `;
 
-            // Gestionnaire d'événements pour l'ouverture du groupe
-            // Important : utiliser une fonction fléchée pour conserver le contexte
-            listItem.addEventListener('click', (e) => {
-                e.preventDefault();
-                e.stopPropagation();
 
-                const taskId = listItem.dataset.taskId;
-                console.error("Clicked on history item with task_id:", taskId);
-                if (taskId) {
-                    handleHistoryClick(taskId);
-                } else {
-                    console.error("Missing task_id for this history item!");
-                }
-            });
+                // Gestionnaire d'événements pour l'ouverture du groupe
+                listItem.addEventListener('click', () => {
+                    handleGroupClick(item.taskId);
+                });
+
             } else {
-            let imageUrl = item.url || '';
-            if (!imageUrl.startsWith('/') && item.key) {
-                imageUrl = `/image/${item.key}`;
-            }
-
-            // Add token if needed
-            const fullImageUrl = imageUrl.includes('token=') ? imageUrl :
-                `${imageUrl}${imageUrl.includes('?') ? '&' : '?'}token=${encodeURIComponent(token)}`;
-
                 listItem.innerHTML = `
                 <div class="fn__gl__item">
                     <div class="abs_item">
                         <img src="${fullImageUrl}" alt="Generated image" loading="lazy">
-                        <div class="prompt"style="position: absolute; bottom: 0; left: 0; right: 0; background: rgba(0,0,0,0.7); color: white; padding: 4px; font-size: 10px; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
-                            ${item.prompt || ''}
-                        </div>
+                        <div class="prompt">${item.prompt}</div>
                         <div class="timestamp">${new Date(item.timestamp).toLocaleString()}</div>
                         <!-- Ajout du bouton de téléchargement similaire à celui des nouvelles images -->
                         <div class="all_options">
@@ -2848,19 +2102,14 @@ function showErrorOverlay(title, message) {
             });
 
             const img = listItem.querySelector('img');
-            if (img) {
-                img.addEventListener('click', () => {
-                    const mainImageContainer = document.getElementById('generated-image');
-                    const downloadSection = document.getElementById('download-section');
-                    if (mainImageContainer && downloadSection) {
-                        mainImageContainer.innerHTML = `<img src="${fullImageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
-                        document.getElementById('prompt').value = item.prompt;
-                        downloadSection.style.display = 'block';
-                        generatedImageUrl = fullImageUrl;
-                    }
-                });
-            }
-
+            img.addEventListener('click', () => {
+                const mainImageContainer = document.getElementById('generated-image');
+                const downloadSection = document.getElementById('download-section');
+                mainImageContainer.innerHTML = `<img src="${fullImageUrl}" class="img-fluid mt-3" alt="Generated Image">`;
+                document.getElementById('prompt').value = item.prompt;
+                downloadSection.style.display = 'block';
+                generatedImageUrl = fullImageUrl;
+            });
 
              // Ajouter le délai d'animation
             listItem.style.animationDelay = `${delay}ms`;
@@ -2949,13 +2198,8 @@ function showErrorOverlay(title, message) {
             const historyLoader = document.getElementById('historyLoader');
             const historyContent = document.querySelector('.generation_history .fn__generation_list.sidebar');
 
-            if (!historyContent) {
-                console.error("History container not found!");
-                return;
-            }
-
             isLoading = true;
-            if (historyLoader) historyLoader.classList.remove('d-none');
+            historyLoader.classList.remove('d-none');
 
             try {
                 const urlParams = new URLSearchParams(window.location.search);
@@ -2964,9 +2208,6 @@ function showErrorOverlay(title, message) {
                 // Utiliser l'endpoint approprié pour votre historique
                 const endpoint = '/api/chat/history/generated';
                 const url = `${endpoint}?page=${page}&token=${encodeURIComponent(token)}`;
-
-                console.error(`Fetching from URL: ${url}`);
-
 
                 const response = await fetch(url, {
                     headers: {
@@ -3000,31 +2241,15 @@ function showErrorOverlay(title, message) {
                             url: item.url,
                             imageUrl: item.image_url, // Au cas où l'URL serait sous un nom différent
                             prompt: item.prompt,
-                            timestamp: item.timestamp,
-                            model: item.model,
-                            task_id: item.task_id
+                            timestamp: item.timestamp
                         });
                        // Normaliser les données selon le modèle
                         const normalizedItem = {
                             url: item.url || item.image_url,
                             prompt: item.prompt,
                             timestamp: item.timestamp,
-                            model: item.model || currentModel, // Utiliser le modèle courant si non spécifié
-                            images: item.images,
-                            task_id: item.task_id
+                            model: item.model || currentModel // Utiliser le modèle courant si non spécifié
                         };
-
-                        if (normalizedItem.model === 'midjourney' && !normalizedItem.task_id) {
-                            console.error('Missing task_id for Midjourney item, trying to extract form item:', item);
-                            if (item.parameters && typeof item.parameters === 'string') {
-                                try {
-                                    const params = JSON.parse(item.parameters);
-                                    normalizedItem.task_id = params.task_id;
-                                } catch (e) {
-                                    console.error('Failed to parse parameters JSON');
-                                }
-                            }
-                        }
 
                         // Vérifier que nous avons une URL valide
                         if (!normalizedItem.url) {
@@ -3034,9 +2259,7 @@ function showErrorOverlay(title, message) {
 
                         const delay = index * 100;
                         const historyItem = createHistoryItem(normalizedItem, delay);
-                            if (historyItem) {
                         historyContent.appendChild(historyItem);
-                    }
                     });
 
                     hasMore = data.data?.pagination?.has_more || false;
@@ -3049,18 +2272,8 @@ function showErrorOverlay(title, message) {
                             loadMoreBtn.id = 'loadMoreBtn';
                             loadMoreBtn.className = 'load-more';
                             loadMoreBtn.textContent = 'Charger plus';
-                            loadMoreBtn.style.cssText = `
-                                display: block;
-                                margin: 10px auto;
-                                padding: 8px 16px;
-                                background-color: #2a2b31;
-                                color: #fff;
-                                border: none;
-                                border-radius: 4px;
-                                cursor: pointer;
-                            `;
                             loadMoreBtn.onclick = () => loadHistory(currentPage + 1, true);
-                            historyContent.parentNode.appendChild(loadMoreBtn);
+                            historyContent.after(loadMoreBtn);
                         }
                     } else {
                         const loadMoreBtn = document.getElementById('loadMoreBtn');
@@ -3080,7 +2293,7 @@ function showErrorOverlay(title, message) {
                 }
             } finally {
                 isLoading = false;
-                if (historyLoader) historyLoader.classList.add('d-none');
+                historyLoader.classList.add('d-none');
             }
         }
         async function validateImageUrl(imageUrl, token) {
@@ -3103,203 +2316,6 @@ function showErrorOverlay(title, message) {
 
 
         document.addEventListener('DOMContentLoaded', function() {
-            // Ajout des styles améliorés pour Midjourney
-            const styleEl = document.createElement('style');
-            styleEl.textContent = `
-                /* Styles conteneur principal Midjourney */
-                .midjourney-enhanced-container {
-                    display: block !important;
-                    visibility: visible !important;
-                    width: 100% !important;
-                    min-height: 300px !important;
-                    margin: 20px auto !important;
-                    background-color: #18191d !important;
-                    border-radius: 12px !important;
-                    overflow: hidden !important;
-                    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2) !important;
-                    font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif !important;
-                }
-
-                /* Grille d'images */
-                .midjourney-image-grid {
-                    display: grid !important;
-                    grid-template-columns: repeat(2, 1fr) !important;
-                    gap: 10px !important;
-                    padding: 16px !important;
-                    min-height: 200px !important;
-                }
-
-                /* Carte d'image individuelle */
-                .midjourney-image-card {
-                    position: relative !important;
-                    border-radius: 10px !important;
-                    overflow: hidden !important;
-                    background-color: #22232a !important;
-                    aspect-ratio: 1 !important;
-                    min-height: 150px !important;
-                    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
-                }
-
-                /* Effet de survol sur les cartes */
-                .midjourney-image-card:hover {
-                    transform: scale(1.02) !important;
-                    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3) !important;
-                }
-
-                /* Style des images */
-                .midjourney-image-card img {
-                    width: 100% !important;
-                    height: 100% !important;
-                    object-fit: cover !important;
-                    display: block !important;
-                    transition: transform 0.3s ease !important;
-                }
-
-                .midjourney-image-card:hover img {
-                    transform: scale(1.05) !important;
-                }
-
-                /* En-tête du conteneur */
-                .midjourney-header {
-                    padding: 16px 20px !important;
-                    border-bottom: 1px solid rgba(255, 255, 255, 0.1) !important;
-                    display: flex !important;
-                    justify-content: space-between !important;
-                    align-items: center !important;
-                }
-
-                /* Message de succès */
-                .success-message {
-                    position: fixed !important;
-                    top: 20px !important;
-                    right: 20px !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    padding: 12px 16px !important;
-                    background-color: rgba(0, 200, 83, 0.9) !important;
-                    color: white !important;
-                    border-radius: 8px !important;
-                    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2) !important;
-                    z-index: 9999 !important;
-                    transition: opacity 0.5s ease, transform 0.5s ease !important;
-                    opacity: 0 !important;
-                    transform: translateY(-20px) !important;
-                }
-
-                .success-message.show {
-                    opacity: 1 !important;
-                    transform: translateY(0) !important;
-                }
-
-                .success-message svg {
-                    margin-right: 8px !important;
-                }
-
-                /* Style de l'historique */
-                #generated-image {
-                    min-height: 300px !important;
-                    display: block !important;
-                }
-
-                .fn__generation_list {
-                    display: flex !important;
-                    flex-wrap: wrap !important;
-                }
-
-                .fn__gl_item {
-                    display: block !important;
-                    width: calc(33.33% - 10px) !important;
-                    margin: 5px !important;
-                    min-height: 150px !important;
-                }
-
-                /* Badge de version */
-                .version-badge {
-                    position: absolute !important;
-                    bottom: 10px !important;
-                    left: 10px !important;
-                    background-color: rgba(0, 0, 0, 0.75) !important;
-                    color: #fff !important;
-                    padding: 4px 8px !important;
-                    border-radius: 4px !important;
-                    font-size: 12px !important;
-                    font-weight: 600 !important;
-                    z-index: 1 !important;
-                }
-
-                /* Overlay et boutons */
-                .image-overlay {
-                    position: absolute !important;
-                    top: 0 !important;
-                    left: 0 !important;
-                    width: 100% !important;
-                    height: 100% !important;
-                    background-color: rgba(0, 0, 0, 0) !important;
-                    transition: background-color 0.3s ease !important;
-                    display: flex !important;
-                    flex-direction: column !important;
-                    justify-content: flex-start !important;
-                    align-items: flex-end !important;
-                    padding: 10px !important;
-                    box-sizing: border-box !important;
-                    opacity: 0 !important;
-                    transition: opacity 0.3s ease !important;
-                }
-
-                .midjourney-image-card:hover .image-overlay {
-                    background-color: rgba(0, 0, 0, 0.2) !important;
-                    opacity: 1 !important;
-                }
-
-                .download-container {
-                    position: relative !important;
-                    z-index: 2 !important;
-                }
-
-                .download-button {
-                    background-color: rgba(0, 0, 0, 0.75) !important;
-                    border: none !important;
-                    border-radius: 4px !important;
-                    color: #fff !important;
-                    width: 32px !important;
-                    height: 32px !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    cursor: pointer !important;
-                    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3) !important;
-                    transition: background-color 0.2s ease !important;
-                }
-
-                .download-button:hover {
-                    background-color: rgba(0, 0, 0, 0.9) !important;
-                }
-
-                /* Style du bouton de fermeture */
-                .midjourney-close-btn {
-                    width: 28px !important;
-                    height: 28px !important;
-                    border-radius: 50% !important;
-                    border: none !important;
-                    background-color: rgba(255, 255, 255, 0.1) !important;
-                    color: rgba(255, 255, 255, 0.7) !important;
-                    font-size: 18px !important;
-                    display: flex !important;
-                    align-items: center !important;
-                    justify-content: center !important;
-                    cursor: pointer !important;
-                    transition: all 0.2s ease !important;
-                    margin-left: 10px !important;
-                }
-
-                .midjourney-close-btn:hover {
-                    background-color: rgba(255, 255, 255, 0.2) !important;
-                    color: rgba(255, 255, 255, 0.9) !important;
-                }
-            `;
-            document.head.appendChild(styleEl);
-
             // Récupérer le token de l'URL actuelle
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
@@ -3324,7 +2340,6 @@ function showErrorOverlay(title, message) {
                 });
             }
 
-            // Gestionnaire d'événement pour les boutons de téléchargement
             document.addEventListener('click', function(event) {
                 const dropdownItem = event.target.closest('.dropdown-item');
                 if (dropdownItem) {
@@ -3344,7 +2359,7 @@ function showErrorOverlay(title, message) {
                 }
             });
 
-            // Intercepter fetch pour les erreurs d'authentification
+            // Intercepter fetch pour les  erreurs d'authentification
             fetch = (originalFetch => {
                 return async (...arguments) => {
                     try {
@@ -3363,66 +2378,6 @@ function showErrorOverlay(title, message) {
                 };
             })(fetch);
 
-            // Forcer le rechargement de l'historique après génération
-            document.getElementById('generate-image-form')?.addEventListener('submit', function() {
-                // Recharger l'historique après un court délai pour laisser le temps à la génération de terminer
-                setTimeout(() => {
-                    loadHistory(1, false);
-                }, 5000);
-            });
-
-            // Ajouter un observateur pour détecter les changements dans l'historique
-            const historyContainer = document.querySelector('.fn__generation_list.sidebar');
-            if (historyContainer) {
-                const observer = new MutationObserver(function(mutations) {
-                    mutations.forEach(function(mutation) {
-                        if (mutation.type === 'childList' && mutation.addedNodes.length) {
-                            // Mettre à jour les gestionnaires d'événements pour les éléments ajoutés
-                            mutation.addedNodes.forEach(function(node) {
-                                if (node.classList && node.classList.contains('fn__gl_item') && node.dataset.taskId) {
-                                    // Supprimer tous les événements existants
-                                    const clone = node.cloneNode(true);
-                                    node.parentNode.replaceChild(clone, node);
-
-                                    // Ajouter le bon gestionnaire d'événements
-                                    clone.addEventListener('click', function(e) {
-                                        e.stopPropagation();
-                                        const taskId = this.dataset.taskId;
-                                        if (taskId) {
-                                            handleHistoryClick(taskId);
-                                        }
-                                    });
-                                }
-                            });
-                        }
-                    });
-                });
-
-                observer.observe(historyContainer, { childList: true });
-            }
-
-            // Charger l'historique depuis localStorage
-            try {
-                // Chercher les clés Midjourney dans localStorage
-                for (let i = 0; i < localStorage.length; i++) {
-                    const key = localStorage.key(i);
-                    if (key && key.startsWith('midjourney_history_')) {
-                        try {
-                            const data = JSON.parse(localStorage.getItem(key));
-                            if (data && data.task_id) {
-                                // Ajouter à l'historique visuel
-                                addToHistoryView(data);
-                            }
-                        } catch (e) {
-                            console.error('Error parsing localStorage item:', e);
-                        }
-                    }
-                }
-            } catch (e) {
-                console.error('Error loading from localStorage:', e);
-            }
-
-            // Charger l'historique depuis le serveur
             loadHistory(1, false);
         });
 </script>
@@ -3431,3 +2386,4 @@ function showErrorOverlay(title, message) {
 
 
 {% endblock %}
+
