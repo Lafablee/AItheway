@@ -1491,6 +1491,40 @@ def sync_membership(wp_user_id_from_token):
         return jsonify({"error": str(e)}), 500
 
 
+@app.route('/api/user/tokens/initialize', methods=['POST'])
+@token_required
+def initialize_user_tokens_endpoint(wp_user_id):
+    try:
+        data = request.get_json()
+
+        # Vérifier si wp_user_id correspond au token
+        if str(wp_user_id) != str(data.get('wp_user_id')):
+            return jsonify({"error": "User ID mismatch"}), 403
+
+        subscription_level = data.get('subscription_level')
+
+        # Initialiser les tokens
+        tokens = initialize_user_tokens(wp_user_id, subscription_level)
+
+        if tokens is not None:
+            return jsonify({
+                "success": True,
+                "tokens_allocated": tokens,
+                "message": "Tokens initialized successfully"
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Failed to initialize tokens"
+            }), 500
+
+    except Exception as e:
+        app.logger.error(f"Error in token initialization: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": "An unexpected error occurred"
+        }), 500
+
 @app.route('/api/user/tokens', methods=['GET'])
 @token_required
 def get_user_tokens_endpoint(wp_user_id):
