@@ -381,6 +381,30 @@
         background: #3b82f6;
         transition: width 0.3s ease;
     }
+    @keyframes tokenChange {
+        0% { transform: scale(1); }
+        50% { transform: scale(1.2); color: #00c853; }
+        100% { transform: scale(1); }
+    }
+
+    .token-change {
+        animation: tokenChange 0.5s ease-in-out;
+    }
+
+    .tokens-info {
+        margin-right: 10px;
+        color: rgba(255, 255, 255, 0.7);
+        font-size: 14px;
+    }
+
+    .tokens-count {
+        font-weight: bold;
+        color: #fff;
+    }
+
+    .error-message {
+        transition: all 0.3s ease;
+    }
 </style>
 <div class="neltar_fn_page">
 
@@ -394,7 +418,10 @@
                 <div class="header_top">
                     <h1 class="title">Image Generation</h1>
                     <div class="setup">
-                        <p class="info">This wil use <span class="count">4</span> tokens</p>
+                        <p class="info">This wil use <span class="token-cost" data-model="dall-e">20</span> tokens</p>
+                        <div class="token-info">
+                            <p class="tokens-remaining">Remaining: <span class="tokens-count">{{ tokens_remaining if tokens_remaining is defined else '--' }}</span></p>
+                        </div>
                         <a href="#" class="sidebar__trigger">
                             <img src="{{ url_for('static', filename='assets/svg/option.svg') }}" alt="" class="fn__svg">
                         </a>
@@ -402,6 +429,10 @@
                 </div>
                 <div class="header_bottom">
                     <form id="generate-image-form">
+                        <div id="token-error" class="error-message" style="display: none; color: #ff6b6b; padding: 10px; margin-top: 10px; background-color: rgba(255, 107, 107, 0.1); border-radius: 4px; text-align: center;">
+                            Vous n'avez pas assez de tokens pour cette opération.
+                            <a href="/pricing.html" style="color: #3273dc; text-decoration: underline;">Mettez à niveau votre abonnement</a> pour obtenir plus de tokens.
+                        </div>
 
                     <div class="include_area">
                         <textarea  id="prompt" placeholder="Entrez une description" required rows="1"></textarea>
@@ -681,6 +712,13 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
                  }, 3000);
                  return;
             }
+            // Vérifier si nous avons une erreur de tokens insuffisants
+            if (result.error === "Insufficient tokens") {
+                document.getElementById('token-error').style.display = 'block';
+                updateLoadingState('default');
+                return;
+            }
+
             if (result.success) {
                 if (currentModel === 'midjourney' && result.status === 'processing') {
                     console.error('Starting Midjourney processing with task_id:', result.task_id);
@@ -693,6 +731,10 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
                     // Cas DALL-E ou réponse immédiate
                     console.error('Displaying generated image:', result.image_url);
                     displayGeneratedImage(result.image_url);
+
+                    if (result.tokens_remaining !== undefined) {
+                        updateTokensDisplay(result.tokens_remaining);
+                    }
                 }
             } else {
                 showErrorOverlay('Erreur', result.error || 'Une erreur est survenue');
@@ -910,6 +952,47 @@ function displayGeneratedImage(imageUrl, isGroup = false) {
     };
     newImage.src = fullImageUrl;
 }
+
+// Fonction pour mettre à jour l'affichage des tokens
+function updateTokensDisplay(tokensRemaining) {
+    const tokenCountElements = document.querySelectorAll('.tokens-count, .fn__token_info .count');
+    tokenCountElements.forEach(element => {
+        if (element) {
+            element.textContent = tokensRemaining;
+            // Ajouter une animation de changement
+            element.classList.add('token-change');
+            setTimeout(() => element.classList.remove('token-change'), 500);
+        }
+    });
+
+    // Déclencher un événement personnalisé pour informer d'autres composants
+    document.dispatchEvent(new CustomEvent('tokenUpdate', {
+        detail: { tokensRemaining }
+    }));
+}
+
+// Mettre à jour le coût affiché en fonction du modèle sélectionné
+function updateTokenCost() {
+    const tokenCostElement = document.querySelector('.token-cost');
+    if (tokenCostElement) {
+        const costs = {
+            'dall-e': 20,
+            'midjourney': 30
+        };
+        tokenCostElement.textContent = costs[currentModel] || 20;
+    }
+}
+
+// Ajouter un écouteur pour les changements de modèle
+document.querySelectorAll('.all_models a').forEach(modelLink => {
+    modelLink.addEventListener('click', function() {
+        // Le code existant reste inchangé
+
+        // Ajouter cette ligne pour mettre à jour le coût affiché
+        updateTokenCost();
+    });
+});
+
 
 function calculatePollingDelay(prompt) {
     if (!prompt || typeof prompt !== 'string') {
@@ -2319,6 +2402,8 @@ function showErrorOverlay(title, message) {
             // Récupérer le token de l'URL actuelle
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
+
+            updateTokenCost();
 
             if (token) {
                 // Modifier tous les liens de navigation pour inclure le token

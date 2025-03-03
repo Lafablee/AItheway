@@ -831,6 +831,206 @@ def get_paginated_history(wp_user_id, history_type):
             'error': f'Failed to fetch {history_type} history'
         }, 500
 
+
+def initialize_user_tokens(wp_user_id, subscription_level=None):
+    """
+    Initialiser ou réinitialiser les tokens d'un utilisateur
+    """
+    try:
+        conn = psycopg2.connect(
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+        )
+        cursor = conn.cursor()
+
+        # Vérifier si l'utilisateur existe déjà dans la table user_tokens
+        cursor.execute("SELECT id FROM user_tokens WHERE wp_user_id = %s", (wp_user_id,))
+        user_exists = cursor.fetchone()
+
+        # Déterminer le nombre de tokens en fonction du niveau d'abonnement
+        tokens = get_tokens_for_subscription(subscription_level)
+        now = datetime.now()
+        next_refill = now + timedelta(days=3)  # Tous les 3 jours pour utilisateurs gratuits
+
+        if user_exists:
+            # Mise à jour des tokens existants
+            cursor.execute("""
+                UPDATE user_tokens 
+                SET tokens_remaining = %s, 
+                    last_refill = %s,
+                    next_refill = %s
+                WHERE wp_user_id = %s
+            """, (tokens, now, next_refill, wp_user_id))
+        else:
+            # Création d'une nouvelle entrée
+            cursor.execute("""
+                INSERT INTO user_tokens (wp_user_id, tokens_remaining, last_refill, next_refill)
+                VALUES (%s, %s, %s, %s)
+            """, (wp_user_id, tokens, now, next_refill))
+
+        conn.commit()
+        app.logger.info(f"Tokens initialized for user {wp_user_id}: {tokens} tokens")
+        return tokens
+
+    except Exception as e:
+        app.logger.error(f"Error initializing tokens: {str(e)}")
+        conn.rollback()
+        return None
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def get_tokens_for_subscription(subscription_level):
+    """
+    Définir le nombre de tokens en fonction du niveau d'abonnement
+    """
+    token_mapping = {
+        "basic": 150,  # Utilisateurs gratuits
+        "premium": 500,  # Niveau premium
+        "pro": 1500,  # Niveau pro
+        None: 150  # Valeur par défaut pour nouveaux utilisateurs
+    }
+
+    # Si le niveau d'abonnement est numérique (identifiant WordPress)
+    if isinstance(subscription_level, str) and subscription_level.isdigit():
+        subscription_level = int(subscription_level)
+
+    # Mapping des IDs d'abonnement WordPress vers nos niveaux internes
+    subscription_id_mapping = {
+        28974: "basic",  # WordPress Free Test Plan ID
+    }
+
+    if subscription_level in subscription_id_mapping:
+        mapped_level = subscription_id_mapping[subscription_level]
+    else:
+        mapped_level = subscription_level
+
+    return token_mapping.get(mapped_level, 150)  # 150 par défaut
+
+
+def get_user_tokens(wp_user_id):
+    """
+    Récupérer le nombre de tokens restants pour un utilisateur
+    """
+    try:
+        conn = psycopg2.connect(
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+        )
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT tokens_remaining, next_refill
+            FROM user_tokens
+            WHERE wp_user_id = %s
+        """, (wp_user_id,))
+
+        result = cursor.fetchone()
+
+        if result:
+            tokens_remaining, next_refill = result
+
+            # Vérifier si un rechargement est nécessaire
+            now = datetime.now()
+            if next_refill and next_refill <= now:
+                # Recharger les tokens
+                client = get_client_by_wp_user_id(wp_user_id)
+                subscription_level = client.get("subscription_level") if client else None
+                tokens_remaining = initialize_user_tokens(wp_user_id, subscription_level)
+
+            return tokens_remaining
+
+        # Si l'utilisateur n'existe pas, initialiser ses tokens
+        tokens = initialize_user_tokens(wp_user_id)
+        return tokens
+
+    except Exception as e:
+        app.logger.error(f"Error getting user tokens: {str(e)}")
+        return 0
+    finally:
+        cursor.close()
+        conn.close()
+
+
+def use_tokens(wp_user_id, amount):
+    """
+    Utiliser des tokens pour une opération
+    Retourne True si les tokens ont été consommés avec succès, False sinon
+    """
+    try:
+        # Vérifier si l'utilisateur a assez de tokens
+        tokens_remaining = get_user_tokens(wp_user_id)
+
+        if tokens_remaining < amount:
+            app.logger.warning(f"User {wp_user_id} has insufficient tokens: {tokens_remaining} < {amount}")
+            return False
+
+        # Diminuer les tokens
+        conn = psycopg2.connect(
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+        )
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE user_tokens
+            SET tokens_remaining = tokens_remaining - %s
+            WHERE wp_user_id = %s
+        """, (amount, wp_user_id))
+
+        conn.commit()
+        app.logger.info(f"User {wp_user_id} used {amount} tokens. Remaining: {tokens_remaining - amount}")
+        return True
+
+    except Exception as e:
+        app.logger.error(f"Error using tokens: {str(e)}")
+        if 'conn' in locals():
+            conn.rollback()
+        return False
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
+
+
+def refund_tokens(wp_user_id, amount):
+    """
+    Rembourser des tokens en cas d'échec de l'opération
+    """
+    try:
+        conn = psycopg2.connect(
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+        )
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            UPDATE user_tokens
+            SET tokens_remaining = tokens_remaining + %s
+            WHERE wp_user_id = %s
+        """, (amount, wp_user_id))
+
+        conn.commit()
+        app.logger.info(f"Refunded {amount} tokens to user {wp_user_id}")
+    except Exception as e:
+        app.logger.error(f"Error refunding tokens: {str(e)}")
+        if 'conn' in locals():
+            conn.rollback()
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
 def get_client_by_wp_user_id(wp_user_id):
     app.logger.error(f"Attempting to get client with wp_user_id: {wp_user_id}")
     conn = psycopg2.connect(
@@ -1184,8 +1384,9 @@ def validate_image_format(img_format):
 
 
 @app.route('/')
-def index():
-    return render_template('index.html')
+def index(wp_user_id):
+    tokens_remaining = get_user_tokens(wp_user_id)
+    return render_template('index.html', tokens_remaining=tokens_remaining)
 
 @app.route('/refresh-token')
 def refresh_token():
@@ -1266,6 +1467,9 @@ def sync_membership(wp_user_id_from_token):
                 expiration_date=expiration_date,
             )
 
+        # Initialiser ou mettre à jour les tokens de l'utilisateur en fonction de son abonnement
+        initialize_user_tokens(wp_user_id, data['subscription_level'])
+
             # Attribue les permissions en fonction du niveau d'abonnement
         if data['status'] == 'active':
             app.logger.info(f"Revoking old permissions for client_id: {client_id}")
@@ -1285,6 +1489,64 @@ def sync_membership(wp_user_id_from_token):
     except Exception as e:
         app.logger.error(f"Unexpected error: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/user/tokens', methods=['GET'])
+@token_required
+def get_user_tokens_endpoint(wp_user_id):
+    """
+    Endpoint API pour récupérer les informations sur les tokens d'un utilisateur
+    """
+    try:
+        tokens_remaining = get_user_tokens(wp_user_id)
+
+        # Récupérer les informations de rechargement
+        conn = psycopg2.connect(
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+        )
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT next_refill FROM user_tokens WHERE wp_user_id = %s
+        """, (wp_user_id,))
+
+        result = cursor.fetchone()
+        next_refill = result[0] if result else None
+
+        # Informations sur les coûts des différentes opérations
+        token_costs = {
+            "dall-e": 20,
+            "midjourney": 30,
+            "enhance-image": 15
+        }
+
+        client = get_client_by_wp_user_id(wp_user_id)
+        subscription_level = client.get("subscription_level") if client else "basic"
+
+        return jsonify({
+            "success": True,
+            "data": {
+                "tokens_remaining": tokens_remaining,
+                "next_refill": next_refill.isoformat() if next_refill else None,
+                "subscription_level": subscription_level,
+                "token_costs": token_costs
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error getting token information: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": "Failed to retrieve token information"
+        }), 500
+    finally:
+        if 'cursor' in locals():
+            cursor.close()
+        if 'conn' in locals():
+            conn.close()
 
 
 @app.route('/generate_image', methods=['GET', 'POST'])
@@ -1320,6 +1582,8 @@ def generate_image(wp_user_id):
         # GET request - show form
         if request.method == 'GET':
             app.logger.error("Returning template...")
+            #récupère le nombre de tokens restants
+            tokens_required = get_user_tokens(wp_user_id)
             history = image_manager.get_user_history(wp_user_id, "generated")
             return render_template('generate-image.html', history=history, LOGIN_URL=LOGIN_URL)
 
@@ -1331,6 +1595,16 @@ def generate_image(wp_user_id):
 
             if not prompt:
                 return jsonify({"message": "Create what inspires you!"}), 400
+
+            # Déterminer le coût en tokens selon le modèle
+            token_cost = 20 if model == 'dall-e' else 30  # 30 tokens pour midjourney
+
+            # Vérifier si l'utilisateur a suffisamment de tokens
+            if not use_tokens(wp_user_id, token_cost):
+                return jsonify({
+                    "error": "Insufficient tokens",
+                    "message": "You don't have enough tokens for this operation."
+                }), 403
 
             try:
                 # Utiliser le gestionnaire de modèles
@@ -1392,16 +1666,21 @@ def generate_image(wp_user_id):
                                 'image_url': f"/image/{image_key}"
                             })
                         else:
+                            refund_tokens(wp_user_id, token_cost)
                             return jsonify({'error': 'Failed to download image'}), 500
                 else:
+                    refund_tokens(wp_user_id, token_cost)
                     return jsonify({'error': result.get('error', 'Failed to generate image')}), 500
 
             except openai.OpenAIError as e:
+                #en cas d'erreur rembourser le client
+                refund_tokens(wp_user_id, token_cost)
                 error_message = str(e)
                 if "billing_hard_limit_reached" in error_message:
                     error_message = "Billing limit reached. Please check your OpenAI account."
                 return jsonify({'error': error_message}), 500
             except requests.RequestException as e:
+                refund_tokens(wp_user_id, token_cost)
                 app.logger.error(f"Request error: {str(e)}")
                 return jsonify({'error': 'Failed to connect to image service'}), 500
 

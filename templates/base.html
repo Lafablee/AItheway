@@ -69,13 +69,13 @@
 			<div class="header__left">
 				<div class="fn__token_info">
 					<span class="token_summary">
-						<span class="count">120</span>
+						<span class="count">{{ tokens_remaining if tokens_remaining is defined else '--' }}</span>
 						<span class="text">Tokens<br>Remain</span>
 					</span>
 					<a href="pricing.html" class="token_upgrade neltar_fn_button"><span>Upgrade</span></a>
 					<div class="token__popup">
-						Resets in <span>19 hours.</span><br>
-						Daily limit is <span>200 tokens</span>
+						Resets in <span>--</span><br>
+						Daily limit is <span>--</span>
 					</div>
 				</div>
 			</div>
@@ -250,34 +250,157 @@
 		<div class="neltar_fn_content">
 
         <script>
-            document.addEventListener('DOMContentLoaded', function() {
-            // Récupérer le token de l'URL actuelle
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-
-            if (token) {
-                // Modifier TOUS les liens de navigation
-                document.querySelectorAll('a').forEach(link => {
-                    // Ne pas modifier les liens externes
-                    if (link.href.startsWith(window.location.origin)) {
-                        const url = new URL(link.href);
-                        // Préserver les autres paramètres d'URL existants
-                        url.searchParams.set('token', token);
-                        link.href = url.toString();
-                    }
-                });
-
-                // Modifier tous les formulaires pour inclure le token
-                document.querySelectorAll('form').forEach(form => {
-                    const input = document.createElement('input');
-                    input.type = 'hidden';
-                    input.name = 'token';
-                    input.value = token;
-                    form.appendChild(input);
-                });
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialiser le thème et le panneau
+            if (!localStorage.frenify_skin) {
+                localStorage.frenify_skin = 'dark';
             }
+            if (!localStorage.frenify_panel) {
+                localStorage.frenify_panel = '';
+            }
+            document.documentElement.setAttribute("data-neltar-skin", localStorage.frenify_skin);
+            if (localStorage.frenify_panel !== '') {
+                document.documentElement.classList.add(localStorage.frenify_panel);
+            }
+
+            // Fonction pour récupérer et actualiser le nombre de tokens
+            function updateTokenDisplay() {
+                // Récupérer le token JWT depuis la variable globale
+                const jwtToken = window.jwtToken;
+
+                if (!jwtToken) {
+                    console.log("Aucun JWT token trouvé");
+                    return;
+                }
+
+                // Récupérer le token d'URL comme fallback si besoin
+                const urlParams = new URLSearchParams(window.location.search);
+                const urlToken = urlParams.get('token');
+                const tokenToUse = jwtToken || urlToken;
+
+                if (!tokenToUse) {
+                    console.log("Aucun token trouvé");
+                    return;
+                }
+
+                // Appeler l'API pour obtenir les tokens
+                fetch('/api/user/tokens?token=' + encodeURIComponent(tokenToUse))
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            // Mettre à jour l'affichage des tokens
+                            const tokenCount = document.querySelector('.fn__token_info .count');
+                            if (tokenCount) {
+                                tokenCount.textContent = data.data.tokens_remaining;
+                            }
+
+                            // Mettre à jour le popup de info tokens (rechargement)
+                            const tokenPopup = document.querySelector('.token__popup');
+                            if (tokenPopup && data.data.next_refill) {
+                                const nextRefill = new Date(data.data.next_refill);
+                                const now = new Date();
+
+                                // Calculer le temps restant
+                                const diffInHours = Math.round((nextRefill - now) / (1000 * 60 * 60));
+
+                                tokenPopup.innerHTML = `
+                                    Resets in <span>${diffInHours} hours.</span><br>
+                                    Daily limit is <span>${getTokenLimit(data.data.subscription_level)} tokens</span>
+                                `;
+                            }
+                        } else {
+                            console.log("Erreur lors de la récupération des tokens:", data.error);
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error fetching token data:', error);
+                    });
+            }
+
+            // Fonction pour déterminer la limite de tokens selon l'abonnement
+            function getTokenLimit(subscriptionLevel) {
+                const limits = {
+                    "basic": 150,
+                    "premium": 500,
+                    "pro": 1500
+                };
+
+                return limits[subscriptionLevel] || 150;
+            }
+
+            // Propager le token dans les liens et formulaires
+            function propagateToken() {
+                // Récupérer le token de l'URL actuelle
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+
+                if (token) {
+                    // Modifier TOUS les liens de navigation
+                    document.querySelectorAll('a').forEach(link => {
+                        // Ne pas modifier les liens externes
+                        if (link.href.startsWith(window.location.origin)) {
+                            const url = new URL(link.href);
+                            // Préserver les autres paramètres d'URL existants
+                            url.searchParams.set('token', token);
+                            link.href = url.toString();
+                        }
+                    });
+
+                    // Modifier tous les formulaires pour inclure le token
+                    document.querySelectorAll('form').forEach(form => {
+                        // Vérifier si un champ token existe déjà
+                        const existingInput = form.querySelector('input[name="token"]');
+                        if (!existingInput) {
+                            const input = document.createElement('input');
+                            input.type = 'hidden';
+                            input.name = 'token';
+                            input.value = token;
+                            form.appendChild(input);
+                        }
+                    });
+                }
+            }
+
+            // Ajouter des événements personnalisés pour la génération d'images
+            function setupImageEvents() {
+                // Pour la génération d'image DALL-E
+                const generateForm = document.getElementById('image-generation-form');
+                if (generateForm) {
+                    generateForm.addEventListener('submit', function() {
+                        // Le formulaire va se soumettre normalement, mais on crée un événement
+                        // que updateTokenDisplay écoutera après la réponse
+                        setTimeout(function() {
+                            const event = new CustomEvent('imageGenerated');
+                            document.dispatchEvent(event);
+                        }, 1000);
+                    });
+                }
+
+                // Pour l'amélioration d'image
+                const enhanceForm = document.getElementById('image-enhance-form');
+                if (enhanceForm) {
+                    enhanceForm.addEventListener('submit', function() {
+                        setTimeout(function() {
+                            const event = new CustomEvent('imageEnhanced');
+                            document.dispatchEvent(event);
+                        }, 1000);
+                    });
+                }
+            }
+
+            // Exécuter toutes nos fonctions d'initialisation
+            updateTokenDisplay();
+            propagateToken();
+            setupImageEvents();
+
+            // Actualiser les tokens toutes les minutes
+            setInterval(updateTokenDisplay, 60000);
+
+            // Écouter les événements de génération/amélioration d'image
+            document.addEventListener('imageGenerated', updateTokenDisplay);
+            document.addEventListener('imageEnhanced', updateTokenDisplay);
         });
-        </script>
+    </script>
 
         {% block content %}{% endblock %}
 
