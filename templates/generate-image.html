@@ -757,110 +757,106 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
         console.error('Current Model:', currentModel);
         console.error('Prompt:', promptInput.value);
 
-        const existingError = document.getElementById('token-error');
-        if (existingError) {
-            existingError.style.display = 'none';
-        }
-
         // Get the token from URL
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
+
+        if (!token) {
+        showErrorOverlay('Erreur', 'Session invalide. Veuillez vous reconnecter.');
+        setTimeout(() => {
+            window.location.href = LOGIN_URL;
+        }, 2000);
+        return;
+    }
 
         promptInput.disabled = true;
         spinner.style.display = 'inline-block';
         generateText.style.display = 'none';
         downloadSection.style.display = 'none';
 
+        // Suppression de tout message d'erreur précédent
+        const existingError = document.querySelector('.token-error-box');
+        if (existingError) {
+            existingError.remove();
+        }
+
         try {
             updateLoadingState('loading');
-
-            // Créer un objet pour la requête
+            // Construction de la requête
             const requestOptions = {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: `prompt=${encodeURIComponent(promptInput.value)}&model=${encodeURIComponent(currentModel)}`
+                body: `prompt=${encodeURIComponent(promptText)}&model=${encodeURIComponent(currentModel)}`
             };
 
-            // Faire la requête
+            console.log('Sending request with options:', requestOptions);
+
+            // Envoi de la requête au backend
             const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, requestOptions);
 
-            // Important: NE PAS essayer de lire le corps de la réponse avant de vérifier le statut
-            if (!response.ok) {
-                // Cas spécial pour les erreurs d'authentification ou de tokens
-                if (response.status === 401 || response.status === 403) {
-                    try {
-                        // Lecture du corps UNIQUEMENT à cet endroit - évite le double corps
-                        const errorData = await response.json();
+            // Traitement de la réponse
+            console.log('Response status:', response.status);
 
-                        if (errorData.error === "Insufficient tokens") {
-                            // Afficher un message d'erreur spécifique pour les tokens insuffisants
-                            showTokenError(errorData.tokens_available, errorData.tokens_required);
-                        } else {
-                            // Erreur d'authentification
-                            showErrorOverlay(
-                                response.status === 401 ? 'Session Expirée' : 'Erreur d\'authentification',
-                                errorData.message || 'Veuillez vous reconnecter.'
-                            );
+            // Analyse du corps JSON (pour tout type de statut)
+            const result = await response.json();
+            console.log('Response data:', result);
 
-                            // Redirection après 3 secondes
-                            setTimeout(() => {
-                                window.location.href = errorData.redirect_url || LOGIN_URL;
-                            }, 3000);
-                        }
-                    } catch (jsonError) {
-                        // Si le parsing du JSON échoue, utiliser une erreur générique
-                        console.error("Erreur de parsing JSON:", jsonError);
-                        showErrorOverlay('Erreur', 'Une erreur inattendue est survenue');
-                    }
-
-                    // Important: arrêter l'exécution ici pour éviter de traiter davantage la réponse
-                    updateLoadingState('default');
-                    promptInput.disabled = false;
-                    return;
-                }
-
-                // Pour les autres erreurs
-                showErrorOverlay('Erreur', `Erreur ${response.status}: ${response.statusText}`);
+            // Gestion spécifique des tokens insuffisants (maintenant avec code 200)
+            if (result.error === "Insufficient tokens") {
+                console.log('Insufficient tokens detected:', result);
+                displayTokenError(result.tokens_available, result.tokens_required);
                 updateLoadingState('default');
-                promptInput.disabled = false;
                 return;
             }
 
-            // À ce stade, nous savons que la réponse est OK, nous pouvons lire le corps
-            const result = await response.json();
+            // Gestion des autres types d'erreurs
+            if (!result.success) {
+                console.error('Error in response:', result.error || 'Unknown error');
+                showErrorOverlay('Erreur', result.message || result.error || 'Une erreur est survenue');
+                updateLoadingState('default');
+                return;
+            }
 
-            if (result.success) {
-                if (currentModel === 'midjourney' && result.status === 'processing') {
-                    console.error('Starting Midjourney processing with task_id:', result.task_id);
-                    // Cas Midjourney : attente du résultat
-                    updateLoadingState('processing');
-                    displayInitialLoadingState();
-                    handleMidjourneyProcessing(result.task_id, token, promptText);
-                } else {
-                    // Cas DALL-E ou réponse immédiate
-                    console.error('Displaying generated image:', result.image_url);
-                    displayGeneratedImage(result.image_url);
+            // Traitement des succès
+            console.log('Success response:', result);
 
-                    if (result.tokens_remaining !== undefined) {
-                        updateTokensDisplay(result.tokens_remaining);
-                    }
-                }
+            // Cas spécial pour Midjourney (traitement asynchrone)
+            if (currentModel === 'midjourney' && result.status === 'processing') {
+                console.log('Starting Midjourney processing with task_id:', result.task_id);
+                updateLoadingState('processing');
+                displayInitialLoadingState();
+                handleMidjourneyProcessing(result.task_id, token, promptText);
             } else {
-                showErrorOverlay('Erreur', result.error || 'Une erreur est survenue');
+                // Cas DALL-E ou autre réponse immédiate
+                console.log('Displaying generated image:', result.image_url);
+                displayGeneratedImage(result.image_url);
+
+                // Mise à jour explicite des tokens si disponible
+                if (result.tokens_remaining !== undefined) {
+                    console.log('Updating tokens display to:', result.tokens_remaining);
+                    updateTokensUI(result.tokens_remaining);
+                } else {
+                    // Sinon, rafraîchir les tokens via l'API
+                    updateTokensDisplay();
+                }
+
+                // Mettre à jour le texte du bouton
+                generateText.textContent = 'Générer une nouvelle image';
             }
         } catch (error) {
-            console.error('Error:', error);
+            console.error('Error in fetch operation:', error);
             showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
         } finally {
-            // Réactive l'interface
+            // Réinitialisation de l'interface
             spinner.style.display = 'none';
             generateText.style.display = 'inline';
             promptInput.disabled = false;
         }
     });
+
 
     // Fonction de gestion du traitement Midjourney
 async function handleMidjourneyProcessing(taskId, token) {
@@ -1066,69 +1062,92 @@ function displayGeneratedImage(imageUrl, isGroup = false) {
 }
 
 // Fonction pour mettre à jour l'affichage des tokens
-function updateTokensDisplay() {
-    console.log("Début de updateTokenDisplay");
+function updateTokensDisplay(tokensValue = null) {
+    console.log("Mise à jour de l'affichage des tokens");
 
-    // Récupérer le token JWT depuis la variable globale
-    const jwtToken = window.jwtToken;
-    console.log("JWT Token trouvé:", !!jwtToken);
-
-    if (!jwtToken) {
-        console.log("Aucun JWT token trouvé");
+    // Si une valeur est directement fournie, on l'utilise immédiatement
+    if (tokensValue !== null && !isNaN(tokensValue)) {
+        console.log(`Affichage immédiat de ${tokensValue} tokens`);
+        updateTokensUI(tokensValue);
         return;
     }
 
-    // Récupérer le token d'URL comme fallback si besoin
+    // Sinon, on récupère les informations via l'API
+    // Récupérer le token de l'URL
     const urlParams = new URLSearchParams(window.location.search);
-    const urlToken = urlParams.get('token');
-    const tokenToUse = jwtToken || urlToken;
+    const token = urlParams.get('token');
 
-    if (!tokenToUse) {
-        console.log("Aucun token trouvé");
+    if (!token) {
+        console.error("Aucun token trouvé dans l'URL");
         return;
     }
-    // Appeler l'API pour obtenir les tokens
-    console.log("Début appel API /api/user/tokens");
-    fetch('/api/user/tokens?token=' + encodeURIComponent(tokenToUse))
-        .then(response => {
-            if (!response.ok) {
-                throw new Error('Erreur réseau: ' + response.status);
-            }
-            return response.json();
-        })
-        .then(data => {
-            console.log("Token data received:", data); // Debug
-            if (data.success) {
-                // Mettre à jour l'affichage des tokens
-                const tokenCount = document.querySelector('.fn__token_info .count');
-                if (tokenCount) {
-                    tokenCount.textContent = data.data.tokens_remaining;
-                    // Ajouter une animation de changement
-                    tokenCount.classList.add('token-change');
-                    setTimeout(() => tokenCount.classList.remove('token-change'), 500);
-                }
 
-                // Mettre à jour le popup de info tokens (rechargement)
-                const tokenPopup = document.querySelector('.token__popup');
-                if (tokenPopup && data.data.next_refill) {
-                    const nextRefill = new Date(data.data.next_refill);
-                    const now = new Date();
+    console.log("Récupération des tokens depuis l'API");
+    fetch(`/api/user/tokens?token=${encodeURIComponent(token)}`, {
+        headers: {
+            'X-Requested-With': 'XMLHttpRequest'
+        }
+    })
+    .then(response => {
+        if (!response.ok) {
+            throw new Error(`Erreur réseau: ${response.status}`);
+        }
+        return response.json();
+    })
+    .then(data => {
+        console.log("Token data received:", data);
+        if (data.success && data.data) {
+            updateTokensUI(data.data.tokens_remaining, data.data);
+            // Mise à jour du popup d'information
 
-                    // Calculer le temps restant
+            const tokenPopup = document.querySelector('.token__popup');
+            if (tokenPopup && data.data.next_refill) {
+                const nextRefill = new Date(data.data.next_refill);
+                const now = new Date();
+
+                // Calcul du temps restant
+                let timeText = "--";
+                if (!isNaN(nextRefill.getTime())) {
                     const diffInHours = Math.max(0, Math.round((nextRefill - now) / (1000 * 60 * 60)));
-
-                    tokenPopup.innerHTML = `
-                        Resets in <span>${diffInHours} hours</span><br>
-                        Daily limit is <span>${data.data.token_limit || 150} tokens</span>
-                    `;
+                    timeText = `${diffInHours} heure${diffInHours > 1 ? 's' : ''}`;
                 }
-            } else {
-                console.error("Erreur lors de la récupération des tokens:", data.error);
+
+                tokenPopup.innerHTML = `
+                    Resets in <span>${timeText}</span><br>
+                    Daily limit is <span>${data.data.token_limit || '--'}</span>
+                `;
             }
-        })
-        .catch(error => {
-            console.error('Error fetching token data:', error);
-        });
+        } else {
+            console.error("Erreur lors de la récupération des tokens:", data.error || "Données invalides");
+        }
+    })
+    .catch(error => {
+        console.error('Erreur lors de la récupération des tokens:', error);
+    });
+}
+// Fonction auxiliaire pour mettre à jour l'interface utilisateur
+function updateTokensUI(tokensRemaining, fullData = null) {
+    console.log('Updating tokens UI with value:', tokensRemaining);
+
+    // 1. Mettre à jour le compteur principal
+    const tokenCount = document.querySelector('.token_summary .count');
+    if (tokenCount) {
+        // Sauvegarder l'ancienne valeur pour l'animation
+        const oldValue = tokenCount.textContent;
+        const numericOldValue = parseInt(oldValue);
+
+        // Définir la nouvelle valeur
+        tokenCount.textContent = tokensRemaining;
+
+        // Ajouter une classe d'animation si la valeur a changé
+        if (!isNaN(numericOldValue) && numericOldValue !== tokensRemaining) {
+            tokenCount.classList.add('token-change');
+            setTimeout(() => tokenCount.classList.remove('token-change'), 500);
+        }
+    } else {
+        console.warn("Élément .token_summary .count non trouvé");
+    }
+    updateTokenCost();
 }
 
 // Mettre à jour le coût affiché en fonction du modèle sélectionné
@@ -1153,45 +1172,130 @@ document.querySelectorAll('.all_models a').forEach(modelLink => {
     });
 });
 
-function showTokenError(available, required) {
-    // Créer l'élément d'erreur s'il n'existe pas
-    let tokenError = document.getElementById('token-error');
-    if (!tokenError) {
-        tokenError = document.createElement('div');
-        tokenError.id = 'token-error';
-        tokenError.className = 'error-message';
-
-        // Insérer après le formulaire
-        const form = document.getElementById('generate-image-form');
-        form.parentNode.insertBefore(tokenError, form.nextSibling);
-    }
-
-    // Mise à jour du contenu
-    tokenError.innerHTML = `
+// Ajoutez cette nouvelle fonction pour l'affichage de l'erreur de tokens
+function displayTokenError(available, required) {
+    // Créer un conteneur pour l'erreur
+    const errorBox = document.createElement('div');
+    errorBox.className = 'token-error-box';
+    errorBox.innerHTML = `
         <div class="token-error-content">
             <div class="token-error-icon">⚠️</div>
             <div class="token-error-message">
-                <strong>Tokens insuffisants</strong>
-                <p>Vous disposez de <span class="token-count">${available}</span> tokens,
-                mais cette opération nécessite <span class="token-required">${required}</span> tokens.</p>
-                <a href="/pricing.html" class="token-upgrade-link">Mettre à niveau mon abonnement</a>
+                <h4>Tokens insuffisants</h4>
+                <p>Vous disposez de <strong>${available}</strong> tokens, mais cette opération nécessite <strong>${required}</strong> tokens.</p>
             </div>
-            <button class="token-error-close" onclick="document.getElementById('token-error').style.display='none'">×</button>
+            <button class="token-error-close" onclick="this.parentNode.parentNode.remove()">×</button>
+        </div>
+        <div class="token-error-footer">
+            <a href="/pricing.html" class="token-upgrade-btn">Mettre à niveau mon abonnement</a>
         </div>
     `;
 
-    // Afficher avec animation
-    tokenError.style.display = 'block';
-    tokenError.style.opacity = '0';
-    tokenError.style.transform = 'translateY(-20px)';
+    // Injecter dans la page
+    const form = document.getElementById('generate-image-form');
+    form.parentNode.insertBefore(errorBox, form.nextSibling);
 
-    // Forcer un reflow pour que l'animation fonctionne
-    void tokenError.offsetWidth;
+    // Styles CSS pour l'erreur
+    if (!document.getElementById('token-error-styles')) {
+        const style = document.createElement('style');
+        style.id = 'token-error-styles';
+        style.textContent = `
+            .token-error-box {
+                background-color: #fff3f3;
+                border-radius: 8px;
+                margin: 15px 0;
+                border: 1px solid #ffcccc;
+                overflow: hidden;
+                box-shadow: 0 3px 8px rgba(0,0,0,0.1);
+                animation: fadeInDown 0.3s ease-out;
+            }
 
-    // Démarrer l'animation
-    tokenError.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-    tokenError.style.opacity = '1';
-    tokenError.style.transform = 'translateY(0)';
+            @keyframes fadeInDown {
+                from { opacity: 0; transform: translateY(-15px); }
+                to { opacity: 1; transform: translateY(0); }
+            }
+
+            .token-error-content {
+                padding: 15px;
+                display: flex;
+                align-items: flex-start;
+            }
+
+            .token-error-icon {
+                font-size: 24px;
+                margin-right: 15px;
+            }
+
+            .token-error-message {
+                flex: 1;
+            }
+
+            .token-error-message h4 {
+                margin: 0 0 5px 0;
+                color: #e53935;
+                font-size: 16px;
+            }
+
+            .token-error-message p {
+                margin: 0 0 10px 0;
+                color: #555;
+            }
+
+            .token-progress-bar {
+                height: 6px;
+                background-color: #f0f0f0;
+                border-radius: 3px;
+                overflow: hidden;
+                margin-top: 8px;
+            }
+
+            .token-progress-fill {
+                height: 100%;
+                background-color: #e53935;
+                border-radius: 3px;
+                transition: width 0.5s ease;
+            }
+
+            .token-error-close {
+                background: none;
+                border: none;
+                font-size: 22px;
+                color: #999;
+                cursor: pointer;
+                line-height: 1;
+                padding: 0;
+                margin-left: 10px;
+            }
+
+            .token-error-close:hover {
+                color: #555;
+            }
+
+            .token-error-footer {
+                padding: 10px 15px;
+                background-color: #fff;
+                border-top: 1px solid #eee;
+                text-align: right;
+            }
+
+            .token-upgrade-btn {
+                display: inline-block;
+                background-color: #4CAF50;
+                color: white;
+                padding: 8px 16px;
+                text-decoration: none;
+                border-radius: 4px;
+                font-weight: 500;
+                transition: background-color 0.2s;
+            }
+
+            .token-upgrade-btn:hover {
+                background-color: #45a049;
+                text-decoration: none;
+            }
+        `;
+        document.head.appendChild(style);
+    }
 }
 
 function calculatePollingDelay(prompt) {
@@ -2659,6 +2763,12 @@ function showErrorOverlay(title, message) {
             const token = urlParams.get('token');
 
             updateTokenCost();
+
+            console.log("Page chargée, initialisation de l'affichage des tokens");
+            updateTokensDisplay();
+
+            // Rafraîchir les tokens toutes les 5 minutes
+            setInterval(updateTokensDisplay, 5 * 60 * 1000);
 
             if (token) {
                 // Modifier tous les liens de navigation pour inclure le token
