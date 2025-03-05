@@ -1681,7 +1681,9 @@ def generate_image(wp_user_id):
             if not use_tokens(wp_user_id, token_cost):
                 return jsonify({
                     "error": "Insufficient tokens",
-                    "message": "You don't have enough tokens for this operation."
+                    "message": "You don't have enough tokens for this operation.",
+                    "tokens_required": token_cost,
+                    "tokens_available": get_user_tokens(wp_user_id)
                 }), 403
 
             try:

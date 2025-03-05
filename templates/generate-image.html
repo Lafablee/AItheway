@@ -403,7 +403,18 @@
     }
 
     .error-message {
-        transition: all 0.3s ease;
+        margin-top: 10px;
+        padding: 10px 15px;
+        border-radius: 5px;
+        background-color: #f8d7da;
+        border: 1px solid #f5c6cb;
+        color: #721c24;
+        animation: fadeIn 0.3s ease-in-out;
+    }
+
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
     }
 </style>
 <div class="neltar_fn_page">
@@ -451,6 +462,7 @@
                         </button>
                     </div>
                 </form>
+                <div id="token-error" class="error-message alert alert-danger" style="display: none;"></div>
 
                 </div>
 
@@ -704,38 +716,57 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
             });
             const responseClone = response.clone();
 
+            // Vérifier d'abord le statut de la réponse
+            if (response.status === 401 || response.status === 403) {
+                try {
+                    // Utiliser le clone pour lire le corps JSON
+                    const errorData = await responseClone.json();
+
+                    if (errorData.error === "Insufficient tokens") {
+                        // Créer dynamiquement un élément d'erreur s'il n'existe pas
+                        let tokenError = document.getElementById('token-error');
+                        if (!tokenError) {
+                            tokenError = document.createElement('div');
+                            tokenError.id = 'token-error';
+                            tokenError.className = 'error-message alert alert-danger';
+                            document.querySelector('.generation_header').appendChild(tokenError);
+                        }
+
+                        tokenError.style.display = 'block';
+                        tokenError.innerHTML = `
+                            <strong>Tokens insuffisants</strong><br>
+                            Vous n'avez pas assez de tokens pour cette opération.
+                            <a href="/pricing.html">Mettez à niveau votre abonnement</a> pour obtenir plus de tokens.
+                        `;
+                        updateLoadingState('default');
+                        return;
+                    } else {
+                        showErrorOverlay(
+                            response.status === 401 ? 'Session Expirée' : 'Erreur d\'authentification',
+                            errorData.message || 'Veuillez vous reconnecter.'
+                        );
+                        setTimeout(() => {
+                            window.location.href = errorData.redirect_url || LOGIN_URL;
+                        }, 3000);
+                        return;
+                    }
+                } catch (jsonError) {
+                    // En cas d'erreur de parsing, afficher un message générique
+                    showErrorOverlay(
+                        response.status === 401 ? 'Session Expirée' : 'Erreur d\'authentification',
+                        'Veuillez vous reconnecter.'
+                    );
+                    return;
+                }
+            }
+
+            // Continuer avec le traitement normal pour les réponses OK
             let result;
             try {
                 result = await response.json();
-                } catch (jsonError) {
+            } catch (jsonError) {
                 console.error("Erreur lors du parsing JSON:", jsonError);
-                // Si le parsing JSON échoue, on travaille avec le statut de la réponse
                 result = { success: false, error: "Erreur de format de réponse" };
-            }
-
-            // Handle token expiration and other auth errors
-            if(response.status === 401 || response.status === 403){
-                if(result && result.error === "Insufficient tokens") {
-                    // Afficher un message spécifique pour tokens insuffisants
-                    document.getElementById('token-error').style.display = 'block';
-                    document.getElementById('token-error').innerHTML = `
-                        <strong>Tokens insuffisants</strong><br>
-                        Vous n'avez pas assez de tokens pour cette opération.
-                        <a href="/pricing.html">Mettez à niveau votre abonnement</a> pour obtenir plus de tokens.
-                    `;
-                    updateLoadingState('default');
-                    return;
-                } else {
-                    showErrorOverlay(
-                    response.status === 401 ? 'Session Expirée' : 'Erreur d\'authentification',
-                    result.message || 'Veuillez vous reconnecter.'
-                );
-                // Redirect after 3 seconds
-                 setTimeout(() => {
-                     window.location.href = result.redirect_url || LOGIN_URL;
-                 }, 3000);
-                 return;
-                }
             }
 
 
@@ -1048,6 +1079,33 @@ function updateTokenCost() {
             'midjourney': 30
         };
         tokenCostElement.textContent = costs[currentModel] || 20;
+    }
+}
+
+function updateTokenDisplay(tokensRemaining) {
+    const tokenCount = document.querySelector('.token_summary .count');
+    if (tokenCount) {
+        // Mettre à jour le compteur
+        tokenCount.textContent = tokensRemaining;
+
+        // Ajouter une animation
+        tokenCount.classList.add('token-change');
+        setTimeout(() => tokenCount.classList.remove('token-change'), 500);
+
+        // Avertir si le nombre est faible
+        if (tokensRemaining < 50) {
+            const tokenContainer = tokenCount.closest('.token-info');
+            if (tokenContainer && !document.getElementById('low-token-warning')) {
+                const warning = document.createElement('div');
+                warning.id = 'low-token-warning';
+                warning.className = 'low-token-alert';
+                warning.innerHTML = `
+                    <i class="fas fa-exclamation-triangle"></i>
+                    Tokens limités! <a href="/pricing.html">Recharger</a>
+                `;
+                tokenContainer.appendChild(warning);
+            }
+        }
     }
 }
 
