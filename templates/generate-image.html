@@ -702,8 +702,17 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
                 },
                 body: `prompt=${encodeURIComponent(promptInput.value)}&model=${encodeURIComponent(currentModel)}`
             });
+            const responseClone = response.clone();
 
-            const result = await response.json();
+            let result;
+            try {
+                result = await response.json();
+                } catch (jsonError) {
+                console.error("Erreur lors du parsing JSON:", jsonError);
+                // Si le parsing JSON échoue, on travaille avec le statut de la réponse
+                result = { success: false, error: "Erreur de format de réponse" };
+            }
+
             // Handle token expiration and other auth errors
             if(response.status === 401 || response.status === 403){
                 if(result && result.error === "Insufficient tokens") {
@@ -966,8 +975,11 @@ function displayGeneratedImage(imageUrl, isGroup = false) {
 
 // Fonction pour mettre à jour l'affichage des tokens
 function updateTokensDisplay() {
+    console.log("Début de updateTokenDisplay");
+
     // Récupérer le token JWT depuis la variable globale
     const jwtToken = window.jwtToken;
+    console.log("JWT Token trouvé:", !!jwtToken);
 
     if (!jwtToken) {
         console.log("Aucun JWT token trouvé");
@@ -983,8 +995,8 @@ function updateTokensDisplay() {
         console.log("Aucun token trouvé");
         return;
     }
-
     // Appeler l'API pour obtenir les tokens
+    console.log("Début appel API /api/user/tokens");
     fetch('/api/user/tokens?token=' + encodeURIComponent(tokenToUse))
         .then(response => {
             if (!response.ok) {

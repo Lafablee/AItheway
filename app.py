@@ -1529,6 +1529,7 @@ def initialize_user_tokens_endpoint(wp_user_id):
 @token_required
 def get_user_tokens_endpoint(wp_user_id):
     try:
+        app.logger.error(f"Requête /api/user/tokens reçue pour l'utilisateur {wp_user_id}")
         # Récupérer les informations sur les tokens
         tokens_data = get_user_tokens_details(wp_user_id)
 
