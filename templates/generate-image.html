@@ -806,11 +806,72 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
 
             // Gestion spécifique des tokens insuffisants (maintenant avec code 200)
             if (result.error === "Insufficient tokens") {
-                console.log('Insufficient tokens detected:', result);
-                displayTokenError(result.tokens_available, result.tokens_required);
+                const modal = displayTokenError(result.tokens_available, result.tokens_required)
+                // Analyse pour suggérer le bon forfait
+                const tokenShortage = result.tokens_required - result.tokens_available;
+
+                // Mettre en évidence le plan suggéré sur la base du manque de tokens
+                if (tokenShortage > 500) {
+                    // Utilisateur a besoin de beaucoup de tokens, suggérer le plan Pro
+                    modal.querySelector('.token-message').innerHTML += `<br><strong class="plan-suggestion">Notre forfait Pro vous conviendrait parfaitement!</strong>`;
+                } else if (tokenShortage > 100) {
+                    // Utilisateur a besoin d'un nombre moyen de tokens, suggérer le plan Premium
+                    modal.querySelector('.token-message').innerHTML += `<br><strong class="plan-suggestion">Notre forfait Premium semble fait pour vous!</strong>`;
+                }
+
                 updateLoadingState('default');
                 return;
             }
+            const extraStyles = `
+                .plan-suggestion {
+                    display: block;
+                    margin-top: 10px;
+                    color: #8e78ff;
+                    font-size: 16px;
+                    animation: highlight 2s infinite;
+                }
+
+                @keyframes highlight {
+                    0% { color: #8e78ff; }
+                    50% { color: #ffffff; }
+                    100% { color: #8e78ff; }
+                }
+
+                /* Style pour rendre le modal de tokens plus visible */
+                .token-upgrade-modal::before {
+                    content: '';
+                    position: fixed;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: radial-gradient(circle at center, transparent 20%, rgba(0,0,0,0.8) 100%);
+                    pointer-events: none;
+                }
+
+                /* Optimisations pour l'interface tokens en haut de page */
+                .token-count-wrapper {
+                    display: flex;
+                    align-items: center;
+                    gap: 10px;
+                }
+
+                .tokens-remain {
+                    font-weight: bold;
+                    color: #fff;
+                    background: rgba(0,0,0,0.2);
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    transition: all 0.3s;
+                }
+
+                .token-refresh-info {
+                    font-size: 12px;
+                    color: rgba(255,255,255,0.7);
+                    margin-top: 3px;
+                }
+            `;
+
 
             // Gestion des autres types d'erreurs
             if (!result.success) {
@@ -1143,10 +1204,17 @@ function updateTokensUI(tokensRemaining, fullData = null) {
         if (!isNaN(numericOldValue) && numericOldValue !== tokensRemaining) {
             tokenCount.classList.add('token-change');
             setTimeout(() => tokenCount.classList.remove('token-change'), 500);
+            if (tokensRemaining < 30) {
+                const upgradeButtons = document.querySelectorAll('a.upgrade, button.upgrade, a.token_upgrade, .token-upgrade-btn');
+                upgradeButtons.forEach(button => {
+                    button.classList.add('pulse-upgrade');
+                });
+            }
         }
     } else {
         console.warn("Élément .token_summary .count non trouvé");
     }
+        improveTokensDisplay();
     updateTokenCost();
 }
 
@@ -1172,131 +1240,539 @@ document.querySelectorAll('.all_models a').forEach(modelLink => {
     });
 });
 
-// Ajoutez cette nouvelle fonction pour l'affichage de l'erreur de tokens
+// Nouvelle fonction pour afficher l'erreur de tokens insuffisants avec un design amélioré
 function displayTokenError(available, required) {
-    // Créer un conteneur pour l'erreur
-    const errorBox = document.createElement('div');
-    errorBox.className = 'token-error-box';
-    errorBox.innerHTML = `
-        <div class="token-error-content">
-            <div class="token-error-icon">⚠️</div>
-            <div class="token-error-message">
-                <h4>Tokens insuffisants</h4>
-                <p>Vous disposez de <strong>${available}</strong> tokens, mais cette opération nécessite <strong>${required}</strong> tokens.</p>
+    // Suppression de tout message d'erreur existant
+    const existingError = document.querySelector('.token-upgrade-modal');
+    if (existingError) {
+        existingError.remove();
+    }
+
+    // Calcul du pourcentage pour la barre de progression
+    const percentage = Math.min(100, (available / required) * 100);
+
+    // Création du modal
+    const modal = document.createElement('div');
+    modal.className = 'token-upgrade-modal';
+    modal.innerHTML = `
+        <div class="token-modal-content">
+            <div class="token-modal-header">
+                <h3><i class="fas fa-exclamation-circle"></i> Vous avez besoin de plus de tokens</h3>
+                <button class="token-modal-close" onclick="this.parentNode.parentNode.parentNode.remove()">×</button>
             </div>
-            <button class="token-error-close" onclick="this.parentNode.parentNode.remove()">×</button>
-        </div>
-        <div class="token-error-footer">
-            <a href="/pricing.html" class="token-upgrade-btn">Mettre à niveau mon abonnement</a>
+            <div class="token-modal-body">
+                <div class="token-info-graphic">
+                    <div class="token-meter">
+                        <div class="token-meter-fill" style="width: ${percentage}%"></div>
+                        <div class="token-meter-marker" style="left: ${percentage}%"></div>
+                    </div>
+                    <div class="token-labels">
+                        <span class="token-available">${available}</span>
+                        <span class="token-required">${required}</span>
+                    </div>
+                </div>
+
+                <p class="token-message">Vous disposez de <strong>${available}</strong> tokens, mais cette opération nécessite <strong>${required}</strong> tokens.</p>
+
+                <div class="token-benefits">
+                    <div class="token-benefit-item">
+                        <i class="fas fa-bolt"></i>
+                        <span>Générez plus d'images</span>
+                    </div>
+                    <div class="token-benefit-item">
+                        <i class="fas fa-chart-line"></i>
+                        <span>Augmentez votre limite quotidienne</span>
+                    </div>
+                    <div class="token-benefit-item">
+                        <i class="fas fa-crown"></i>
+                        <span>Débloquez des fonctionnalités premium</span>
+                    </div>
+                </div>
+            </div>
+            <div class="token-modal-footer">
+                <a href="/pricing.html" class="token-upgrade-button">Mettre à niveau mon abonnement</a>
+                <button class="token-secondary-button" onclick="this.parentNode.parentNode.parentNode.remove()">Continuer avec la version gratuite</button>
+            </div>
         </div>
     `;
 
-    // Injecter dans la page
-    const form = document.getElementById('generate-image-form');
-    form.parentNode.insertBefore(errorBox, form.nextSibling);
+    // Injection dans le document
+    document.body.appendChild(modal);
 
-    // Styles CSS pour l'erreur
-    if (!document.getElementById('token-error-styles')) {
+    // Animation d'entrée
+    setTimeout(() => {
+        modal.classList.add('active');
+    }, 10);
+
+    // Ajout des styles
+    if (!document.getElementById('token-upgrade-styles')) {
         const style = document.createElement('style');
-        style.id = 'token-error-styles';
+        style.id = 'token-upgrade-styles';
         style.textContent = `
-            .token-error-box {
-                background-color: #fff3f3;
-                border-radius: 8px;
-                margin: 15px 0;
-                border: 1px solid #ffcccc;
-                overflow: hidden;
-                box-shadow: 0 3px 8px rgba(0,0,0,0.1);
-                animation: fadeInDown 0.3s ease-out;
-            }
-
-            @keyframes fadeInDown {
-                from { opacity: 0; transform: translateY(-15px); }
-                to { opacity: 1; transform: translateY(0); }
-            }
-
-            .token-error-content {
-                padding: 15px;
+            .token-upgrade-modal {
+                position: fixed;
+                top: 0;
+                left: 0;
+                right: 0;
+                bottom: 0;
+                background-color: rgba(0, 0, 0, 0.75);
                 display: flex;
-                align-items: flex-start;
+                align-items: center;
+                justify-content: center;
+                z-index: 9999;
+                opacity: 0;
+                transition: opacity 0.3s ease;
+                backdrop-filter: blur(3px);
             }
 
-            .token-error-icon {
-                font-size: 24px;
-                margin-right: 15px;
+            .token-upgrade-modal.active {
+                opacity: 1;
             }
 
-            .token-error-message {
-                flex: 1;
-            }
-
-            .token-error-message h4 {
-                margin: 0 0 5px 0;
-                color: #e53935;
-                font-size: 16px;
-            }
-
-            .token-error-message p {
-                margin: 0 0 10px 0;
-                color: #555;
-            }
-
-            .token-progress-bar {
-                height: 6px;
-                background-color: #f0f0f0;
-                border-radius: 3px;
+            .token-modal-content {
+                width: 90%;
+                max-width: 500px;
+                background-color: #1e1e2d;
+                border-radius: 10px;
                 overflow: hidden;
-                margin-top: 8px;
+                box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+                border: 1px solid rgba(255, 255, 255, 0.1);
+                transform: translateY(20px);
+                transition: transform 0.3s ease;
             }
 
-            .token-progress-fill {
-                height: 100%;
-                background-color: #e53935;
-                border-radius: 3px;
-                transition: width 0.5s ease;
+            .token-upgrade-modal.active .token-modal-content {
+                transform: translateY(0);
             }
 
-            .token-error-close {
+            .token-modal-header {
+                padding: 20px;
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                background-color: #2d2d42;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            }
+
+            .token-modal-header h3 {
+                margin: 0;
+                color: #fff;
+                font-size: 18px;
+                font-weight: 600;
+                display: flex;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .token-modal-header h3 i {
+                color: #ff6b6b;
+            }
+
+            .token-modal-close {
                 background: none;
                 border: none;
-                font-size: 22px;
-                color: #999;
+                color: rgba(255, 255, 255, 0.6);
+                font-size: 24px;
                 cursor: pointer;
-                line-height: 1;
                 padding: 0;
-                margin-left: 10px;
+                line-height: 1;
+                transition: color 0.2s;
             }
 
-            .token-error-close:hover {
-                color: #555;
+            .token-modal-close:hover {
+                color: #fff;
             }
 
-            .token-error-footer {
-                padding: 10px 15px;
-                background-color: #fff;
-                border-top: 1px solid #eee;
-                text-align: right;
+            .token-modal-body {
+                padding: 20px;
+                color: rgba(255, 255, 255, 0.8);
             }
 
-            .token-upgrade-btn {
-                display: inline-block;
-                background-color: #4CAF50;
-                color: white;
-                padding: 8px 16px;
-                text-decoration: none;
+            .token-info-graphic {
+                margin-bottom: 20px;
+            }
+
+            .token-meter {
+                height: 8px;
+                background-color: rgba(255, 255, 255, 0.1);
                 border-radius: 4px;
-                font-weight: 500;
-                transition: background-color 0.2s;
+                position: relative;
+                margin: 5px 0 8px;
+                overflow: hidden;
             }
 
-            .token-upgrade-btn:hover {
-                background-color: #45a049;
+            .token-meter-fill {
+                height: 100%;
+                background: linear-gradient(90deg, #ff6b6b, #ff8e72);
+                border-radius: 4px;
+                transition: width 0.5s ease-out;
+            }
+
+            .token-meter-marker {
+                position: absolute;
+                top: -4px;
+                width: 16px;
+                height: 16px;
+                background-color: #fff;
+                border-radius: 50%;
+                transform: translateX(-50%);
+                box-shadow: 0 0 10px rgba(255, 107, 107, 0.7);
+            }
+
+            .token-labels {
+                display: flex;
+                justify-content: space-between;
+                font-size: 14px;
+                color: rgba(255, 255, 255, 0.7);
+            }
+
+            .token-available {
+                font-weight: bold;
+                color: #ff6b6b;
+            }
+
+            .token-required {
+                font-weight: bold;
+                color: #fff;
+            }
+
+            .token-message {
+                margin: 20px 0;
+                font-size: 16px;
+                line-height: 1.5;
+                text-align: center;
+            }
+
+            .token-message strong {
+                color: #fff;
+                font-weight: 600;
+            }
+
+            .token-benefits {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 15px;
+                margin-top: 20px;
+                padding: 15px;
+                background-color: rgba(255, 255, 255, 0.05);
+                border-radius: 8px;
+            }
+
+            .token-benefit-item {
+                display: flex;
+                flex-direction: column;
+                align-items: center;
+                text-align: center;
+                gap: 10px;
+            }
+
+            .token-benefit-item i {
+                font-size: 24px;
+                color: #8e78ff;
+            }
+
+            .token-benefit-item span {
+                font-size: 13px;
+                line-height: 1.3;
+            }
+
+            .token-modal-footer {
+                padding: 20px;
+                display: flex;
+                flex-direction: column;
+                gap: 10px;
+                background-color: rgba(0, 0, 0, 0.2);
+            }
+
+            .token-upgrade-button {
+                display: block;
+                padding: 12px 24px;
+                background: linear-gradient(135deg, #8e78ff, #6c5ce7);
+                color: white;
+                border: none;
+                border-radius: 6px;
+                font-size: 16px;
+                font-weight: 600;
+                text-align: center;
+                cursor: pointer;
+                transition: transform 0.2s, box-shadow 0.2s;
                 text-decoration: none;
+                box-shadow: 0 4px 10px rgba(108, 92, 231, 0.4);
+            }
+
+            .token-upgrade-button:hover {
+                transform: translateY(-2px);
+                box-shadow: 0 6px 15px rgba(108, 92, 231, 0.5);
+            }
+
+            .token-secondary-button {
+                background: none;
+                border: none;
+                color: rgba(255, 255, 255, 0.7);
+                padding: 10px;
+                font-size: 14px;
+                cursor: pointer;
+                transition: color 0.2s;
+            }
+
+            .token-secondary-button:hover {
+                color: white;
+            }
+
+            /* Pour les appareils mobiles */
+            @media (max-width: 640px) {
+                .token-benefits {
+                    grid-template-columns: 1fr;
+                }
+
+                .token-modal-content {
+                    width: 95%;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
+    // Si Font Awesome n'est pas déjà chargé, utiliser des caractères Unicode basiques
+    if (!document.querySelector('link[href*="font-awesome"]')) {
+        const icons = modal.querySelectorAll('.token-modal-body i, .token-modal-header i');
+        icons.forEach(icon => {
+            if (icon.classList.contains('fa-exclamation-circle')) {
+                icon.textContent = '⚠️ ';
+            } else if (icon.classList.contains('fa-bolt')) {
+                icon.textContent = '⚡ ';
+            } else if (icon.classList.contains('fa-chart-line')) {
+                icon.textContent = '📈 ';
+            } else if (icon.classList.contains('fa-crown')) {
+                icon.textContent = '👑 ';
+            }
+            icon.style.marginRight = '5px';
+        });
+    }
+
+    return modal;
+}
+// Amélioration de l'affichage des tokens dans l'interface
+function improveTokensDisplay() {
+    // Récupérer le conteneur des tokens en haut
+    const tokenContainers = document.querySelectorAll('.token_summary, .token-info');
+
+    tokenContainers.forEach(container => {
+        // Ajouter une classe pour le style
+        container.classList.add('improved-token-display');
+
+        // Récupérer le nombre de tokens
+        const countElement = container.querySelector('.count');
+        if (countElement) {
+            const tokenValue = countElement.textContent.trim();
+            const isLow = parseInt(tokenValue) < 30; // Considérer comme bas si moins de 30 tokens
+
+            // Ajouter une indication visuelle si les tokens sont bas
+            if (isLow && !container.querySelector('.token-indicator')) {
+                const indicator = document.createElement('span');
+                indicator.className = 'token-indicator token-low';
+                indicator.innerHTML = '⚠️ low';
+                container.appendChild(indicator);
+            }
+        }
+    });
+
+    // Améliorer le bouton upgrade
+    const upgradeButtons = document.querySelectorAll('a.upgrade, button.upgrade, a.token_upgrade, .token-upgrade-btn');
+    upgradeButtons.forEach(button => {
+        button.classList.add('improved-upgrade-button');
+    });
+
+    // Styles pour les améliorations
+    if (!document.getElementById('improved-tokens-styles')) {
+        const style = document.createElement('style');
+        style.id = 'improved-tokens-styles';
+        style.textContent = `
+            .improved-token-display {
+                position: relative;
+                background-color: rgba(142, 120, 255, 0.1);
+                border: 1px solid rgba(142, 120, 255, 0.3);
+                border-radius: 8px;
+                padding: 8px 12px;
+                transition: all 0.3s ease;
+            }
+
+            .improved-token-display:hover {
+                background-color: rgba(142, 120, 255, 0.15);
+                border-color: rgba(142, 120, 255, 0.5);
+            }
+
+            .token-indicator {
+                display: inline-block;
+                font-size: 12px;
+                padding: 3px 6px;
+                border-radius: 4px;
+                margin-left: 8px;
+                animation: pulse 2s infinite;
+            }
+
+            .token-low {
+                background-color: rgba(255, 107, 107, 0.2);
+                color: #ff6b6b;
+            }
+
+            @keyframes pulse {
+                0% { opacity: 0.7; }
+                50% { opacity: 1; }
+                100% { opacity: 0.7; }
+            }
+
+            .improved-upgrade-button {
+                background: linear-gradient(135deg, #8e78ff, #6c5ce7) !important;
+                color: white !important;
+                border: none !important;
+                border-radius: 6px !important;
+                padding: 8px 16px !important;
+                font-weight: 600 !important;
+                box-shadow: 0 4px 10px rgba(108, 92, 231, 0.4) !important;
+                transition: transform 0.2s, box-shadow 0.2s !important;
+            }
+
+            .improved-upgrade-button:hover {
+                transform: translateY(-2px) !important;
+                box-shadow: 0 6px 15px rgba(108, 92, 231, 0.5) !important;
+            }
+
+            /* Animation de mise en évidence pour les boutons Upgrade */
+            .pulse-upgrade {
+                animation: pulse-upgrade 2s infinite;
+            }
+
+            @keyframes pulse-upgrade {
+                0% { transform: scale(1); }
+                50% { transform: scale(1.05); }
+                100% { transform: scale(1); }
             }
         `;
         document.head.appendChild(style);
     }
 }
+function loadFontAwesome() {
+    if (!document.querySelector('link[href*="font-awesome"]')) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = 'https://cdnjs.cloudflare.com/ajax/libs/font-awesome/5.15.4/css/all.min.css';
+        document.head.appendChild(link);
+    }
+}
+function optimizeUpgradeButtons() {
+    // Trouver les boutons upgrade existants
+    const upgradeButtons = document.querySelectorAll('a.upgrade, button.upgrade, a.token_upgrade, .token-upgrade-btn');
+
+    // S'il y a plusieurs boutons, n'en garder que le plus pertinent
+    if (upgradeButtons.length > 1) {
+        // Conserver le bouton principal et masquer les autres
+        const mainButton = upgradeButtons[0];
+        mainButton.classList.add('primary-upgrade-button');
+
+        // Masquer les boutons secondaires ou les rendre moins visibles
+        for (let i = 1; i < upgradeButtons.length; i++) {
+            // Option 1: Masquer complètement
+            // upgradeButtons[i].style.display = 'none';
+
+            // Option 2: Rendre moins visible mais toujours accessible
+            upgradeButtons[i].classList.add('secondary-upgrade-button');
+            upgradeButtons[i].style.opacity = '0.7';
+            upgradeButtons[i].style.transform = 'scale(0.9)';
+        }
+    }
+
+    // Améliorer l'apparence des boutons upgrade conservés
+    upgradeButtons.forEach(button => {
+        // Vérifier si le bouton a déjà le style amélioré
+        if (!button.classList.contains('improved-upgrade-button')) {
+            button.classList.add('improved-upgrade-button');
+
+            // Ajouter une icône si elle n'existe pas déjà
+            if (!button.querySelector('i')) {
+                const buttonText = button.textContent.trim();
+                button.innerHTML = `<i class="fas fa-crown"></i> ${buttonText}`;
+            }
+        }
+    });
+}
+
+// 4. Fonction pour améliorer l'affichage global des tokens et limites
+
+function enhanceTokensInfoDisplay() {
+    // Trouver les éléments qui affichent les informations sur les tokens
+    const tokenInfoElements = document.querySelectorAll('.token__popup, .token-info');
+
+    tokenInfoElements.forEach(element => {
+        // Obtenir le texte actuel
+        const currentContent = element.innerHTML;
+
+        // Si le contenu contient déjà notre format amélioré, ne rien faire
+        if (currentContent.includes('token-refresh-info')) return;
+
+        // Extraire les informations principales (resets et limits)
+        const resetInfo = element.textContent.match(/Resets in ([^<]+)/);
+        const limitInfo = element.textContent.match(/Daily limit is ([^<]+)/);
+
+        // Créer une version améliorée
+        const resetText = resetInfo ? resetInfo[1].trim() : '--';
+        const limitText = limitInfo ? limitInfo[1].trim() : '--';
+
+        // Restructurer l'élément avec un format plus attrayant
+        element.innerHTML = `
+            <div class="token-info-enhanced">
+                <div class="token-refresh-section">
+                    <div class="token-refresh-info">
+                        <i class="fas fa-sync-alt"></i> Réinitialisation dans <span>${resetText}</span>
+                    </div>
+                    <div class="token-limit-info">
+                        <i class="fas fa-chart-pie"></i> Limite quotidienne: <span>${limitText}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+    });
+
+    // Ajouter les styles pour ces éléments améliorés
+    if (!document.getElementById('token-info-enhanced-styles')) {
+        const style = document.createElement('style');
+        style.id = 'token-info-enhanced-styles';
+        style.textContent = `
+            .token-info-enhanced {
+                padding: 8px 12px;
+                background: rgba(142, 120, 255, 0.1);
+                border-radius: 8px;
+                margin-top: 8px;
+            }
+
+            .token-refresh-section {
+                display: flex;
+                flex-direction: column;
+                gap: 6px;
+            }
+
+            .token-refresh-info, .token-limit-info {
+                display: flex;
+                align-items: center;
+                gap: 8px;
+                color: rgba(255, 255, 255, 0.8);
+                font-size: 13px;
+            }
+
+            .token-refresh-info i, .token-limit-info i {
+                color: #8e78ff;
+                font-size: 14px;
+            }
+
+            .token-refresh-info span, .token-limit-info span {
+                color: white;
+                font-weight: 600;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
+
 
 function calculatePollingDelay(prompt) {
     if (!prompt || typeof prompt !== 'string') {
@@ -2761,7 +3237,13 @@ function showErrorOverlay(title, message) {
             // Récupérer le token de l'URL actuelle
             const urlParams = new URLSearchParams(window.location.search);
             const token = urlParams.get('token');
-
+            loadFontAwesome();
+            improveTokensDisplay();
+            optimizeUpgradeButtons();
+            enhanceTokensInfoDisplay();
+            const extraStyleElement = document.createElement('style');
+            extraStyleElement.textContent = extraStyles;
+            document.head.appendChild(extraStyleElement);
             updateTokenCost();
 
             console.log("Page chargée, initialisation de l'affichage des tokens");
