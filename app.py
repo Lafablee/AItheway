@@ -1528,13 +1528,34 @@ def initialize_user_tokens_endpoint(wp_user_id):
 @app.route('/api/user/tokens', methods=['GET'])
 @token_required
 def get_user_tokens_endpoint(wp_user_id):
+    try:
+        # Récupérer les informations sur les tokens
+        tokens_data = get_user_tokens_details(wp_user_id)
+
+        if tokens_data:
+            return jsonify({
+                "success": True,
+                "data": tokens_data
+            })
+        else:
+            return jsonify({
+                "success": False,
+                "error": "Impossible de récupérer les informations sur les tokens"
+            }), 500
+
+    except Exception as e:
+        app.logger.error(f"Error getting token information: {str(e)}")
+        return jsonify({
+            "success": False,
+            "error": "Une erreur est survenue lors de la récupération des informations sur les tokens"
+        }), 500
+
+
+def get_user_tokens_details(wp_user_id):
     """
-    Endpoint API pour récupérer les informations sur les tokens d'un utilisateur
+    Récupère des informations détaillées sur les tokens d'un utilisateur
     """
     try:
-        tokens_remaining = get_user_tokens(wp_user_id)
-
-        # Récupérer les informations de rechargement
         conn = psycopg2.connect(
             dbname=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
@@ -1543,46 +1564,68 @@ def get_user_tokens_endpoint(wp_user_id):
         )
         cursor = conn.cursor()
 
+        # Récupérer les informations sur les tokens
         cursor.execute("""
-            SELECT next_refill FROM user_tokens WHERE wp_user_id = %s
+            SELECT tokens_remaining, next_refill, last_refill
+            FROM user_tokens 
+            WHERE wp_user_id = %s
         """, (wp_user_id,))
 
         result = cursor.fetchone()
-        next_refill = result[0] if result else None
 
-        # Informations sur les coûts des différentes opérations
-        token_costs = {
-            "dall-e": 20,
-            "midjourney": 30,
-            "enhance-image": 15
+        if not result:
+            # Si l'utilisateur n'a pas d'entrée dans user_tokens, initialiser avec des valeurs par défaut
+            tokens_remaining = 150
+            next_refill = datetime.now() + timedelta(days=3)
+            last_refill = datetime.now()
+
+            # Insérer ces valeurs dans la base de données
+            cursor.execute("""
+                INSERT INTO user_tokens (wp_user_id, tokens_remaining, next_refill, last_refill)
+                VALUES (%s, %s, %s, %s)
+                ON CONFLICT (wp_user_id) DO NOTHING
+            """, (wp_user_id, tokens_remaining, next_refill, last_refill))
+
+            conn.commit()
+        else:
+            tokens_remaining, next_refill, last_refill = result
+
+        # Récupérer le niveau d'abonnement
+        cursor.execute("""
+            SELECT subscription_level FROM clients WHERE wp_user_id = %s
+        """, (wp_user_id,))
+
+        client_result = cursor.fetchone()
+        subscription_level = client_result[0] if client_result else "basic"
+
+        # Déterminer les limites de tokens en fonction du niveau d'abonnement
+        token_limits = {
+            "basic": 150,
+            "premium": 500,
+            "pro": 1500
         }
 
-        client = get_client_by_wp_user_id(wp_user_id)
-        subscription_level = client.get("subscription_level") if client else "basic"
+        token_limit = token_limits.get(subscription_level, 150)
 
-        return jsonify({
-            "success": True,
-            "data": {
-                "tokens_remaining": tokens_remaining,
-                "next_refill": next_refill.isoformat() if next_refill else None,
-                "subscription_level": subscription_level,
-                "token_costs": token_costs
+        cursor.close()
+        conn.close()
+
+        return {
+            "tokens_remaining": tokens_remaining,
+            "next_refill": next_refill.isoformat() if next_refill else None,
+            "last_refill": last_refill.isoformat() if last_refill else None,
+            "token_limit": token_limit,
+            "subscription_level": subscription_level,
+            "token_costs": {
+                "dall-e": 20,
+                "midjourney": 30,
+                "enhance-image": 15
             }
-        })
+        }
 
     except Exception as e:
-        app.logger.error(f"Error getting token information: {str(e)}")
-        return jsonify({
-            "success": False,
-            "error": "Failed to retrieve token information"
-        }), 500
-    finally:
-        if 'cursor' in locals():
-            cursor.close()
-        if 'conn' in locals():
-            conn.close()
-
-
+        app.logger.error(f"Error getting token details: {str(e)}")
+        return None
 @app.route('/generate_image', methods=['GET', 'POST'])
 @token_required
 def generate_image(wp_user_id):

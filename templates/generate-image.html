@@ -420,7 +420,15 @@
                     <div class="setup">
                         <p class="info">This wil use <span class="token-cost" data-model="dall-e">20</span> tokens</p>
                         <div class="token-info">
-                            <p class="tokens-remaining">Remaining: <span class="tokens-count">{{ tokens_remaining if tokens_remaining is defined else '--' }}</span></p>
+                            <span class="token_summary">
+                                <span class="count">--</span>
+                                <span class="text">Tokens<br>Remain</span>
+                            </span>
+                            <a href="pricing.html" class="token_upgrade neltar_fn_button"><span>Upgrade</span></a>
+                            <div class="token__popup">
+                                Resets in <span>--</span><br>
+                                Daily limit is <span>--</span>
+                            </div>
                         </div>
                         <a href="#" class="sidebar__trigger">
                             <img src="{{ url_for('static', filename='assets/svg/option.svg') }}" alt="" class="fn__svg">
@@ -429,10 +437,6 @@
                 </div>
                 <div class="header_bottom">
                     <form id="generate-image-form">
-                        <div id="token-error" class="error-message" style="display: none; color: #ff6b6b; padding: 10px; margin-top: 10px; background-color: rgba(255, 107, 107, 0.1); border-radius: 4px; text-align: center;">
-                            Vous n'avez pas assez de tokens pour cette opération.
-                            <a href="/pricing.html" style="color: #3273dc; text-decoration: underline;">Mettez à niveau votre abonnement</a> pour obtenir plus de tokens.
-                        </div>
 
                     <div class="include_area">
                         <textarea  id="prompt" placeholder="Entrez une description" required rows="1"></textarea>
@@ -702,7 +706,18 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
             const result = await response.json();
             // Handle token expiration and other auth errors
             if(response.status === 401 || response.status === 403){
-                showErrorOverlay(
+                if(result && result.error === "Insufficient tokens") {
+                    // Afficher un message spécifique pour tokens insuffisants
+                    document.getElementById('token-error').style.display = 'block';
+                    document.getElementById('token-error').innerHTML = `
+                        <strong>Tokens insuffisants</strong><br>
+                        Vous n'avez pas assez de tokens pour cette opération.
+                        <a href="/pricing.html">Mettez à niveau votre abonnement</a> pour obtenir plus de tokens.
+                    `;
+                    updateLoadingState('default');
+                    return;
+                } else {
+                    showErrorOverlay(
                     response.status === 401 ? 'Session Expirée' : 'Erreur d\'authentification',
                     result.message || 'Veuillez vous reconnecter.'
                 );
@@ -711,13 +726,9 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
                      window.location.href = result.redirect_url || LOGIN_URL;
                  }, 3000);
                  return;
+                }
             }
-            // Vérifier si nous avons une erreur de tokens insuffisants
-            if (result.error === "Insufficient tokens") {
-                document.getElementById('token-error').style.display = 'block';
-                updateLoadingState('default');
-                return;
-            }
+
 
             if (result.success) {
                 if (currentModel === 'midjourney' && result.status === 'processing') {
@@ -954,21 +965,66 @@ function displayGeneratedImage(imageUrl, isGroup = false) {
 }
 
 // Fonction pour mettre à jour l'affichage des tokens
-function updateTokensDisplay(tokensRemaining) {
-    const tokenCountElements = document.querySelectorAll('.tokens-count, .fn__token_info .count');
-    tokenCountElements.forEach(element => {
-        if (element) {
-            element.textContent = tokensRemaining;
-            // Ajouter une animation de changement
-            element.classList.add('token-change');
-            setTimeout(() => element.classList.remove('token-change'), 500);
-        }
-    });
+function updateTokensDisplay() {
+    // Récupérer le token JWT depuis la variable globale
+    const jwtToken = window.jwtToken;
 
-    // Déclencher un événement personnalisé pour informer d'autres composants
-    document.dispatchEvent(new CustomEvent('tokenUpdate', {
-        detail: { tokensRemaining }
-    }));
+    if (!jwtToken) {
+        console.log("Aucun JWT token trouvé");
+        return;
+    }
+
+    // Récupérer le token d'URL comme fallback si besoin
+    const urlParams = new URLSearchParams(window.location.search);
+    const urlToken = urlParams.get('token');
+    const tokenToUse = jwtToken || urlToken;
+
+    if (!tokenToUse) {
+        console.log("Aucun token trouvé");
+        return;
+    }
+
+    // Appeler l'API pour obtenir les tokens
+    fetch('/api/user/tokens?token=' + encodeURIComponent(tokenToUse))
+        .then(response => {
+            if (!response.ok) {
+                throw new Error('Erreur réseau: ' + response.status);
+            }
+            return response.json();
+        })
+        .then(data => {
+            console.log("Token data received:", data); // Debug
+            if (data.success) {
+                // Mettre à jour l'affichage des tokens
+                const tokenCount = document.querySelector('.fn__token_info .count');
+                if (tokenCount) {
+                    tokenCount.textContent = data.data.tokens_remaining;
+                    // Ajouter une animation de changement
+                    tokenCount.classList.add('token-change');
+                    setTimeout(() => tokenCount.classList.remove('token-change'), 500);
+                }
+
+                // Mettre à jour le popup de info tokens (rechargement)
+                const tokenPopup = document.querySelector('.token__popup');
+                if (tokenPopup && data.data.next_refill) {
+                    const nextRefill = new Date(data.data.next_refill);
+                    const now = new Date();
+
+                    // Calculer le temps restant
+                    const diffInHours = Math.max(0, Math.round((nextRefill - now) / (1000 * 60 * 60)));
+
+                    tokenPopup.innerHTML = `
+                        Resets in <span>${diffInHours} hours</span><br>
+                        Daily limit is <span>${data.data.token_limit || 150} tokens</span>
+                    `;
+                }
+            } else {
+                console.error("Erreur lors de la récupération des tokens:", data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching token data:', error);
+        });
 }
 
 // Mettre à jour le coût affiché en fonction du modèle sélectionné
@@ -1899,6 +1955,61 @@ function showImageDetail(image, prompt) {
 function showErrorOverlay(title, message) {
     console.error(title, message);
     alert(`${title}: ${message}`);
+
+    let errorOverlay = document.getElementById('error-overlay');
+    if (!errorOverlay) {
+        errorOverlay = document.createElement('div');
+        errorOverlay.id = 'error-overlay';
+        errorOverlay.style.position = 'fixed';
+        errorOverlay.style.top = '20px';
+        errorOverlay.style.left = '50%';
+        errorOverlay.style.transform = 'translateX(-50%)';
+        errorOverlay.style.backgroundColor = 'rgba(220, 53, 69, 0.9)';
+        errorOverlay.style.color = 'white';
+        errorOverlay.style.padding = '15px 20px';
+        errorOverlay.style.borderRadius = '5px';
+        errorOverlay.style.zIndex = '9999';
+        errorOverlay.style.maxWidth = '80%';
+        errorOverlay.style.textAlign = 'center';
+        document.body.appendChild(errorOverlay);
+    }
+
+    // Déterminer le message en fonction du type d'erreur
+    let errorMessage = message;
+
+    if (message.includes("token") || message.includes("Token") || title.includes("token") || title.includes("Token")) {
+        errorMessage = "Vous n'avez pas assez de tokens pour cette opération. <a href='/pricing.html' style='color:white;text-decoration:underline;'>Mettez à niveau votre abonnement</a> pour obtenir plus de tokens.";
+    } else if (message.includes("403") || message.includes("Forbidden")) {
+        errorMessage = "Accès refusé. Veuillez vous assurer que vous êtes correctement connecté.";
+    } else if (message.includes("500") || message.includes("serveur")) {
+        errorMessage = "Erreur interne du serveur. Notre équipe a été notifiée et travaille sur le problème. Veuillez réessayer plus tard.";
+    }
+
+    errorOverlay.innerHTML = `
+        <div>
+            <strong>${title}</strong><br>
+            ${errorMessage}
+        </div>
+        <div style="margin-top:10px;">
+            <button onclick="document.getElementById('error-overlay').style.display='none'"
+                    style="background:white;color:#dc3545;border:none;padding:5px 10px;border-radius:3px;cursor:pointer;">
+                Fermer
+            </button>
+        </div>
+    `;
+
+    // Faire disparaître le message après 5 secondes
+    setTimeout(() => {
+        if (errorOverlay && errorOverlay.parentNode) {
+            errorOverlay.style.opacity = '0';
+            errorOverlay.style.transition = 'opacity 0.5s ease';
+            setTimeout(() => {
+                if (errorOverlay && errorOverlay.parentNode) {
+                    errorOverlay.parentNode.removeChild(errorOverlay);
+                }
+            }, 500);
+        }
+    }, 5000);
 }
 
     function saveInstance(prompt, imageUrl) {
