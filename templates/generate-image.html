@@ -1653,11 +1653,28 @@ function improveTokensDisplay() {
 }
 function enhanceGenerateButton() {
     // Trouver tous les boutons de génération d'image (pour couvrir différentes façons dont il pourrait être identifié)
-    const generateButtons = document.querySelectorAll(
-        '#generate_it, #generate-text, button[id*="generate"], button:contains("Générer"), ' +
-        '.neltar_fn_button, button.btn-generate, .btn-generate, button[id*="generer"], ' +
-        'button.génerer, button.generate, #GÉNÉRER_L\'IMAGE'
-    );
+    const generateButtonSelectors = [
+        '#generate_it',
+        '#generate-text',
+        'button[id*="generate"]',
+        '.neltar_fn_button',
+        'button.btn-generate',
+        '.btn-generate',
+        'button[id*="generer"]',
+        'button.génerer',
+        'button.generate',
+        '#GÉNÉRER_LIMAGE'  // Sans apostrophe
+    ];
+    // Rechercher les boutons avec chaque sélecteur individuellement
+    let generateButtons = [];
+    generateButtonSelectors.forEach(selector => {
+        try {
+            const buttons = document.querySelectorAll(selector);
+            buttons.forEach(button => generateButtons.push(button));
+        } catch (e) {
+            console.warn(`Sélecteur non valide: ${selector}`);
+        }
+    });
 
     // Si aucun bouton n'est trouvé, essayons de chercher par texte
     if (generateButtons.length === 0) {
@@ -1665,15 +1682,19 @@ function enhanceGenerateButton() {
             if (button.textContent.toLowerCase().includes('génér') ||
                 button.textContent.toLowerCase().includes('gener') ||
                 button.textContent.toLowerCase().includes('image')) {
-                enhanceSingleButton(button);
+                generateButtons.push(button);
             }
         });
-    } else {
-        // Améliorer chaque bouton trouvé
-        generateButtons.forEach(button => {
-            enhanceSingleButton(button);
-        });
     }
+    // Éliminer les doublons potentiels
+    generateButtons = [...new Set(generateButtons)];
+
+    console.log(`Trouvé ${generateButtons.length} boutons de génération`);
+
+    // Améliorer chaque bouton trouvé
+    generateButtons.forEach(button => {
+        enhanceSingleButton(button);
+    });
 }
 
 // Fonction pour améliorer un seul bouton
