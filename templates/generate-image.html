@@ -3247,10 +3247,6 @@ function showErrorOverlay(title, message) {
             document.head.appendChild(extraStyleElement);
             updateTokenCost();
 
-            // Exécuter aussi maintenant au cas où le DOM est déjà chargé
-            if (document.readyState === 'complete' || document.readyState === 'interactive') {
-                setTimeout(initGenerateButtonEnhancement, 100);
-            }
 
             console.log("Page chargée, initialisation de l'affichage des tokens");
             updateTokensDisplay();
