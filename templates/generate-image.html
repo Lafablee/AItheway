@@ -925,10 +925,33 @@ async function handleMidjourneyProcessing(taskId, token) {
     const generateText = document.getElementById('generate-text');
     generateText.textContent = 'Génération en cours...';
 
+    const generateButton = document.getElementById('generate_it');
+    if (generateButton) {
+        generateButton.classList.add('processing-pulse');
+    }
+    // Déduire immédiatement les tokens pour feedback instantané
+    updateTokenCost();
+    const tokenCostElement = document.querySelector('.token-cost');
+    const tokenCost = parseInt(tokenCostElement ? tokenCostElement.textContent : 30);
+
+    // Récupérer la valeur actuelle des tokens et les mettre à jour visuellement
+    const tokenCount = document.querySelector('.token_summary .count');
+    if (tokenCount) {
+        const currentTokens = parseInt(tokenCount.textContent);
+        if (!isNaN(currentTokens) && !isNaN(tokenCost)) {
+            const newTokens = Math.max(0, currentTokens - tokenCost);
+            // Mise à jour visuelle immédiate
+            updateTokensUI(newTokens);
+        }
+    }
 
     let lastImagesCount = 0;
     const maxAttempts = 30;
     let attempts = 0;
+
+    displayInitialLoadingState();
+    updateLoadingState('processing');
+    updateProgressIndicator(5);
 
     while (attempts < maxAttempts) {
         console.error(`Polling attempt ${attempts + 1}/${maxAttempts}`);
@@ -983,6 +1006,10 @@ async function handleMidjourneyProcessing(taskId, token) {
                     if (data.images.length > lastImagesCount) {
                         lastImagesCount = data.images.length;
                         updateUpscaleProgress(data.images);
+
+                        // Augmenter la progression en fonction du nombre d'images reçues
+                        const progressPercentage = Math.min(80, 20 + (data.images.length / 4) * 60);
+                        updateProgressIndicator(progressPercentage);
                     }
                 }
 
@@ -992,17 +1019,26 @@ async function handleMidjourneyProcessing(taskId, token) {
                     displayMidjourneyGroup(data);
                     console.error('call displayMidjourneyGroup');
                     updateLoadingState('complete');
+
+                    if (generateButton) {
+                        generateButton.classList.remove('processing-pulse');
+                    }
+                    updateProgressIndicator(100);
                     return;
                 } else if (data.images && data.images.length >=4) {
                     // If we have all 4 images but status isn't marked complete, show them anyway
                     console.error('All 4 images received, displaying anyway');
                     displayMidjourneyGroup(data);
                     updateLoadingState('complete');
+                    if (generateButton) {
+                        generateButton.classList.remove('processing-pulse');
+                    }
+                    updateProgressIndicator(100);
                     return;
                 }
 
                 // Mettre à jour la barre de progression
-                const progress = Math.min(90, (attempts / maxAttempts) * 100);(attempts / maxAttempts) * 100;
+                const progress = Math.min(90, 20 + (attempts / maxAttempts) * 70);
                 updateProgressIndicator(progress);
             }
 
@@ -1010,6 +1046,10 @@ async function handleMidjourneyProcessing(taskId, token) {
             if (statusResult.status === 'failed' || statusResult.data?.status === 'failed') {
                 showErrorOverlay('Erreur', 'La génération a échoué');
                 updateLoadingState('default');
+
+                if (generateButton) {
+                    generateButton.classList.remove('processing-pulse');
+                }
                 return;
             }
 
@@ -1022,6 +1062,9 @@ async function handleMidjourneyProcessing(taskId, token) {
             if (attempts === maxAttempts - 1) {
                 showErrorOverlay('Erreur', 'Erreur lors de la vérification du statut');
                 updateLoadingState('default');
+                if (generateButton) {
+                    generateButton.classList.remove('processing-pulse');
+                }
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1031,6 +1074,9 @@ async function handleMidjourneyProcessing(taskId, token) {
 
     showErrorOverlay('Erreur', 'Le délai de génération a été dépassé');
     updateLoadingState('default');
+    if (generateButton) {
+        generateButton.classList.remove('processing-pulse');
+    }
 }
 
 // Fonction d'affichage de l'image générée
@@ -1141,6 +1187,10 @@ function updateTokensDisplay(tokensValue = null) {
         console.error("Aucun token trouvé dans l'URL");
         return;
     }
+    const tokenSummary = document.querySelector('.token_summary');
+    if (tokenSummary) {
+        tokenSummary.classList.add('loading-tokens');
+    }
 
     console.log("Récupération des tokens depuis l'API");
     fetch(`/api/user/tokens?token=${encodeURIComponent(token)}`, {
@@ -1158,24 +1208,25 @@ function updateTokensDisplay(tokensValue = null) {
         console.log("Token data received:", data);
         if (data.success && data.data) {
             updateTokensUI(data.data.tokens_remaining, data.data);
-            // Mise à jour du popup d'information
+            const tokenInfoNearCost = document.querySelector('.token-info');
+            if (tokenInfoNearCost) {
+                const tokenCount = tokenInfoNearCost.querySelector('.count') ||
+                                   tokenInfoNearCost.querySelector('.token_summary .count');
 
-            const tokenPopup = document.querySelector('.token__popup');
-            if (tokenPopup && data.data.next_refill) {
-                const nextRefill = new Date(data.data.next_refill);
-                const now = new Date();
-
-                // Calcul du temps restant
-                let timeText = "--";
-                if (!isNaN(nextRefill.getTime())) {
-                    const diffInHours = Math.max(0, Math.round((nextRefill - now) / (1000 * 60 * 60)));
-                    timeText = `${diffInHours} heure${diffInHours > 1 ? 's' : ''}`;
+                if (tokenCount) {
+                    tokenCount.textContent = data.data.tokens_remaining || '--';
+                    // Animation pour montrer la mise à jour
+                    tokenCount.classList.add('token-change');
+                    setTimeout(() => tokenCount.classList.remove('token-change'), 500);
                 }
 
-                tokenPopup.innerHTML = `
-                    Resets in <span>${timeText}</span><br>
-                    Daily limit is <span>${data.data.token_limit || '--'}</span>
-                `;
+                // Mise à jour du popup d'information sur les tokens
+                const tokenPopup = document.querySelector('.token__popup');
+                if (tokenPopup && data.data.next_refill) {
+                    updateTokenRefreshInfo(tokenPopup, data.data);
+                }
+            } else {
+                console.warn("Élément .token-info non trouvé");
             }
         } else {
             console.error("Erreur lors de la récupération des tokens:", data.error || "Données invalides");
@@ -1183,7 +1234,48 @@ function updateTokensDisplay(tokensValue = null) {
     })
     .catch(error => {
         console.error('Erreur lors de la récupération des tokens:', error);
-    });
+    })
+    .finally(() => {
+        if (tokenSummary) {
+            tokenSummary.classList.remove('loading-tokens');
+        }
+    })
+}
+function updateTokenRefreshInfo(tokenPopup, data) {
+    const nextRefill = new Date(data.next_refill);
+    const now = new Date();
+
+    // Calcul du temps restant
+    let timeText = "--";
+    if (!isNaN(nextRefill.getTime())) {
+        const diffInHours = Math.max(0, Math.round((nextRefill - now) / (1000 * 60 * 60)));
+        const diffInMinutes = Math.max(0, Math.round((nextRefill - now) / (1000 * 60)) % 60);
+
+        if (diffInHours > 0) {
+            timeText = `${diffInHours} heure${diffInHours > 1 ? 's' : ''}`;
+            if (diffInMinutes > 0) {
+                timeText += ` et ${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''}`;
+            }
+        } else if (diffInMinutes > 0) {
+            timeText = `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''}`;
+        } else {
+            timeText = "moins d'une minute";
+        }
+    }
+
+    // Mise à jour du contenu avec animation
+    const oldContent = tokenPopup.innerHTML;
+    const newContent = `
+        Resets in <span>${timeText}</span><br>
+        Daily limit is <span>${data.token_limit || '--'}</span>
+    `;
+
+    // Animation de transition
+    tokenPopup.style.opacity = '0.5';
+    setTimeout(() => {
+        tokenPopup.innerHTML = newContent;
+        tokenPopup.style.opacity = '1';
+    }, 300);
 }
 // Fonction auxiliaire pour mettre à jour l'interface utilisateur
 function updateTokensUI(tokensRemaining, fullData = null) {
@@ -1201,19 +1293,49 @@ function updateTokensUI(tokensRemaining, fullData = null) {
 
         // Ajouter une classe d'animation si la valeur a changé
         if (!isNaN(numericOldValue) && numericOldValue !== tokensRemaining) {
-            tokenCount.classList.add('token-change');
-            setTimeout(() => tokenCount.classList.remove('token-change'), 500);
+            void tokenCount.offsetHeight;
+            tokenCount.classList.remove('token-change');
+
+            // Ajout de styles inline pour l'animation en cas d'urgence
+            if (numericOldValue > tokensRemaining) {
+                // Animation pour diminution (rouge)
+                tokenCount.style.color = '#ff6b6b';
+                tokenCount.style.fontWeight = 'bold';
+                setTimeout(() => {
+                    tokenCount.style.transition = 'color 0.5s ease';
+                    tokenCount.style.color = '';
+                    tokenCount.style.fontWeight = '';
+                }, 800);
+            }
+            // Ajouter la classe d'animation de manière asynchrone
+            setTimeout(() => {
+                tokenCount.classList.add('token-change');
+            }, 10);
+
+            // Retirer la classe après l'animation
+            setTimeout(() => tokenCount.classList.remove('token-change'), 800);
+
+            // Mise en évidence supplémentaire pour les tokens bas
             if (tokensRemaining < 30) {
                 const upgradeButtons = document.querySelectorAll('a.upgrade, button.upgrade, a.token_upgrade, .token-upgrade-btn');
                 upgradeButtons.forEach(button => {
                     button.classList.add('pulse-upgrade');
+                    // Ajouter aussi une bordure rouge au conteneur de tokens
+                    const tokenContainer = document.querySelector('.token-info');
+                    if (tokenContainer) {
+                        tokenContainer.style.border = '2px solid #ff6b6b';
+                        setTimeout(() => {
+                            tokenContainer.style.transition = 'border 0.5s ease';
+                            tokenContainer.style.border = '1px solid rgba(142, 120, 255, 0.3)';
+                        }, 2000);
+                    }
                 });
             }
         }
     } else {
         console.warn("Élément .token_summary .count non trouvé");
     }
-        improveTokensDisplay();
+    improveTokensDisplay();
     updateTokenCost();
 }
 
@@ -2583,19 +2705,27 @@ function updateProgressIndicator(percentage) {
         const progressContainer = document.createElement('div');
         progressContainer.className = 'progress-container mt-4';
         progressContainer.innerHTML = `
-            <div class="w-full bg-gray-200 rounded-full h-2.5">
+            <div class="w-full bg-gray-200 rounded-full h-2.5" style="background-color: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
                 <div class="progress-bar bg-blue-600 h-2.5 rounded-full transition-all duration-500"
-                     style="width: ${percentage}%"></div>
+                     style="background-color: #8e78ff; height: 100%; width: ${percentage}%; transition: width 0.5s ease;"></div>
             </div>
-            <div class="text-sm text-gray-600 mt-2">
+            <div class="text-sm mt-2" style="color: rgba(255,255,255,0.7); font-size: 12px; text-align: center; margin-top: 8px;">
                 Génération en cours : ${Math.round(percentage)}%
             </div>
         `;
         document.getElementById('generated-image').appendChild(progressContainer);
     } else {
         progressBar.style.width = `${percentage}%`;
-        progressBar.parentElement.nextElementSibling.textContent =
-            `Génération en cours : ${Math.round(percentage)}%`;
+        const textEl = progressBar.parentElement.nextElementSibling;
+        if (textEl) {
+            textEl.textContent = `Génération en cours : ${Math.round(percentage)}%`;
+
+            // Ajouter un effet pulse quand la progression change
+            textEl.classList.add('progress-pulse');
+            setTimeout(() => {
+                textEl.classList.remove('progress-pulse');
+            }, 500);
+        }
     }
 }
 function showImageDetail(image, prompt) {
@@ -3292,6 +3422,50 @@ function showErrorOverlay(title, message) {
                     }
                 }
             });
+            const style = document.createElement('style');
+            style.textContent = `
+                @keyframes progressPulse {
+                    0% { opacity: 0.7; }
+                    50% { opacity: 1; }
+                    100% { opacity: 0.7; }
+                }
+
+                .progress-pulse {
+                    animation: progressPulse 1s ease;
+                }
+
+                @keyframes processingPulse {
+                    0% { box-shadow: 0 0 0 0 rgba(142, 120, 255, 0.7); }
+                    70% { box-shadow: 0 0 0 10px rgba(142, 120, 255, 0); }
+                    100% { box-shadow: 0 0 0 0 rgba(142, 120, 255, 0); }
+                }
+
+                .processing-pulse {
+                    animation: processingPulse 1.5s infinite;
+                }
+
+                .loading-tokens {
+                    position: relative;
+                }
+
+                .loading-tokens::after {
+                    content: '';
+                    position: absolute;
+                    top: 0;
+                    left: 0;
+                    right: 0;
+                    bottom: 0;
+                    background: linear-gradient(90deg, transparent, rgba(142, 120, 255, 0.2), transparent);
+                    background-size: 200% 100%;
+                    animation: loadingShimmer 1.5s infinite;
+                }
+
+                @keyframes loadingShimmer {
+                    0% { background-position: -100% 0; }
+                    100% { background-position: 100% 0; }
+                }
+            `;
+            document.head.appendChild(style);
 
             // Intercepter fetch pour les  erreurs d'authentification
             fetch = (originalFetch => {
