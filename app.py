@@ -917,7 +917,7 @@ def get_tokens_for_subscription(subscription_level):
     # Mapping des IDs d'abonnement WordPress vers nos niveaux internes
     subscription_id_mapping = {
         29094: "basic",  # WordPress Free Test Plan ID
-        28974: "basic",  #ancine wp Free Plan ID (pour compatibilité)
+        28974: "basic",  #ancienne wp Free Plan ID (pour compatibilité)
     }
 
     if subscription_level in subscription_id_mapping:
