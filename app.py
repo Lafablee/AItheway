@@ -852,7 +852,23 @@ def initialize_user_tokens(wp_user_id, subscription_level=None):
         # Déterminer le nombre de tokens en fonction du niveau d'abonnement
         tokens = get_tokens_for_subscription(subscription_level)
         now = datetime.now()
-        next_refill = now + timedelta(days=3)  # Tous les 3 jours pour utilisateurs gratuits
+
+        # Convertir en int si c'est une chaîne numérique
+        if isinstance(subscription_level, str) and subscription_level.isdigit():
+            subscription_level = int(subscription_level)
+
+        # Pour les utilisateurs gratuits (basic), c'est tous les 3 jours
+        # défintion période de rechargement
+        is_free_plan = (
+                subscription_level == 29094 or
+                subscription_level == 28974 or
+                (isinstance(subscription_level, str) and subscription_level in ["29094", "28974"])
+        )
+
+        if is_free_plan:
+            next_refill = now + timedelta(days=3)  # Tous les 3 jours pour utilisateurs gratuits
+        else:
+            next_refill = now + timedelta(days=30)  # Pour les abonnements payants (exemple)
 
         if user_exists:
             # Mise à jour des tokens existants
@@ -900,7 +916,8 @@ def get_tokens_for_subscription(subscription_level):
 
     # Mapping des IDs d'abonnement WordPress vers nos niveaux internes
     subscription_id_mapping = {
-        28974: "basic",  # WordPress Free Test Plan ID
+        29094: "basic",  # WordPress Free Test Plan ID
+        28974: "basic",  #ancine wp Free Plan ID (pour compatibilité)
     }
 
     if subscription_level in subscription_id_mapping:
@@ -941,7 +958,20 @@ def get_user_tokens(wp_user_id):
                 # Recharger les tokens
                 client = get_client_by_wp_user_id(wp_user_id)
                 subscription_level = client.get("subscription_level") if client else None
-                tokens_remaining = initialize_user_tokens(wp_user_id, subscription_level)
+
+                # Convertir en int si c'est une chaîne numérique
+                if isinstance(subscription_level, str) and subscription_level.isdigit():
+                    subscription_level = int(subscription_level)
+
+                is_free_plan = (
+                        subscription_level == 29094 or
+                        subscription_level == 28974 or
+                        (isinstance(subscription_level, str) and subscription_level in ["29094", "28974"])
+                )
+                if is_free_plan:
+                    tokens_remaining = initialize_user_tokens(wp_user_id, "basic")
+                else:
+                    tokens_remaining = initialize_user_tokens(wp_user_id, subscription_level)
 
             return tokens_remaining
 
@@ -1242,6 +1272,7 @@ def update_client_subscription(client_id, subscription_level, status, expiration
 def assign_permissions(client_id, subscription_level):
     # Define subscription mapping with WordPress ID
     subscription_mapping = {
+        29094: "basic",  # nouveau plan gratuit
         28974: "basic",  # WordPress Free Test Plan ID
         "FREE Test PLAN": "basic",  # Keep existing mapping for backward compatibility
         "premium_plan": "premium",
@@ -1432,15 +1463,32 @@ def sync_membership(wp_user_id_from_token):
         # Convert wp_user_id to integer
         wp_user_id = int(data['wp_user_id'])
         start_date = datetime.strptime(data['start_date'], '%Y-%m-%d %H:%M:%S')
-        expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d %H:%M:%S')
 
-        # Check if expiration date has passed
-        if expiration_date < datetime.now():
-            if data['status'] == 'canceled':
-                data['status'] = 'abandoned'
-            else:
-                data['status'] = 'expired'
-            app.logger.info(f"Subscription marked as expired due to past expiration date")
+        subscription_level = data['subscription_level']
+        if isinstance(subscription_level, str) and subscription_level.isdigit():
+            subscription_level = int(subscription_level)
+
+        # Vérifier si c'est le plan gratuit
+        is_free_plan = (
+                subscription_level == 29094 or
+                subscription_level == 28974 or
+                (isinstance(subscription_level, str) and subscription_level in ["29094", "28974"])
+        )
+
+        if is_free_plan:
+            expiration_date = datetime.now() + timedelta(days=365*50)
+            data['status'] = 'active'
+            app.logger.error(f"plan gratuit détecté pour l'utilisateur ID {wp_user_id}, expiration définie à 50 ans dans db.")
+        else:
+            expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d %H:%M:%S')
+
+            # Check if expiration date has passed
+            if expiration_date < datetime.now():
+                if data['status'] == 'canceled':
+                    data['status'] = 'abandoned'
+                else:
+                    data['status'] = 'expired'
+                app.logger.info(f"Subscription marked as expired due to past expiration date")
 
         # Vérifie si le client existe
         client = get_client_by_wp_user_id(wp_user_id)
