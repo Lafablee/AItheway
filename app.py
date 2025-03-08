@@ -917,7 +917,7 @@ def get_tokens_for_subscription(subscription_level):
     # Mapping des IDs d'abonnement WordPress vers nos niveaux internes
     subscription_id_mapping = {
         29094: "basic",  # WordPress Free Test Plan ID
-        28974: "basic",  #ancienne wp Free Plan ID (pour compatibilité)
+        28974: "premium",  #ancienne wp Free Plan ID (pour compatibilité)
     }
 
     if subscription_level in subscription_id_mapping:
@@ -987,6 +987,59 @@ def get_user_tokens(wp_user_id):
         conn.close()
 
 
+def update_all_users_tokens():
+    """
+    Met à jour les tokens de tous les utilisateurs en fonction de leur niveau d'abonnement actuel
+    """
+    try:
+        conn = psycopg2.connect(
+            dbname=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD"),
+            host=os.getenv("DB_HOST"),
+        )
+        cursor = conn.cursor()
+
+        # Récupérer tous les utilisateurs
+        cursor.execute("SELECT wp_user_id, subscription_level FROM clients")
+        users = cursor.fetchall()
+
+        updated_count = 0
+        for user_id, subscription_level in users:
+            # Déterminer le nombre de tokens approprié
+            tokens = get_tokens_for_subscription(subscription_level)
+            now = datetime.now()
+
+            # Vérifier si c'est un plan gratuit pour la période de rechargement
+            is_free_plan = (subscription_level == 29094 or (
+                        isinstance(subscription_level, str) and subscription_level == "29094"))
+            next_refill = now + timedelta(days=3 if is_free_plan else 30)
+
+            # Mettre à jour les tokens
+            cursor.execute("""
+                UPDATE user_tokens
+                SET tokens_remaining = %s,
+                    last_refill = %s,
+                    next_refill = %s
+                WHERE wp_user_id = %s
+            """, (tokens, now, next_refill, user_id))
+
+            if cursor.rowcount > 0:
+                updated_count += 1
+                app.logger.info(f"Updated tokens for user {user_id} to {tokens}")
+
+        conn.commit()
+        app.logger.info(f"Updated tokens for {updated_count} users")
+        return updated_count
+
+    except Exception as e:
+        app.logger.error(f"Error updating tokens: {str(e)}")
+        if 'conn' in locals():
+            conn.rollback()
+        return None
+    finally:
+        cursor.close()
+        conn.close()
 def use_tokens(wp_user_id, amount):
     """
     Utiliser des tokens pour une opération
@@ -1030,6 +1083,23 @@ def use_tokens(wp_user_id, amount):
         if 'conn' in locals():
             conn.close()
 
+
+def is_free_subscription_plan(subscription_level):
+    """
+    Détermine si un abonnement correspond à un plan gratuit
+    """
+    # Conversion en int si c'est une chaîne numérique
+    if isinstance(subscription_level, str) and subscription_level.isdigit():
+        subscription_level = int(subscription_level)
+
+    # Liste des IDs de plans gratuits
+    free_plan_ids = [29094]
+
+    # Vérification
+    return (
+            subscription_level in free_plan_ids or
+            (isinstance(subscription_level, str) and str(subscription_level) in [str(id) for id in free_plan_ids])
+    )
 
 def refund_tokens(wp_user_id, amount):
     """
@@ -1118,7 +1188,7 @@ def check_client_permission(client_id, action):
     )
     cursor = conn.cursor()
     cursor.execute("""
-        SELECT p.is_allowed, c.expiration_date, c.status
+        SELECT p.is_allowed, c.expiration_date, c.status, c.subscription_level
         FROM permissions AS p
         JOIN clients AS c ON p.client_id = c.id
         WHERE p.client_id = %s AND p.action = %s
@@ -1128,8 +1198,16 @@ def check_client_permission(client_id, action):
     conn.close()
 
     if result:
-        is_allowed, expiration_date, status = result
+        is_allowed, expiration_date, status, subscription_level = result
         now = datetime.now()
+
+        is_free_plan = (
+            str(subscription_level) == "29094" or
+            int(subscription_level) == 29094 if subscription_level.isdigit() else False or
+            str(subscription_level) == "28974" or
+            int(subscription_level) == 28974 if subscription_level.isdigit() else False
+        )
+
         # Add debug logs for timezone investigation
         app.logger.error(f"""
         Timezone Debug:
@@ -1137,13 +1215,26 @@ def check_client_permission(client_id, action):
         Expiration date from DB: {expiration_date}
         Status: {status}
         Is allowed: {is_allowed}
+        Subscription level: {subscription_level}
+        Is free plan: {is_free_plan}
         """)
 
-        if is_allowed and ((status == 'active' and now <= expiration_date) or (status == 'canceled' and now <= expiration_date)):
-            app.logger.error(f"Permission check results - Is Allowed: {is_allowed}, Status: {status}, Valid: {result}")
-            return True
-        app.logger.error("No permission record found")
+        if is_free_plan:
+            if is_allowed and status == 'active':
+                app.logger.error(f"Free plan permission check passed - Is Allowed: {is_allowed}, Status: {status}")
+                return True
+            # Pour les plans payants, on vérifie la date d'expiration
+        else:
+            if is_allowed and ((status == 'active' and now <= expiration_date) or (
+                    status == 'canceled' and now <= expiration_date)):
+                app.logger.error(f"Paid plan permission check passed - Is Allowed: {is_allowed}, Status: {status}")
+                return True
+
+        app.logger.error("Permission check failed")
         return False
+
+    app.logger.error("No permission record found")
+    return False
 
 def verify_jwt_token(token):
     try:
@@ -1321,14 +1412,27 @@ def check_and_revoke_permissions():
     cursor = conn.cursor()
     # Vérifie les clients annulés dont l'expiration_date est dépassée
     cursor.execute("""
-        SELECT id FROM clients WHERE status = 'canceled' AND expiration_date <= %s
+        SELECT id, subscription_level FROM clients WHERE (status = 'canceled' OR status = 'expired' OR status = 'abandonned') AND expiration_date <= %s
     """, (datetime.now(),))
-    clients_to_revoke = cursor.fetchall()
+    clients_to_check = cursor.fetchall()
 
-    for client_id in clients_to_revoke:
-        # Appelle la fonction pour révoquer les permissions pour chaque client expiré
-        revoke_client_permissions(client_id[0])
-        app.logger.info(f"Permissions revoked for client ID {client_id[0]} due to expired subscription.")
+    for client_row in clients_to_check:
+        client_id, subscription_level = client_row
+
+        # Vérifier si c'est un plan gratuit (qui ne devrait pas être révoqué)
+        is_free_plan = (
+                str(subscription_level) == "29094" or
+                (isinstance(subscription_level, str) and subscription_level.isdigit() and int(
+                    subscription_level) == 29094) or
+                str(subscription_level) == "28974" or
+                (isinstance(subscription_level, str) and subscription_level.isdigit() and int(
+                    subscription_level) == 28974)
+        )
+
+        if not is_free_plan:
+            # Révoquer les permissions uniquement pour les plans payants
+            revoke_client_permissions(client_id)
+            app.logger.info(f"Permissions revoked for client ID {client_id} (plan: {subscription_level}) due to expired subscription.")
 
     conn.commit()
     cursor.close()
@@ -1518,9 +1622,18 @@ def sync_membership(wp_user_id_from_token):
         # Initialiser ou mettre à jour les tokens de l'utilisateur en fonction de son abonnement
         initialize_user_tokens(wp_user_id, data['subscription_level'])
 
+        if is_free_plan:
+            # Pour les plans gratuits, toujours attribuer les permissions
+            app.logger.info(f"Free plan: ensuring permissions for client_id: {client_id}")
+            # On révoque d'abord pour s'assurer que tout est propre
+            revoke_client_permissions(client_id)
+            # Puis on attribue les permissions de base
+            assign_permissions(client_id, data['subscription_level'])
+
             # Attribue les permissions en fonction du niveau d'abonnement
-        if data['status'] == 'active':
+        elif data['status'] == 'active':
             app.logger.info(f"Revoking old permissions for client_id: {client_id}")
+            app.logger.info(f"Paid active plan: updating permissions for client_id: {client_id}")
             revoke_client_permissions(client_id)
 
             app.logger.error(f"Assigning permissions for client_id: {client_id}")
