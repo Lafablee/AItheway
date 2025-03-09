@@ -97,9 +97,8 @@ GRACE_PERIOD = 0.04 # # ~1 heures au lieu de 60 jours
 
 # Permissions par type d'abonnement
 PERMISSIONS = {
-    SUBSCRIPTION_TYPES["BASIC"]: ["view_content", "generate_image", "upload_enhance"],
-    SUBSCRIPTION_TYPES["PREMIUM"]: ["view_content", "generate_image", "upload_enhance"],
-    SUBSCRIPTION_TYPES["PRO"]: ["view_content", "generate_image", "upload_enhance", "access_special_features"]
+    SUBSCRIPTION_TYPES["BASIC_FREE"]: ["view_content", "generate_image", "upload_enhance"],
+    SUBSCRIPTION_TYPES["BASIC_PAID"]: ["view_content", "generate_image", "upload_enhance"],
 }
 
 class ImageManager:
