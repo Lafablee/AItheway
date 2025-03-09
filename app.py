@@ -1350,17 +1350,17 @@ def check_client_permission(client_id, action):
                 if status == 'active':
                     app.logger.error(f"Free plan permission check passed - Is Allowed: {is_allowed}, Status: {status}")
                     return True
-        # Pour les plans payants, on vérifie la date d'expiration
-        else:
-            if status == 'active' and now <= expiration_date:
-                app.logger.error(f"Paid plan permission check passed - Is Allowed: {is_allowed}, Status: {status}")
-                return True
-            elif status == 'canceled':
-                # Pour 'canceled', vérifier aussi la période de grâce
-                grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
-                if now <= grace_end:
-                    app.logger.info(f"Canceled plan in grace period permission check passed")
+                # Pour les plans payants, on vérifie la date d'expiration
+            else:
+                if status == 'active' and now <= expiration_date:
+                    app.logger.error(f"Paid plan permission check passed - Is Allowed: {is_allowed}, Status: {status}")
                     return True
+                elif status == 'canceled':
+                    # Pour 'canceled', vérifier aussi la période de grâce
+                    grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
+                    if now <= grace_end:
+                        app.logger.info(f"Canceled plan in grace period permission check passed")
+                        return True
 
         app.logger.error("Permission check failed")
         return False
@@ -1765,6 +1765,10 @@ def sync_membership(wp_user_id_from_token):
                 status=data['status'],
                 expiration_date=expiration_date,
             )
+            if data['status'] == 'active':
+                app.logger.error(f"Attribution automatique des permissions pour client actif: {client_id}")
+                added, removed = assign_permissions(client_id, data['subscription_level'])
+                app.logger.info(f"Permissions mises à jour: {added} ajoutées, {removed} supprimées")
         else:
             # Création d'un nouveau client
             app.logger.info(f"Adding new client with wp_user_id: {wp_user_id}")
@@ -1835,24 +1839,42 @@ def sync_membership(wp_user_id_from_token):
             # Révoquer les permissions
             revoke_client_permissions(client_id)
             app.logger.info(f"Permissions révoquées pour l'utilisateur {wp_user_id} (statut: {data['status']})")
-        else:
-            # Gestion des permissions selon le statut
-            if is_free_plan:
-                # Pour les plans gratuits avec statut actif
-                if data['status'] == 'active':
-                    app.logger.info(f"Plan gratuit actif: ensuring permissions for client_id: {client_id}")
-                    added, removed = assign_permissions(client_id, data['subscription_level'])
-                    app.logger.info(f"Permissions updated: {added} added, {removed} removed")
-            else:
-                # Pour les plans payants
-                if data['status'] in ['active', 'canceled']:
-                    # Active ou canceled maintiennent les permissions
-                    app.logger.info(
-                        f"Plan payant {data['status']}: maintien des permissions pour client_id: {client_id}")
-                    added, removed = assign_permissions(client_id, data['subscription_level'])
-                    app.logger.info(f"Permissions updated: {added} added, {removed} removed")
 
+        elif data['status'] == 'canceled':
+            # Vérifier si dans la période de grâce
+            grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
+            if datetime.now() <= grace_end:
+                # Pendant la période de grâce, maintenir les permissions
+                app.logger.info(f"Plan annulé en période de grâce: maintien des permissions pour client_id: {client_id}")
+                added, removed = assign_permissions(client_id, data['subscription_level'])
+                app.logger.info(f"Permissions updated: {added} added, {removed} removed")
+            else:
+                app.logger.error(f"Plan annulé hors période de grâce: révocation des permissions pour client_id: {client_id}")
+                revoke_client_permissions(client_id)
+                # Mettre également les tokens à zéro
+                conn = psycopg2.connect(
+                    dbname=os.getenv("DB_NAME"),
+                    user=os.getenv("DB_USER"),
+                    password=os.getenv("DB_PASSWORD"),
+                    host=os.getenv("DB_HOST"),
+                )
+                cursor = conn.cursor()
+                cursor.execute("""
+                                    UPDATE user_tokens
+                                    SET tokens_remaining = 0
+                                    WHERE wp_user_id = %s
+                                """, (wp_user_id,))
+                conn.commit()
+                cursor.close()
+                conn.close()
+
+        elif data['status'] == 'active':
+            # Pour tous les plans actifs, attribuer les permissions
+            app.logger.info(f"Client actif: attribution des permissions pour client_id: {client_id}")
+            added, removed = assign_permissions(client_id, data['subscription_level'])
+            app.logger.info(f"Permissions updated: {added} added, {removed} removed")
         return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
+
     except ValueError as e:
         app.logger.error(f"Date parsing error: {str(e)}")
         return jsonify({"error": "Invalid date format. Use YYYY-MM-DD HH:MM:SS"}), 400
