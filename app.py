@@ -979,7 +979,7 @@ def get_tokens_for_subscription(subscription_level):
         return TOKEN_ALLOCATION[mapped_level]
 
     app.logger.error(f"Subscription level unknown {subscription_level}, basic plan set by default for user token")
-    return TOKEN_ALLOCATION[SUBSCRIPTION_TYPES["BASIC"]]  # 150 par défaut = BASIC
+    return TOKEN_ALLOCATION[SUBSCRIPTION_TYPES["BASIC_FREE"]]  # 150 par défaut = BASIC
 
 
 def get_user_tokens(wp_user_id):
@@ -1216,6 +1216,11 @@ def is_free_subscription_plan(subscription_level):
     # Conversion en int si c'est une chaîne numérique
     if isinstance(subscription_level, str) and subscription_level.isdigit():
         subscription_level = int(subscription_level)
+
+    # Vérification directe avec le mapping
+    mapped_level = SUBSCRIPTION_ID_MAPPING.get(subscription_level)
+    if mapped_level == SUBSCRIPTION_TYPES["BASIC_FREE"]:
+        return True
 
     # Liste des IDs uniquement pour les véritables plans gratuits
     free_plan_id = 29094
@@ -1498,12 +1503,12 @@ def assign_permissions(client_id, subscription_level):
     mapped_level = SUBSCRIPTION_ID_MAPPING.get(subscription_level, subscription_level)
     if isinstance(mapped_level, str) and mapped_level not in PERMISSIONS:
         # Si le niveau mappé n'est pas reconnu, utiliser basic par défaut
-        mapped_level = SUBSCRIPTION_TYPES["BASIC"]
+        mapped_level = SUBSCRIPTION_TYPES["BASIC_FREE"]
 
     # Map the subscription level to our internal levels
     app.logger.info(f"Mapping subscription {subscription_level} to {mapped_level}")
 
-    required_permissions = set(PERMISSIONS.get(mapped_level, PERMISSIONS[SUBSCRIPTION_TYPES["BASIC"]]))
+    required_permissions = set(PERMISSIONS.get(mapped_level, PERMISSIONS[SUBSCRIPTION_TYPES["BASIC_FREE"]]))
 
     conn = psycopg2.connect(
         dbname=os.getenv("DB_NAME"),
