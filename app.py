@@ -873,6 +873,8 @@ def initialize_user_tokens(wp_user_id, subscription_level=None, force_reset=Fals
         force_reset: Si True, force la réinitialisation des tokens quoi qu'il arrive
     """
     try:
+        app.logger.error(f"Initializing tokens for user {wp_user_id} with subscription {subscription_level}")
+
         conn = psycopg2.connect(
             dbname=os.getenv("DB_NAME"),
             user=os.getenv("DB_USER"),
@@ -884,6 +886,8 @@ def initialize_user_tokens(wp_user_id, subscription_level=None, force_reset=Fals
         # Vérifier si l'utilisateur existe déjà dans la table user_tokens
         cursor.execute("SELECT id, tokens_remaining FROM user_tokens WHERE wp_user_id = %s", (wp_user_id,))
         user_record = cursor.fetchone()
+
+        app.logger.error(f"[TOKENS] Current user record: {user_record}")
 
         # Récupérer les informations sur l'abonnement pour calculer la période de rechargement
         client = get_client_by_wp_user_id(wp_user_id)
@@ -902,13 +906,14 @@ def initialize_user_tokens(wp_user_id, subscription_level=None, force_reset=Fals
                                     WHERE wp_user_id = %s
                                 """, (wp_user_id,))
                         conn.commit()
-                        app.logger.info(f"Période de grâce expirée pour l'utilisateur {wp_user_id}, tokens mis à 0")
+                        app.logger.error(f"Période de grâce expirée pour l'utilisateur {wp_user_id}, tokens mis à 0")
                         cursor.close()
                         conn.close()
                         return 0
 
         # Déterminer le nombre de tokens en fonction du niveau d'abonnement
         max_tokens = get_tokens_for_subscription(subscription_level)
+        app.logger.error(f"[TOKENS] Max tokens calculated: {max_tokens} for subscription {subscription_level}")
         now = datetime.now()
 
         # Convertir en int si c'est une chaîne numérique
@@ -917,17 +922,18 @@ def initialize_user_tokens(wp_user_id, subscription_level=None, force_reset=Fals
 
         # Déterminer si c'est un plan gratuit et la période de rechargement
         is_free_plan = is_free_subscription_plan(subscription_level)
-
+        app.logger.error(f"[TOKENS] Is free plan: {is_free_plan}")
         # Période de rechargement selon le type d'abonnement
         refill_days = REFILL_PERIODS[
             SUBSCRIPTION_TYPES["BASIC_FREE"] if is_free_plan else SUBSCRIPTION_TYPES["BASIC_PAID"]]
         next_refill = now + timedelta(days=refill_days)
+        app.logger.error(f"[TOKENS] Next refill: {next_refill} (in {refill_days} days)")
 
         if user_record:
             # Si force_reset est True ou si c'est la période de rechargement, réinitialiser à max_tokens
             if force_reset:
                 tokens_to_set = max_tokens
-                app.logger.info(
+                app.logger.error(
                     f"Forçage de réinitialisation des tokens pour l'utilisateur {wp_user_id} à {max_tokens}")
             else:
                 tokens_to_set = user_record[1]  # Garder le nombre actuel
@@ -949,7 +955,7 @@ def initialize_user_tokens(wp_user_id, subscription_level=None, force_reset=Fals
                     """, (wp_user_id, tokens_to_set, now, next_refill))
 
         conn.commit()
-        app.logger.info(
+        app.logger.error(
             f"Tokens initialized for user {wp_user_id}: {tokens_to_set} tokens, next refill in {refill_days} days")
         return tokens_to_set
 
@@ -973,7 +979,13 @@ def get_tokens_for_subscription(subscription_level):
     if isinstance(subscription_level, str) and subscription_level.isdigit():
         subscription_level = int(subscription_level)
 
-    mapped_level = SUBSCRIPTION_ID_MAPPING.get(subscription_level, subscription_level)
+    # Vérification explicite pour les IDs d'abonnement connus
+    if subscription_level == 28974 or subscription_level == "28974":
+        return TOKEN_ALLOCATION[SUBSCRIPTION_TYPES["BASIC_PAID"]]  # 500 tokens
+    elif subscription_level == 29094 or subscription_level == "29094":
+        return TOKEN_ALLOCATION[SUBSCRIPTION_TYPES["BASIC_FREE"]]  # 150 tokens
+
+    mapped_level = SUBSCRIPTION_ID_MAPPING.get(subscription_level, SUBSCRIPTION_TYPES["BASIC_FREE"])
 
     if mapped_level in TOKEN_ALLOCATION:
         return TOKEN_ALLOCATION[mapped_level]
@@ -1025,7 +1037,7 @@ def get_user_tokens(wp_user_id):
                                             WHERE wp_user_id = %s
                                         """, (wp_user_id,))
                             conn.commit()
-                            app.logger.info(f"Période de grâce expirée pour l'utilisateur {wp_user_id}, tokens mis à 0")
+                            app.logger.error(f"Période de grâce expirée pour l'utilisateur {wp_user_id}, tokens mis à 0")
                             return 0
 
                 # Si abonnement abandonné ou expiré, pas de tokens
@@ -1035,7 +1047,7 @@ def get_user_tokens(wp_user_id):
             # Vérifier si un rechargement est nécessaire
             now = datetime.now()
             if next_refill and next_refill <= now:
-                app.logger.info(f"Automatic token refill triggered for user {wp_user_id}")
+                app.logger.error(f"Automatic token refill triggered for user {wp_user_id}")
 
                 # Récupérer le niveau d'abonnement actuel
                 subscription_level = client.get("subscription_level") if client else None
@@ -1059,7 +1071,7 @@ def get_user_tokens(wp_user_id):
 
                 conn.commit()
                 tokens_remaining = max_tokens
-                app.logger.info(
+                app.logger.error(
                     f"Tokens refilled for user {wp_user_id}: {tokens_remaining}, next refill in {refill_days} days")
 
             return tokens_remaining
@@ -1129,7 +1141,7 @@ def update_all_users_tokens():
 
             if cursor.rowcount > 0:
                 updated_count += 1
-                app.logger.info(f"Updated tokens for user {user_id} to {tokens}")
+                app.logger.error(f"Updated tokens for user {user_id} to {tokens}")
 
         conn.commit()
         app.logger.info(f"Updated tokens for {updated_count} users")
@@ -1359,7 +1371,7 @@ def check_client_permission(client_id, action):
                     # Pour 'canceled', vérifier aussi la période de grâce
                     grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
                     if now <= grace_end:
-                        app.logger.info(f"Canceled plan in grace period permission check passed")
+                        app.logger.error(f"Canceled plan in grace period permission check passed")
                         return True
 
         app.logger.error("Permission check failed")
@@ -1506,7 +1518,7 @@ def assign_permissions(client_id, subscription_level):
         mapped_level = SUBSCRIPTION_TYPES["BASIC_FREE"]
 
     # Map the subscription level to our internal levels
-    app.logger.info(f"Mapping subscription {subscription_level} to {mapped_level}")
+    app.logger.error(f"Mapping subscription {subscription_level} to {mapped_level}")
 
     required_permissions = set(PERMISSIONS.get(mapped_level, PERMISSIONS[SUBSCRIPTION_TYPES["BASIC_FREE"]]))
 
@@ -1531,7 +1543,7 @@ def assign_permissions(client_id, subscription_level):
                     INSERT INTO permissions (client_id, action, is_allowed)
                     VALUES (%s, %s, TRUE)
                 """, (client_id, action))
-        app.logger.info(f"Permission '{action}' ajoutée au client ID {client_id}")
+        app.logger.error(f"Permission '{action}' ajoutée au client ID {client_id}")
 
     # Supprimer les permissions en trop (optionnel selon votre logique métier)
     # Pour certains scénarios, vous pourriez vouloir conserver les permissions supplémentaires
@@ -1540,7 +1552,7 @@ def assign_permissions(client_id, subscription_level):
             DELETE FROM permissions 
             WHERE client_id = %s AND action = %s
         """, (client_id, action))
-        app.logger.info(f"Permission '{action}' supprimée du client ID {client_id}")
+        app.logger.error(f"Permission '{action}' supprimée du client ID {client_id}")
 
     conn.commit()
     cursor.close()
@@ -1577,7 +1589,7 @@ def check_and_revoke_permissions():
         if not is_free_plan:
             # Révoquer les permissions uniquement pour les plans payants
             revoke_client_permissions(client_id)
-            app.logger.info(f"Permissions revoked for client ID {client_id} (plan: {subscription_level}) due to expired subscription.")
+            app.logger.error(f"Permissions revoked for client ID {client_id} (plan: {subscription_level}) due to expired subscription.")
 
     conn.commit()
     cursor.close()
@@ -1728,7 +1740,7 @@ def sync_membership(wp_user_id_from_token):
             if data['status'] != 'abandoned':
                 data['status'] = 'active'
 
-            app.logger.info(f"Plan gratuit détecté pour l'utilisateur ID {wp_user_id}, expiration définie à 1 an")
+            app.logger.error(f"Plan gratuit détecté pour l'utilisateur ID {wp_user_id}, expiration définie à 1 an")
         else:
             # Pour les plans payants
             expiration_date = datetime.strptime(data['expiration_date'], '%Y-%m-%d %H:%M:%S')
@@ -1740,10 +1752,10 @@ def sync_membership(wp_user_id_from_token):
                     grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
                     if datetime.now() > grace_end:
                         data['status'] = 'expired'
-                        app.logger.info(f"Abonnement marqué comme 'expired' - période de grâce dépassée")
+                        app.logger.error(f"Abonnement marqué comme 'expired' - période de grâce dépassée")
                 else:
                     data['status'] = 'expired'
-                    app.logger.info(f"Abonnement marqué comme 'expired' - date d'expiration dépassée")
+                    app.logger.error(f"Abonnement marqué comme 'expired' - date d'expiration dépassée")
 
         # Vérifie si le client existe
         client = get_client_by_wp_user_id(wp_user_id)
@@ -1758,7 +1770,7 @@ def sync_membership(wp_user_id_from_token):
             client_id = client["id"]
 
             # Mise à jour de l'abonnement existant
-            app.logger.info(f"Updating existing client with id: {client_id}, status: {data['status']}")
+            app.logger.error(f"Updating existing client with id: {client_id}, status: {data['status']}")
             update_client_subscription(
                 client_id=client_id,
                 subscription_level=data['subscription_level'],
@@ -1768,10 +1780,10 @@ def sync_membership(wp_user_id_from_token):
             if data['status'] == 'active':
                 app.logger.error(f"Attribution automatique des permissions pour client actif: {client_id}")
                 added, removed = assign_permissions(client_id, data['subscription_level'])
-                app.logger.info(f"Permissions mises à jour: {added} ajoutées, {removed} supprimées")
+                app.logger.error(f"Permissions mises à jour: {added} ajoutées, {removed} supprimées")
         else:
             # Création d'un nouveau client
-            app.logger.info(f"Adding new client with wp_user_id: {wp_user_id}")
+            app.logger.error(f"Adding new client with wp_user_id: {wp_user_id}")
             client_id = add_client(
                 wp_user_id=wp_user_id,
                 email=data['email'],
@@ -1788,7 +1800,7 @@ def sync_membership(wp_user_id_from_token):
             if (not is_free_plan and is_free_subscription_plan(old_subscription)):
                 # Promotion: Plan gratuit -> Plan payant (réinitialiser à 500)
                 initialize_user_tokens(wp_user_id, subscription_level, force_reset=True)
-                app.logger.info(
+                app.logger.error(
                     f"Promotion vers plan payant: tokens réinitialisés à 500 pour l'utilisateur {wp_user_id}")
             elif (is_free_plan and not is_free_subscription_plan(old_subscription)):
                 # Rétrogradation: Plan payant -> Plan gratuit (réduire à 150)
@@ -1807,7 +1819,7 @@ def sync_membership(wp_user_id_from_token):
                 conn.commit()
                 cursor.close()
                 conn.close()
-                app.logger.info(
+                app.logger.error(
                     f"Rétrogradation vers plan gratuit: tokens réduits à 150 pour l'utilisateur {wp_user_id}")
             else:
                 # Pas de changement de type de plan, juste initialiser les tokens normalement
@@ -1834,20 +1846,20 @@ def sync_membership(wp_user_id_from_token):
             conn.commit()
             cursor.close()
             conn.close()
-            app.logger.info(f"Statut {data['status']}: tokens mis à zéro pour l'utilisateur {wp_user_id}")
+            app.logger.error(f"Statut {data['status']}: tokens mis à zéro pour l'utilisateur {wp_user_id}")
 
             # Révoquer les permissions
             revoke_client_permissions(client_id)
-            app.logger.info(f"Permissions révoquées pour l'utilisateur {wp_user_id} (statut: {data['status']})")
+            app.logger.error(f"Permissions révoquées pour l'utilisateur {wp_user_id} (statut: {data['status']})")
 
         elif data['status'] == 'canceled':
             # Vérifier si dans la période de grâce
             grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
             if datetime.now() <= grace_end:
                 # Pendant la période de grâce, maintenir les permissions
-                app.logger.info(f"Plan annulé en période de grâce: maintien des permissions pour client_id: {client_id}")
+                app.logger.error(f"Plan annulé en période de grâce: maintien des permissions pour client_id: {client_id}")
                 added, removed = assign_permissions(client_id, data['subscription_level'])
-                app.logger.info(f"Permissions updated: {added} added, {removed} removed")
+                app.logger.error(f"Permissions updated: {added} added, {removed} removed")
             else:
                 app.logger.error(f"Plan annulé hors période de grâce: révocation des permissions pour client_id: {client_id}")
                 revoke_client_permissions(client_id)
@@ -1870,9 +1882,9 @@ def sync_membership(wp_user_id_from_token):
 
         elif data['status'] == 'active':
             # Pour tous les plans actifs, attribuer les permissions
-            app.logger.info(f"Client actif: attribution des permissions pour client_id: {client_id}")
+            app.logger.error(f"Client actif: attribution des permissions pour client_id: {client_id}")
             added, removed = assign_permissions(client_id, data['subscription_level'])
-            app.logger.info(f"Permissions updated: {added} added, {removed} removed")
+            app.logger.error(f"Permissions updated: {added} added, {removed} removed")
         return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
 
     except ValueError as e:
