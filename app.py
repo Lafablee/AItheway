@@ -1830,23 +1830,27 @@ def sync_membership(wp_user_id_from_token):
 
             # 2. Transition vers un statut 'abandoned' ou 'expired'
         if data['status'] in ['abandoned', 'expired']:
-            # Mettre les tokens à zéro immédiatement
-            conn = psycopg2.connect(
-                dbname=os.getenv("DB_NAME"),
-                user=os.getenv("DB_USER"),
-                password=os.getenv("DB_PASSWORD"),
-                host=os.getenv("DB_HOST"),
-            )
-            cursor = conn.cursor()
-            cursor.execute("""
-                        UPDATE user_tokens
-                        SET tokens_remaining = 0
-                        WHERE wp_user_id = %s
-                    """, (wp_user_id,))
-            conn.commit()
-            cursor.close()
-            conn.close()
-            app.logger.error(f"Statut {data['status']}: tokens mis à zéro pour l'utilisateur {wp_user_id}")
+            # Mettre les tokens à zéro immédiatement sauf pour les plans gratuits --doivent récupérer leurs nb de tokens--
+            if not is_free_plan:
+                conn = psycopg2.connect(
+                    dbname=os.getenv("DB_NAME"),
+                    user=os.getenv("DB_USER"),
+                    password=os.getenv("DB_PASSWORD"),
+                    host=os.getenv("DB_HOST"),
+                )
+                cursor = conn.cursor()
+                cursor.execute("""
+                            UPDATE user_tokens
+                            SET tokens_remaining = 0
+                            WHERE wp_user_id = %s
+                        """, (wp_user_id,))
+                conn.commit()
+                cursor.close()
+                conn.close()
+                app.logger.error(f"Statut {data['status']} (plan payant): tokens mis à zéro pour l'utilisateur {wp_user_id}")
+            else:
+                app.logger.error(
+                    f"Statut {data['status']} (plan gratuit): conservation des tokens pour l'utilisateur {wp_user_id}")
 
             # Révoquer les permissions
             revoke_client_permissions(client_id)
