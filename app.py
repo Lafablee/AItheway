@@ -1242,6 +1242,49 @@ def is_free_subscription_plan(subscription_level):
         (subscription_level == SUBSCRIPTION_TYPES["BASIC_FREE"])
     )
 
+def is_in_grace_period(client):
+    """Détermine si un client est dans sa période de grâce"""
+    if client.get("status") == "grace_period":
+        return True
+    if client.get("status") == "canceled":
+        expiration_date = client.get("expiration_date")
+        if expiration_date:
+            grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
+            return datetime.now() <= grace_end
+    return False
+
+
+def update_grace_period_status():
+    """Met à jour le statut des utilisateurs dont la période de grâce expire"""
+    conn = psycopg2.connect(...)
+    cursor = conn.cursor()
+
+    # Identifie les utilisateurs dont la période de grâce a expiré
+    cursor.execute("""
+        SELECT id FROM clients 
+        WHERE status = 'grace_period' 
+        AND expiration_date + interval '%s days' < NOW()
+    """, (GRACE_PERIOD,))
+
+    expired_clients = cursor.fetchall()
+
+    # Pour chaque client identifié, mettre à jour le statut
+    for client_id, in expired_clients:
+        cursor.execute("""
+            UPDATE clients 
+            SET status = 'expired' 
+            WHERE id = %s
+        """, (client_id,))
+
+        # Mettre à jour les tokens et permissions
+        revoke_client_permissions(client_id)
+        # Mettre les tokens à zéro
+        # ...
+
+    conn.commit()
+    cursor.close()
+    conn.close()
+
 def refund_tokens(wp_user_id, amount):
     """
     Rembourser des tokens en cas d'échec de l'opération
@@ -1355,24 +1398,34 @@ def check_client_permission(client_id, action):
         Is free plan: {is_free_plan}
         """)
 
+        is_in_grace = False
+        if status == 'grace_period':
+            is_in_grace = True
+            app.logger.error(f"Client with explicit grace_period status")
+        elif status == 'canceled' and not is_free_plan: # Grace period only applies to paid plans
+            grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
+            is_in_grace = now <= grace_end
+            app.logger.error(
+                f"Client in grace period calculation: now={now}, grace_end={grace_end}, is_in_grace={is_in_grace}")
+
+
         #régles d'accès unifiées
         if is_allowed:
-            # Plans gratuits uniquement si 'active'
+            # 1. Plans gratuits uniquement si 'active'
             if is_free_plan:
                 if status == 'active':
                     app.logger.error(f"Free plan permission check passed - Is Allowed: {is_allowed}, Status: {status}")
                     return True
-                # Pour les plans payants, on vérifie la date d'expiration
+            # 2. Pour les plans payants, on vérifie la date d'expiration
             else:
+                # abonnement actif et non expiré
                 if status == 'active' and now <= expiration_date:
                     app.logger.error(f"Paid plan permission check passed - Is Allowed: {is_allowed}, Status: {status}")
                     return True
-                elif status == 'canceled':
-                    # Pour 'canceled', vérifier aussi la période de grâce
-                    grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
-                    if now <= grace_end:
-                        app.logger.error(f"Canceled plan in grace period permission check passed")
-                        return True
+                # En période de grâce explicite ou caluclée
+                elif is_in_grace:
+                    app.logger.error(f"Plan in grace period permission check passed")
+                    return True
 
         app.logger.error("Permission check failed")
         return False
@@ -1860,6 +1913,7 @@ def sync_membership(wp_user_id_from_token):
             # Vérifier si dans la période de grâce
             grace_end = expiration_date + timedelta(days=GRACE_PERIOD)
             if datetime.now() <= grace_end:
+                data['status'] = 'grace_period' #nouveau statu
                 # Pendant la période de grâce, maintenir les permissions
                 app.logger.error(f"Plan annulé en période de grâce: maintien des permissions pour client_id: {client_id}")
                 added, removed = assign_permissions(client_id, data['subscription_level'])
