@@ -1885,6 +1885,23 @@ def sync_membership(wp_user_id_from_token):
             app.logger.error(f"Client actif: attribution des permissions pour client_id: {client_id}")
             added, removed = assign_permissions(client_id, data['subscription_level'])
             app.logger.error(f"Permissions updated: {added} added, {removed} removed")
+
+            # !IMPORTANT!  Vérifier si l'utilisateur était précédemment dans un état inactif
+            # Ne forcer la réinitialisation des tokens que pour les plans payants
+            # OU pour les nouveaux utilisateurs qui n'avaient jamais eu d'abonnement
+            is_paid_plan = not is_free_subscription_plan(subscription_level)
+            is_new_user = old_subscription is None
+
+            if is_paid_plan or is_new_user:
+                # Forcer la réinitialisation complète des tokens
+                initialize_user_tokens(wp_user_id, subscription_level, force_reset=True)
+                app.logger.error(f"Réactivation du compte: tokens réinitialisés pour l'utilisateur {wp_user_id}")
+            else:
+                # Pour les plans gratuits qui se réactivent, conserve le nombre de tokens actuel
+                # Mais réinitialise les dates de rechargement
+                initialize_user_tokens(wp_user_id, subscription_level, force_reset=False)
+                app.logger.error(f"Réactivation plan gratuit: tokens conservés pour l'utilisateur {wp_user_id}")
+
         return jsonify({"message": "Mise à jour de l'abonnement réussie"}), 200
 
     except ValueError as e:
