@@ -20,6 +20,7 @@ import redis
 import json
 
 from ai_models import create_ai_manager
+from audio_manager import AudioManager
 from tasks import start_background_tasks
 import uuid
 import asyncio
@@ -97,8 +98,8 @@ GRACE_PERIOD = 0.04 # # ~1 heures au lieu de 60 jours
 
 # Permissions par type d'abonnement
 PERMISSIONS = {
-    SUBSCRIPTION_TYPES["BASIC_FREE"]: ["view_content", "generate_image", "upload_enhance"],
-    SUBSCRIPTION_TYPES["BASIC_PAID"]: ["view_content", "generate_image", "upload_enhance"],
+    SUBSCRIPTION_TYPES["BASIC_FREE"]: ["view_content", "generate_image", "upload_enhance", "generate_audio"],
+    SUBSCRIPTION_TYPES["BASIC_PAID"]: ["view_content", "generate_image", "upload_enhance", "generate_audio"],
 }
 
 class ImageManager:
@@ -627,6 +628,7 @@ class MidjourneyGroupManager:
 
 image_manager = ImageManager(redis_client)
 midjourney_group_manager = MidjourneyGroupManager(redis_client)
+audio_manager = AudioManager(redis_client)
 
 
 class MidjourneyImageGroup:
@@ -2098,7 +2100,8 @@ def get_user_tokens_details(wp_user_id):
             "token_costs": {
                 "dall-e": 20,
                 "midjourney": 30,
-                "enhance-image": 15
+                "enhance-image": 15,
+                "generate-image": 15
             }
         }
 
@@ -2469,6 +2472,182 @@ def serve_image(image_key):
         mimetype='image/png'
     )
 
+
+@app.route('/generate_audio', methods=['GET', 'POST'])
+@token_required
+def generate_audio(wp_user_id):
+    app.logger.error("=== Generate Audio Function Start ===")
+    app.logger.error(f"wp_user_id received: {wp_user_id}, type: {type(wp_user_id)}")
+    app.logger.error(f"Request method: {request.method}")
+
+    try:
+        client = get_client_by_wp_user_id(wp_user_id)
+        app.logger.info(f"Client lookup result: {client}")
+
+        # Initial checks
+        if not client:
+            app.logger.error("Client not found!")
+            return jsonify({"error": "Client not found"}), 404
+
+        if not check_client_permission(client["id"], "generate_audio"):
+            app.logger.debug(f"User {wp_user_id} permission denied for generating audio.")
+            return jsonify({"error": "Permission denied"}), 403
+
+        # GET request - show form
+        if request.method == 'GET':
+            tokens_remaining = get_user_tokens(wp_user_id)
+            history = audio_manager.get_user_history(wp_user_id)
+            return render_template('generate-audio.html', history=history, tokens_remaining=tokens_remaining)
+
+        # POST request - generate audio
+        if request.method == 'POST':
+            text = request.form.get('text')
+            voice = request.form.get('voice', 'alloy')  # Valeur par défaut
+            speed = request.form.get('speed', '1.0')
+
+            if not text:
+                return jsonify({"message": "Please enter text to convert to speech"}), 400
+
+            # vériifer la longueur du texte
+            if len(text) > 4096:
+                return jsonify({
+                    "error": "Text too long",
+                    "message": "The text exceeds the maximum length of 4096 characters"
+                }), 400
+
+            # Déterminer le coût en tokens - adapté selon votre tarification
+            token_cost = 15  # Exemple, à ajuster selon votre modèle économique
+
+            # Vérifier si l'utilisateur a suffisamment de tokens
+            if not use_tokens(wp_user_id, token_cost):
+                return jsonify({
+                    "error": "Insufficient tokens",
+                    "message": "You don't have enough tokens for this operation.",
+                    "tokens_required": token_cost,
+                    "tokens_available": get_user_tokens(wp_user_id)
+                }), 200
+
+            try:
+                # paramètres supplémentaires
+                additional_params = {
+                    "voice": voice,
+                    "speed": float(speed)
+                }
+                # Utiliser le gestionnaire de modèles
+                result = ai_manager.generate_image_sync("tts", text, additional_params)
+
+                if result['success']:
+
+                    # Stocker l'audio dans Redis
+                    metadata = {
+                        'type': b'audio',
+                        'text': text.encode('utf-8'),
+                        'timestamp': datetime.now().isoformat().encode('utf-8'),
+                        'voice': voice.encode('utf-8'),
+                        'speed': speed.encode('utf-8'),
+                        'model': b'tts'
+                    }
+
+                    # On pourrait créer un AudioManager similaire à ImageManager
+                    # Mais pour simplifier, utilisons le même ImageManager.  Peut chnager à l'avenir bien sur
+                    audio_key = audio_manager.store_temp_audio(
+                        wp_user_id,
+                        result['audio_data'],
+                        metadata
+                    )
+
+                    return jsonify({
+                        'success': True,
+                        'audio_key': audio_key,
+                        'audio_url': f"/audio/{audio_key}"
+                    })
+                else:
+                    refund_tokens(wp_user_id, token_cost)
+                    return jsonify({'error': result.get('error', 'Failed to generate audio')}), 500
+
+            except Exception as e:
+                refund_tokens(wp_user_id, token_cost)
+                app.logger.error(f"Error in audio generation: {str(e)}")
+                return jsonify({'error': str(e)}), 500
+
+        return jsonify({"error": "Invalid request method"}), 400
+
+    except Exception as e:
+        app.logger.error(f"Unexpected error in generate_audio: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+@app.route('/audio/<audio_key>')
+def serve_audio(audio_key):
+    audio_data = audio_manager.get_audio(audio_key)  # Réutilise le même système de stockage
+    if not audio_data:
+        return "Audio not found", 404
+    return send_file(
+        BytesIO(audio_data),
+        mimetype='audio/mpeg',
+        as_attachment=False
+    )
+
+
+@app.route('/api/audio/history', methods=['GET'])
+@token_required
+def get_audio_history(wp_user_id):
+    try:
+        app.logger.error(f"Fetching audio history for user {wp_user_id}")
+
+        # Récupérer le numéro de page et le nombre d'éléments par page depuis l'URL
+        page = request.args.get('page', 1, type=int)
+        per_page = min(50, request.args.get('per_page', 20, type=int))
+
+        # Récupérer l'historique complet
+        history = audio_manager.get_user_history(wp_user_id)
+
+        # Calculer les indices pour la pagination
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+
+        # Extraire la portion demandée de l'historique
+        items = history[start_idx:end_idx] if history else []
+        total_items = len(history) if history else 0
+
+        # Retourner la réponse formatée
+        return {
+            'success': True,
+            'data': {
+                'items': items,
+                'pagination': {
+                    'current_page': page,
+                    'per_page': per_page,
+                    'total_items': total_items,
+                    'has_more': total_items > end_idx
+                }
+            }
+        }, 200
+
+    except Exception as e:
+        app.logger.error(f"Error fetching audio history: {str(e)}")
+        return {
+            'success': False,
+            'error': 'Failed to fetch audio history'
+        }, 500
+
+
+@app.route('/download-audio/<audio_key>')
+def download_audio(audio_key):
+    audio_data = audio_manager.get_audio(audio_key)
+    if not audio_data:
+        return "Audio not found", 404
+
+    # Récupérer les métadonnées pour un nom de fichier personnalisé
+    metadata = audio_manager.get_audio_metadata(audio_key)
+    voice = metadata.get(b'voice', b'audio').decode('utf-8')
+    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+    return send_file(
+        BytesIO(audio_data),
+        mimetype='audio/mpeg',
+        as_attachment=True,
+        download_name=f"aitheway_audio_{voice}_{timestamp}.mp3"
+    )
 @app.route('/save-image', methods=['POST'])
 @token_required
 def save_image(wp_user_id):

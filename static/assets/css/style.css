@@ -6405,3 +6405,147 @@ a.fn__like.no_border .fn__svg {
 .dropdown-toggle::after {
   display: none;
 }
+/* CSS à ajouter à votre fichier de style ou dans une balise style de generate-audio.html */
+
+/* Style du lecteur audio */
+.audio_player {
+    width: 100%;
+    margin: 20px 0;
+}
+
+.audio_player audio {
+    width: 100%;
+    border-radius: 8px;
+    background-color: var(--fn-main-color); /* Utilise la couleur principale de votre thème */
+}
+
+/* Style de l'historique des audios */
+.history__item {
+    border-radius: 8px;
+    background-color: var(--fn-panel-bg-color); /* Utilise la couleur de fond du panneau */
+    padding: 15px;
+    margin-bottom: 15px;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.history__item:hover {
+    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+}
+
+.item__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.item__title {
+    font-size: 16px;
+    font-weight: 500;
+    margin: 0;
+}
+
+.item__date {
+    font-size: 13px;
+    color: var(--fn-secondary-text-color); /* Utilise la couleur secondaire de texte */
+}
+
+.item__content audio {
+    width: 100%;
+    margin: 10px 0;
+    border-radius: 6px;
+}
+
+.item__meta {
+    display: flex;
+    margin-bottom: 10px;
+    font-size: 14px;
+}
+
+.meta__voice {
+    background-color: var(--fn-accent-color);
+    padding: 4px 10px;
+    border-radius: 20px;
+    color: var(--fn-background);
+    font-size: 12px;
+    font-weight: 500;
+}
+
+.item__actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+}
+
+.empty-history {
+    text-align: center;
+    color: var(--fn-secondary-text-color);
+    font-style: italic;
+    padding: 20px;
+}
+
+/* Styles pour les paramètres avancés */
+.advanced-options {
+    margin-top: 15px;
+    border-top: 1px solid var(--fn-border-color);
+    padding-top: 15px;
+    display: none; /* Caché par défaut */
+}
+
+.advanced-toggle {
+    display: flex;
+    align-items: center;
+    margin-bottom: 15px;
+    cursor: pointer;
+    user-select: none;
+}
+
+.advanced-toggle span {
+    margin-left: 8px;
+    font-size: 14px;
+    font-weight: 500;
+}
+
+.advanced-toggle .icon {
+    transition: transform 0.3s ease;
+}
+
+.advanced-toggle.active .icon {
+    transform: rotate(180deg);
+}
+
+/* Style pour les options de vitesse */
+.speed-control {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+}
+
+.speed-control input[type="range"] {
+    flex: 1;
+    margin: 0 10px;
+}
+
+.speed-value {
+    min-width: 40px;
+    text-align: center;
+    font-weight: 500;
+}
+
+/* Style pour le compteur de caractères */
+.character-counter {
+    display: flex;
+    justify-content: flex-end;
+    font-size: 12px;
+    color: var(--fn-secondary-text-color);
+    margin-top: 5px;
+}
+
+.character-counter.warning {
+    color: orange;
+}
+
+.character-counter.error {
+    color: red;
+}

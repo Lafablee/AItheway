@@ -1,0 +1,318 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="neltar_fn_page">
+    <div class="fn__title_holder">
+        <div class="container">
+            <h1 class="title">Générer de l'Audio</h1>
+        </div>
+    </div>
+
+    <div class="neltar_fn_generate_page">
+        <div class="container">
+            <div class="generate_form">
+                <div class="fn__title_holder">
+                    <h1 class="title">Créer une voix off avec l'IA</h1>
+                    <p class="desc">Entrez votre texte ci-dessous et sélectionnez une voix pour générer un audio de haute qualité.</p>
+                </div>
+                
+                <form id="audioForm" class="fn__form">
+                    <div class="form_input">
+                        <label for="text">Texte à convertir en audio</label>
+                        <textarea name="text" id="text" placeholder="Saisissez votre texte ici..." rows="5"></textarea>
+                    </div>
+                    
+                    <div class="form_input">
+                        <label for="voice">Sélectionner une voix</label>
+                        <select name="voice" id="voice">
+                            <option value="alloy">Alloy (Neutre)</option>
+                            <option value="echo">Echo (Douce)</option>
+                            <option value="fable">Fable (Expressive)</option>
+                            <option value="onyx">Onyx (Profonde)</option>
+                            <option value="nova">Nova (Féminine)</option>
+                            <option value="shimmer">Shimmer (Claire)</option>
+                        </select>
+                    </div>
+                    <div class="character-counter">
+                        <span id="charCount">0</span> caractères
+                        <span id="charLimit">(limite: 4096)</span>
+                    </div>
+
+                    <div class="advanced-toggle">
+                        <span class="icon">▼</span>
+                        <span>Options avancées</span>
+                    </div>
+
+                    <div class="advanced-options">
+                        <div class="form_input">
+                            <label for="speed">Vitesse de lecture</label>
+                            <div class="speed-control">
+                                <span class="speed-label">Lent</span>
+                                <input type="range" id="speed" name="speed" min="0.25" max="4.0" step="0.25" value="1.0">
+                                <span class="speed-label">Rapide</span>
+                                <span class="speed-value">1.0x</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    
+                    <div class="fn__token_info mini_info mb-3">
+                        <span class="token_summary">
+                            <span class="count">15</span>
+                            <span class="text">Tokens</span>
+                        </span>
+                    </div>
+                    
+                    <div class="form_input">
+                        <button type="submit" class="neltar_fn_button medium">
+                            <span>Générer l'Audio</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+            
+            <!-- Loading Section -->
+            <div id="loadingSection" class="text-center mt-4" style="display: none;">
+                <div class="fn__preloader">
+                    <span class="icon"></span>
+                    <span class="text">Génération de l'audio en cours...</span>
+                </div>
+            </div>
+            
+            <!-- Result Section -->
+            <div id="resultSection" class="fn__result_box" style="display: none;">
+                <div class="fn__result">
+                    <h3 class="result__title">Votre Audio</h3>
+                    <div class="result__content">
+                        <div class="audio_player">
+                            <audio id="audioPlayer" controls>
+                                Votre navigateur ne supporte pas l'élément audio.
+                            </audio>
+                        </div>
+                        
+                        <div class="mt-4">
+                            <a id="downloadAudio" href="#" class="neltar_fn_button small">
+                                <span>Télécharger</span>
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="fn__history mt-5">
+                    <h3 class="history__title">Historique des générations</h3>
+                    <div id="audioHistory" class="history__list">
+                        <!-- L'historique sera inséré ici dynamiquement -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function loadAudioHistory() {
+    const urlParams = new URLSearchParams(window.location.search);
+    const token = urlParams.get('token');
+    let url = '/api/audio/history?page=1&per_page=10';
+
+    if (token) {
+        url += `&token=${token}`;
+    }
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success && data.data && data.data.items) {
+                displayAudioHistory(data.data.items);
+            } else {
+                console.error('Error loading audio history:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error fetching audio history:', error);
+        });
+}
+
+// Fonction pour afficher l'historique des audios
+function displayAudioHistory(items) {
+    const historyContainer = document.getElementById('audioHistory');
+    historyContainer.innerHTML = '';
+
+    if (items.length === 0) {
+        historyContainer.innerHTML = '<p class="empty-history">Aucun audio généré pour le moment.</p>';
+        return;
+    }
+
+    items.forEach(item => {
+        const audioDate = new Date(item.timestamp);
+        const formattedDate = audioDate.toLocaleDateString() + ' ' + audioDate.toLocaleTimeString();
+
+        const historyItem = document.createElement('div');
+        historyItem.className = 'history__item';
+        historyItem.innerHTML = `
+            <div class="item__header">
+                <h4 class="item__title">${truncateText(item.text, 50)}</h4>
+                <span class="item__date">${formattedDate}</span>
+            </div>
+            <div class="item__content">
+                <audio controls src="${item.url}" class="item__audio"></audio>
+                <div class="item__meta">
+                    <span class="meta__voice">Voix: ${capitalizeFirstLetter(item.voice)}</span>
+                </div>
+                <div class="item__actions">
+                    <a href="${item.url}" download class="fn__button small">
+                        <span>Télécharger</span>
+                    </a>
+                </div>
+            </div>
+        `;
+
+        historyContainer.appendChild(historyItem);
+    });
+}
+
+// Fonctions utilitaires
+function truncateText(text, maxLength) {
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + '...';
+}
+
+function capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+}
+document.addEventListener('DOMContentLoaded', function() {
+    const audioForm = document.getElementById('audioForm');
+    const loadingSection = document.getElementById('loadingSection');
+    const resultSection = document.getElementById('resultSection');
+    const audioPlayer = document.getElementById('audioPlayer');
+    const downloadAudio = document.getElementById('downloadAudio');
+    
+    audioForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        
+        // Afficher le chargement
+        loadingSection.style.display = 'block';
+        resultSection.style.display = 'none';
+        
+        // Récupérer les données du formulaire
+        const formData = new FormData(audioForm);
+        
+        // Ajouter le token à FormData si nécessaire
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) {
+            formData.append('token', token);
+        }
+        
+        // Envoyer la requête
+        fetch('/generate_audio', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            // Cacher le chargement
+            loadingSection.style.display = 'none';
+            
+            if (data.success) {
+                // Afficher la section de résultat
+                resultSection.style.display = 'block';
+                
+                // Définir la source de l'audio
+                audioPlayer.src = data.audio_url;
+                
+                // Mettre à jour le lien de téléchargement
+                downloadAudio.href = data.audio_url;
+                
+                // Charger et lire l'audio
+                audioPlayer.load();
+                
+                // Mettre à jour l'historique (à implémenter)
+                updateAudioHistory();
+            } else {
+                // Afficher une erreur
+                alert('Erreur: ' + (data.error || 'Échec de la génération audio'));
+            }
+        })
+        .catch(error => {
+            loadingSection.style.display = 'none';
+            alert('Erreur lors de la génération audio: ' + error);
+        });
+    });
+    loadAudioHistory();
+    
+    // Fonction pour mettre à jour l'historique des audios
+    function updateAudioHistory() {
+        // Cette fonction pourrait charger l'historique des générations audio
+        loadAudioHistory();
+    }
+    // Gestion du compteur de caractères
+    const textArea = document.getElementById('text');
+    const charCount = document.getElementById('charCount');
+    const charLimit = document.getElementById('charLimit');
+    const MAX_CHARS = 4096; // Limite d'OpenAI pour TTS
+
+    textArea.addEventListener('input', function() {
+        const count = this.value.length;
+        charCount.textContent = count;
+
+        // Mise à jour de la classe selon le nombre de caractères
+        if (count > MAX_CHARS) {
+            charCount.parentElement.classList.add('error');
+            charCount.parentElement.classList.remove('warning');
+        } else if (count > MAX_CHARS * 0.8) {
+            charCount.parentElement.classList.add('warning');
+            charCount.parentElement.classList.remove('error');
+        } else {
+            charCount.parentElement.classList.remove('warning', 'error');
+        }
+    });
+
+    // Gestion des options avancées
+    const advancedToggle = document.querySelector('.advanced-toggle');
+    const advancedOptions = document.querySelector('.advanced-options');
+
+    advancedToggle.addEventListener('click', function() {
+        this.classList.toggle('active');
+        advancedOptions.style.display = advancedOptions.style.display === 'block' ? 'none' : 'block';
+    });
+
+    // Gestion du contrôle de vitesse
+    const speedControl = document.getElementById('speed');
+    const speedValue = document.querySelector('.speed-value');
+
+    speedControl.addEventListener('input', function() {
+        speedValue.textContent = this.value + 'x';
+    });
+
+    // Aperçu des voix
+    const voiceSelect = document.getElementById('voice');
+    const voicePreviewButton = document.createElement('button');
+    voicePreviewButton.className = 'neltar_fn_button small';
+    voicePreviewButton.innerHTML = '<span>Écouter la voix</span>';
+    voicePreviewButton.style.marginTop = '10px';
+
+    voiceSelect.parentElement.appendChild(voicePreviewButton);
+
+    // Échantillons préenregistrés pour chaque voix
+    const voiceSamples = {
+        'alloy': 'https://cdn.openai.com/API/docs/audio/alloy.mp3',
+        'echo': 'https://cdn.openai.com/API/docs/audio/echo.mp3',
+        'fable': 'https://cdn.openai.com/API/docs/audio/fable.mp3',
+        'onyx': 'https://cdn.openai.com/API/docs/audio/onyx.mp3',
+        'nova': 'https://cdn.openai.com/API/docs/audio/nova.mp3',
+        'shimmer': 'https://cdn.openai.com/API/docs/audio/shimmer.mp3'
+    };
+
+    const previewAudio = new Audio();
+
+    voicePreviewButton.addEventListener('click', function(e) {
+        e.preventDefault();
+        const selectedVoice = voiceSelect.value;
+        previewAudio.src = voiceSamples[selectedVoice];
+        previewAudio.play();
+    });
+});
+</script>
+{% endblock %}

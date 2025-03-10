@@ -828,6 +828,43 @@ class AIModelManager:
                 loop.run_until_complete(asyncio.gather(*pending, return_exceptions=True))
             loop.close()
 
+# --NEW Class fo TTS audioGenerator --
+class AudioGenerator(AIModelGenerator):
+    def __init__(self, api_key, model="tts-1"):
+        self.api_key = api_key
+        self.model = model
+        openai.api_key = api_key
+
+    async def generate(self, text, additional_params=None):
+        try:
+            params = {
+                "model": self.model,
+                "input": text,
+                "voice": additional_params.get("voice", "alloy"),  # Voix par défaut
+                "response_format": "mp3"
+            }
+
+            if not additional_params:
+                additional_params = {}
+
+                # Paramètres optionnels
+            if "speed" in additional_params:
+                params["speed"] = float(additional_params["speed"])
+
+            response = await openai.audio.speech.create(**params)
+            audio_content = await response.read()
+
+            return {
+                "success": True,
+                "audio_data": audio_content,
+                "model": "tts",
+                "voice": params["voice"]
+            }
+        except Exception as e:
+            app.logger.error(f"TTS generation error: {str(e)}")
+            return {"success": False, "error": str(e)}
+
+
 # Fonction d'initialisation pour créer et configurer le gestionnaire
 def create_ai_manager():
     manager = AIModelManager()
@@ -837,6 +874,7 @@ def create_ai_manager():
     print(f"DALL-E API Key present: {bool(dalle_api_key)}")
     if dalle_api_key:
         manager.register_model("dall-e", DallEGenerator(dalle_api_key))
+        manager.register_model("tts", AudioGenerator(dalle_api_key))
 
     # Configuration Midjourney
     discord_channel_id = os.getenv("DISCORD_CHANNEL_ID")

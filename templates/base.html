@@ -237,6 +237,12 @@
 								<span class="text">Améliorer la Qualité</span>
 							</a>
 						</li>
+                        <li>
+                            <a href="{{ url_for('generate_audio') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_audio') %}active{% endif %}" data-position="right" title="Génération Audio">
+                                <span class="icon"><img src="{{ url_for('static', filename='assets/svg/volume.svg') }}" alt="" class="fn__svg"></span>
+                                <span class="text">Générer Audio</span>
+                            </a>
+                        </li>
 
 					</ul>
 				</div>
