@@ -201,15 +201,20 @@ document.addEventListener('DOMContentLoaded', function() {
         // Ajouter le token à FormData si nécessaire
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
-        if (token) {
-            formData.append('token', token);
-        }
-        
-        // Envoyer la requête
-        fetch('/generate_audio', {
+
+
+        const fetchOptions = {
             method: 'POST',
             body: formData
-        })
+        };
+
+        if (token) {
+            fetchOptions.headers = {
+                'AUthorization': 'Bearer ' + token
+            };
+        }
+
+        fetch('/generate_audio', fetchOptions)
         .then(response => response.json())
         .then(data => {
             // Cacher le chargement
@@ -237,6 +242,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .catch(error => {
             loadingSection.style.display = 'none';
+            console.error("Erreur lors de la génération de l'audio:", error)
             alert('Erreur lors de la génération audio: ' + error);
         });
     });
@@ -312,6 +318,15 @@ document.addEventListener('DOMContentLoaded', function() {
         const selectedVoice = voiceSelect.value;
         previewAudio.src = voiceSamples[selectedVoice];
         previewAudio.play();
+    });
+    previewAudio.addEventListener('error', function(e) {
+        console.error("Erreur lors du chargement de l'audio:", e);
+        alert("Impossible de charger l'aperçu audio. Veuillez réessayer plus tard.");
+    });
+
+    previewAudio.play().catch(function(error) {
+        console.error("Erreur lors de la lecture:", error);
+        alert("Impossible de lire l'audio. Cela peut être dû aux paramètres de votre navigateur.");
     });
 });
 </script>
