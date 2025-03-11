@@ -1,108 +1,247 @@
 {% extends "base.html" %}
 
 {% block content %}
-
-<div class="neltar_fn_page">
+<div class="neltar_fn_page audio_generation_page">
     <div class="fn__title_holder">
         <div class="container">
-            <h1 class="title">Générer de l'Audio</h1>
+            <h1 class="title">Studio Audio IA</h1>
         </div>
     </div>
 
     <div class="neltar_fn_generate_page">
         <div class="container">
-            <div class="generate_form">
-                <div class="fn__title_holder">
-                    <h1 class="title">Créer une voix off avec l'IA</h1>
-                    <p class="desc">Entrez votre texte ci-dessous et sélectionnez une voix pour générer un audio de haute qualité.</p>
+            <div class="audio_studio_container">
+                <div class="studio_sidebar">
+                    <div class="sidebar_section">
+                        <h3 class="section_title">Votre bibliothèque</h3>
+                        <div class="recent_audios">
+                            <div class="audio_history_scroll" id="audioHistory">
+                                <!-- L'historique sera chargé ici dynamiquement -->
+                                <div class="empty_state">
+                                    <div class="empty_icon">
+                                        <img src="{{ url_for('static', filename='assets/svg/audio-wave.svg') }}" alt="" class="fn__svg">
+                                    </div>
+                                    <p>Vos créations audio apparaîtront ici</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
-                
-                <form id="audioForm" class="fn__form">
-                    <div class="form_input">
-                        <label for="text">Texte à convertir en audio</label>
-                        <textarea name="text" id="text" placeholder="Saisissez votre texte ici..." rows="5"></textarea>
-                    </div>
-                    
-                    <div class="form_input">
-                        <label for="voice">Sélectionner une voix</label>
-                        <select name="voice" id="voice">
-                            <option value="alloy">Alloy (Neutre)</option>
-                            <option value="echo">Echo (Douce)</option>
-                            <option value="fable">Fable (Expressive)</option>
-                            <option value="onyx">Onyx (Profonde)</option>
-                            <option value="nova">Nova (Féminine)</option>
-                            <option value="shimmer">Shimmer (Claire)</option>
-                        </select>
-                    </div>
-                    <div class="character-counter">
-                        <span id="charCount">0</span> caractères
-                        <span id="charLimit">(limite: 4096)</span>
+
+                <div class="studio_main">
+                    <div class="studio_card">
+                        <div class="card_header">
+                            <h2 class="title">Créer une voix off</h2>
+                            <p class="subtitle">Convertissez votre texte en voix réaliste</p>
+                        </div>
+
+                        <form id="audioForm" class="fn__form studio_form">
+                            <div class="form_section">
+                                <div class="form_input text_input">
+                                    <label for="text">Texte à convertir en audio</label>
+                                    <textarea name="text" id="text" placeholder="Saisissez votre texte ici..." rows="5"></textarea>
+                                    <div class="character-counter">
+                                        <span id="charCount">0</span> / <span id="charLimit">4096</span> caractères
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form_section">
+                                <div class="voice_selector">
+                                    <label for="voice">Choisir une voix</label>
+                                    <div class="voice_options">
+                                        <div class="voice_option">
+                                            <input type="radio" name="voice" id="voice_alloy" value="alloy" checked>
+                                            <label for="voice_alloy" class="voice_card">
+                                                <div class="voice_icon"><span class="gender_neutral"></span></div>
+                                                <div class="voice_details">
+                                                    <span class="voice_name">Alloy</span>
+                                                    <span class="voice_desc">Voix neutre et équilibrée</span>
+                                                </div>
+                                                <div class="preview_button" data-voice="alloy">
+                                                    <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg">
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <div class="voice_option">
+                                            <input type="radio" name="voice" id="voice_echo" value="echo">
+                                            <label for="voice_echo" class="voice_card">
+                                                <div class="voice_icon"><span class="gender_neutral"></span></div>
+                                                <div class="voice_details">
+                                                    <span class="voice_name">Echo</span>
+                                                    <span class="voice_desc">Voix douce et calme</span>
+                                                </div>
+                                                <div class="preview_button" data-voice="echo">
+                                                    <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg">
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <div class="voice_option">
+                                            <input type="radio" name="voice" id="voice_fable" value="fable">
+                                            <label for="voice_fable" class="voice_card">
+                                                <div class="voice_icon"><span class="gender_neutral"></span></div>
+                                                <div class="voice_details">
+                                                    <span class="voice_name">Fable</span>
+                                                    <span class="voice_desc">Voix expressive et animée</span>
+                                                </div>
+                                                <div class="preview_button" data-voice="fable">
+                                                    <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg">
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <div class="voice_option">
+                                            <input type="radio" name="voice" id="voice_onyx" value="onyx">
+                                            <label for="voice_onyx" class="voice_card">
+                                                <div class="voice_icon"><span class="gender_male"></span></div>
+                                                <div class="voice_details">
+                                                    <span class="voice_name">Onyx</span>
+                                                    <span class="voice_desc">Voix masculine profonde</span>
+                                                </div>
+                                                <div class="preview_button" data-voice="onyx">
+                                                    <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg">
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <div class="voice_option">
+                                            <input type="radio" name="voice" id="voice_nova" value="nova">
+                                            <label for="voice_nova" class="voice_card">
+                                                <div class="voice_icon"><span class="gender_female"></span></div>
+                                                <div class="voice_details">
+                                                    <span class="voice_name">Nova</span>
+                                                    <span class="voice_desc">Voix féminine énergique</span>
+                                                </div>
+                                                <div class="preview_button" data-voice="nova">
+                                                    <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg">
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <div class="voice_option">
+                                            <input type="radio" name="voice" id="voice_shimmer" value="shimmer">
+                                            <label for="voice_shimmer" class="voice_card">
+                                                <div class="voice_icon"><span class="gender_female"></span></div>
+                                                <div class="voice_details">
+                                                    <span class="voice_name">Shimmer</span>
+                                                    <span class="voice_desc">Voix féminine claire</span>
+                                                </div>
+                                                <div class="preview_button" data-voice="shimmer">
+                                                    <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg">
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form_section">
+                                <div class="advanced_settings">
+                                    <div class="settings_header" id="advancedToggle">
+                                        <h3>Options avancées</h3>
+                                        <div class="toggle_icon">
+                                            <img src="{{ url_for('static', filename='assets/svg/arrow-down.svg') }}" alt="" class="fn__svg">
+                                        </div>
+                                    </div>
+
+                                    <div class="settings_content" id="advancedOptions">
+                                        <div class="form_input speed_control">
+                                            <label for="speed">Vitesse de lecture</label>
+                                            <div class="range_control">
+                                                <span class="range_label">Lent</span>
+                                                <input type="range" id="speed" name="speed" min="0.25" max="4.0" step="0.25" value="1.0">
+                                                <span class="range_label">Rapide</span>
+                                                <span class="range_value" id="speedValue">1.0x</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form_footer">
+                                <div class="token_info">
+                                    <div class="fn__token_info mini_info">
+                                        <span class="token_summary">
+                                            <span class="count">15</span>
+                                            <span class="text">Tokens</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="neltar_fn_button submit_button">
+                                    <span>Générer l'Audio</span>
+                                    <div class="button_icon">
+                                        <img src="{{ url_for('static', filename='assets/svg/wand.svg') }}" alt="" class="fn__svg">
+                                    </div>
+                                </button>
+                            </div>
+                        </form>
                     </div>
 
-                    <div class="advanced-toggle">
-                        <span class="icon">▼</span>
-                        <span>Options avancées</span>
-                    </div>
-
-                    <div class="advanced-options">
-                        <div class="form_input">
-                            <label for="speed">Vitesse de lecture</label>
-                            <div class="speed-control">
-                                <span class="speed-label">Lent</span>
-                                <input type="range" id="speed" name="speed" min="0.25" max="4.0" step="0.25" value="1.0">
-                                <span class="speed-label">Rapide</span>
-                                <span class="speed-value">1.0x</span>
+                    <!-- Loading Section -->
+                    <div id="loadingSection" class="loading_container" style="display: none;">
+                        <div class="loading_content">
+                            <div class="fn__preloader">
+                                <span class="icon"></span>
+                                <span class="text">Génération de l'audio en cours...</span>
                             </div>
                         </div>
                     </div>
 
-                    
-                    <div class="fn__token_info mini_info mb-3">
-                        <span class="token_summary">
-                            <span class="count">15</span>
-                            <span class="text">Tokens</span>
-                        </span>
-                    </div>
-                    
-                    <div class="form_input">
-                        <button type="submit" class="neltar_fn_button medium">
-                            <span>Générer l'Audio</span>
-                        </button>
-                    </div>
-                </form>
-            </div>
-            
-            <!-- Loading Section -->
-            <div id="loadingSection" class="text-center mt-4" style="display: none;">
-                <div class="fn__preloader">
-                    <span class="icon"></span>
-                    <span class="text">Génération de l'audio en cours...</span>
-                </div>
-            </div>
-            
-            <!-- Result Section -->
-            <div id="resultSection" class="fn__result_box" style="display: none;">
-                <div class="fn__result">
-                    <h3 class="result__title">Votre Audio</h3>
-                    <div class="result__content">
-                        <div class="audio_player">
-                            <audio id="audioPlayer" controls>
-                                Votre navigateur ne supporte pas l'élément audio.
-                            </audio>
+                    <!-- Result Section -->
+                    <div id="resultSection" class="result_container" style="display: none;">
+                        <div class="studio_card result_card">
+                            <div class="card_header">
+                                <h2 class="title">Votre Audio</h2>
+                                <div class="card_actions">
+                                    <button id="closeResult" class="action_button close_button">
+                                        <img src="{{ url_for('static', filename='assets/svg/close.svg') }}" alt="Close" class="fn__svg">
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="result_content">
+                                <div class="audio_player_container">
+                                    <div class="audio_waveform" id="waveform"></div>
+                                    <div class="audio_controls">
+                                        <button id="playPauseButton" class="control_button">
+                                            <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg play_icon">
+                                            <img src="{{ url_for('static', filename='assets/svg/pause.svg') }}" alt="Pause" class="fn__svg pause_icon" style="display: none;">
+                                        </button>
+                                        <div class="progress_container">
+                                            <div id="progressBar" class="progress_bar">
+                                                <div class="progress_fill"></div>
+                                            </div>
+                                            <div class="time_display">
+                                                <span id="currentTime">0:00</span> / <span id="totalTime">0:00</span>
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    <audio id="audioPlayer" style="display: none;">
+                                        Votre navigateur ne supporte pas l'élément audio.
+                                    </audio>
+                                </div>
+
+                                <div class="result_actions">
+                                    <button id="downloadAudio" class="neltar_fn_button action_button">
+                                        <span>Télécharger</span>
+                                        <div class="button_icon">
+                                            <img src="{{ url_for('static', filename='assets/svg/download.svg') }}" alt="" class="fn__svg">
+                                        </div>
+                                    </button>
+
+                                    <button id="newAudio" class="neltar_fn_button action_button secondary">
+                                        <span>Nouveau</span>
+                                        <div class="button_icon">
+                                            <img src="{{ url_for('static', filename='assets/svg/plus.svg') }}" alt="" class="fn__svg">
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
                         </div>
-                        
-                        <div class="mt-4">
-                            <a id="downloadAudio" href="#" class="neltar_fn_button small">
-                                <span>Télécharger</span>
-                            </a>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="fn__history mt-5">
-                    <h3 class="history__title">Historique des générations</h3>
-                    <div id="audioHistory" class="history__list">
-                        <!-- L'historique sera inséré ici dynamiquement -->
                     </div>
                 </div>
             </div>
@@ -110,165 +249,73 @@
     </div>
 </div>
 
+<script src="https://unpkg.com/wavesurfer.js@6.6.3/dist/wavesurfer.js"></script>
 <script>
-function loadAudioHistory() {
-    const urlParams = new URLSearchParams(window.location.search);
-    const token = urlParams.get('token');
-    let url = '/api/audio/history?page=1&per_page=10';
-
-    if (token) {
-        url += `&token=${token}`;
-    }
-
-    fetch(url)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success && data.data && data.data.items) {
-                displayAudioHistory(data.data.items);
-            } else {
-                console.error('Error loading audio history:', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error fetching audio history:', error);
-        });
-}
-
-// Fonction pour afficher l'historique des audios
-function displayAudioHistory(items) {
-    const historyContainer = document.getElementById('audioHistory');
-    historyContainer.innerHTML = '';
-
-    if (items.length === 0) {
-        historyContainer.innerHTML = '<p class="empty-history">Aucun audio généré pour le moment.</p>';
-        return;
-    }
-
-    items.forEach(item => {
-        const audioDate = new Date(item.timestamp);
-        const formattedDate = audioDate.toLocaleDateString() + ' ' + audioDate.toLocaleTimeString();
-
-        const historyItem = document.createElement('div');
-        historyItem.className = 'history__item';
-        historyItem.innerHTML = `
-            <div class="item__header">
-                <h4 class="item__title">${truncateText(item.text, 50)}</h4>
-                <span class="item__date">${formattedDate}</span>
-            </div>
-            <div class="item__content">
-                <audio controls src="${item.url}" class="item__audio"></audio>
-                <div class="item__meta">
-                    <span class="meta__voice">Voix: ${capitalizeFirstLetter(item.voice)}</span>
-                </div>
-                <div class="item__actions">
-                    <a href="${item.url}" download class="fn__button small">
-                        <span>Télécharger</span>
-                    </a>
-                </div>
-            </div>
-        `;
-
-        historyContainer.appendChild(historyItem);
-    });
-}
-
-// Fonctions utilitaires
-function truncateText(text, maxLength) {
-    if (text.length <= maxLength) return text;
-    return text.substring(0, maxLength) + '...';
-}
-
-function capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-}
 document.addEventListener('DOMContentLoaded', function() {
     const audioForm = document.getElementById('audioForm');
     const loadingSection = document.getElementById('loadingSection');
     const resultSection = document.getElementById('resultSection');
     const audioPlayer = document.getElementById('audioPlayer');
     const downloadAudio = document.getElementById('downloadAudio');
-    
-    audioForm.addEventListener('submit', function(e) {
-        e.preventDefault();
-        
-        // Afficher le chargement
-        loadingSection.style.display = 'block';
-        resultSection.style.display = 'none';
-        
-        // Récupérer les données du formulaire
-        const formData = new FormData(audioForm);
-        
-        // Ajouter le token à FormData si nécessaire
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
+    const closeResult = document.getElementById('closeResult');
+    const newAudio = document.getElementById('newAudio');
+    const playPauseButton = document.getElementById('playPauseButton');
+    const playIcon = playPauseButton.querySelector('.play_icon');
+    const pauseIcon = playPauseButton.querySelector('.pause_icon');
 
+    // Options avancées
+    const advancedToggle = document.getElementById('advancedToggle');
+    const advancedOptions = document.getElementById('advancedOptions');
 
-        const fetchOptions = {
-            method: 'POST',
-            body: formData
-        };
+    // WaveSurfer
+    let wavesurfer = null;
 
-        if (token) {
-            fetchOptions.headers = {
-                'Authorization': 'Bearer ' + token
-            };
+    // Initialiser WaveSurfer
+    function initWaveSurfer() {
+        if (wavesurfer) {
+            wavesurfer.destroy();
         }
 
-        fetch('/generate_audio', fetchOptions)
-        .then(response => response.json())
-        .then(data => {
-            // Cacher le chargement
-            loadingSection.style.display = 'none';
-            
-            if (data.success) {
-                // Afficher la section de résultat
-                resultSection.style.display = 'block';
-                
-                // Définir la source de l'audio
-                audioPlayer.src = data.audio_url;
-                
-                // Mettre à jour le lien de téléchargement
-                downloadAudio.href = data.audio_url;
-                
-                // Charger et lire l'audio
-                audioPlayer.load();
-
-                const playButton = document.createElement('button');
-                playButton.className = 'neltar_fn_button small';
-                playButton.innerHTML = '<span>Écouter</span>';
-                playButton.addEventListener('click', function() {
-                    audioPlayer.play().catch(error => {
-                        console.error("Erreur lors de la lecture:", error);
-                        alert("La lecture n'a pas pu démarrer. Veuillez vérifier vos paramètres audio.");
-                    });
-                });
-                document.querySelector('.result__content').insertBefore(playButton, document.getElementById('downloadAudio').parentNode);
-
-                // Mettre à jour l'historique (à implémenter)
-                updateAudioHistory();
-            } else {
-                // Afficher une erreur
-                alert('Erreur: ' + (data.error || 'Échec de la génération audio'));
-            }
-        })
-        .catch(error => {
-            loadingSection.style.display = 'none';
-            console.error("Erreur lors de la génération de l'audio:", error)
-            alert('Erreur lors de la génération audio: ' + error);
+        wavesurfer = WaveSurfer.create({
+            container: '#waveform',
+            waveColor: 'rgba(120, 120, 255, 0.4)',
+            progressColor: 'rgba(120, 120, 255, 0.9)',
+            cursorColor: '#4040ff',
+            barWidth: 3,
+            barRadius: 3,
+            cursorWidth: 1,
+            height: 80,
+            barGap: 3
         });
-    });
-    loadAudioHistory();
-    
-    // Fonction pour mettre à jour l'historique des audios
-    function updateAudioHistory() {
-        // Cette fonction pourrait charger l'historique des générations audio
-        loadAudioHistory();
+
+        // Événements WaveSurfer
+        wavesurfer.on('ready', function() {
+            const duration = wavesurfer.getDuration();
+            document.getElementById('totalTime').textContent = formatTime(duration);
+        });
+
+        wavesurfer.on('audioprocess', function() {
+            const currentTime = wavesurfer.getCurrentTime();
+            document.getElementById('currentTime').textContent = formatTime(currentTime);
+        });
+
+        wavesurfer.on('finish', function() {
+            playIcon.style.display = 'block';
+            pauseIcon.style.display = 'none';
+        });
     }
-    // Gestion du compteur de caractères
+
+    // Formatage du temps
+    function formatTime(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+
+    // Compteur de caractères
     const textArea = document.getElementById('text');
     const charCount = document.getElementById('charCount');
-    const charLimit = document.getElementById('charLimit');
-    const MAX_CHARS = 4096; // Limite d'OpenAI pour TTS
+    const MAX_CHARS = 4096;
 
     textArea.addEventListener('input', function() {
         const count = this.value.length;
@@ -287,58 +334,270 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Gestion des options avancées
-    const advancedToggle = document.querySelector('.advanced-toggle');
-    const advancedOptions = document.querySelector('.advanced-options');
-
     advancedToggle.addEventListener('click', function() {
         this.classList.toggle('active');
-        advancedOptions.style.display = advancedOptions.style.display === 'block' ? 'none' : 'block';
+        if (advancedOptions.style.maxHeight) {
+            advancedOptions.style.maxHeight = null;
+        } else {
+            advancedOptions.style.maxHeight = advancedOptions.scrollHeight + "px";
+        }
     });
 
     // Gestion du contrôle de vitesse
     const speedControl = document.getElementById('speed');
-    const speedValue = document.querySelector('.speed-value');
+    const speedValue = document.getElementById('speedValue');
 
     speedControl.addEventListener('input', function() {
         speedValue.textContent = this.value + 'x';
     });
 
     // Aperçu des voix
-    const voiceSelect = document.getElementById('voice');
-    const voicePreviewButton = document.createElement('button');
-    voicePreviewButton.className = 'neltar_fn_button small';
-    voicePreviewButton.innerHTML = '<span>Écouter la voix</span>';
-    voicePreviewButton.style.marginTop = '10px';
-
-    voiceSelect.parentElement.appendChild(voicePreviewButton);
-
-    // Échantillons préenregistrés pour chaque voix
+    const previewButtons = document.querySelectorAll('.preview_button');
     const voiceSamples = {
-        'alloy': 'https://cdn.openai.com/API/docs/audio/alloy.mp3',
-        'echo': 'https://cdn.openai.com/API/docs/audio/echo.mp3',
-        'fable': 'https://cdn.openai.com/API/docs/audio/fable.mp3',
-        'onyx': 'https://cdn.openai.com/API/docs/audio/onyx.mp3',
-        'nova': 'https://cdn.openai.com/API/docs/audio/nova.mp3',
-        'shimmer': 'https://cdn.openai.com/API/docs/audio/shimmer.mp3'
+        'alloy': '/static/audio-samples/alloy.mp3',
+        'echo': '/static/audio-samples/echo.mp3',
+        'fable': '/static/audio-samples/fable.mp3',
+        'onyx': '/static/audio-samples/onyx.mp3',
+        'nova': '/static/audio-samples/nova.mp3',
+        'shimmer': '/static/audio-samples/shimmer.mp3'
     };
 
     const previewAudio = new Audio();
 
-    voicePreviewButton.addEventListener('click', function(e) {
-        e.preventDefault();
-        const selectedVoice = voiceSelect.value;
-        previewAudio.src = voiceSamples[selectedVoice];
-        previewAudio.play();
-    });
-    previewAudio.addEventListener('error', function(e) {
-        console.error("Erreur lors du chargement de l'audio:", e);
-        alert("Impossible de charger l'aperçu audio. Veuillez réessayer plus tard.");
+    previewButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const voice = this.getAttribute('data-voice');
+
+            try {
+                previewAudio.src = voiceSamples[voice];
+                previewAudio.play().catch(error => {
+                    console.error("Erreur lors de la lecture:", error);
+                });
+            } catch (error) {
+                console.error("Erreur avec l'aperçu audio:", error);
+            }
+        });
     });
 
-    previewAudio.play().catch(function(error) {
-        console.error("Erreur lors de la lecture:", error);
-        alert("Impossible de lire l'audio. Cela peut être dû aux paramètres de votre navigateur.");
+    // Soumission du formulaire
+    audioForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Vérifier si le texte est vide
+        if (textArea.value.trim() === '') {
+            alert('Veuillez saisir du texte à convertir en audio');
+            return;
+        }
+
+        // Vérifier si le texte dépasse la limite
+        if (textArea.value.length > MAX_CHARS) {
+            alert(`Le texte dépasse la limite de ${MAX_CHARS} caractères`);
+            return;
+        }
+
+        // Afficher le chargement
+        loadingSection.style.display = 'flex';
+        resultSection.style.display = 'none';
+
+        // Récupérer les données du formulaire
+        const formData = new FormData(this);
+
+        // Ajouter le token à FormData si nécessaire
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) {
+            formData.append('token', token);
+        }
+
+        // Configurer les options de la requête
+        const fetchOptions = {
+            method: 'POST',
+            body: formData
+        };
+
+        // Ajouter le token dans l'en-tête Authorization si disponible
+        if (token) {
+            fetchOptions.headers = {
+                'Authorization': 'Bearer ' + token
+            };
+        }
+
+        // Envoyer la requête
+        fetch('/generate_audio', fetchOptions)
+            .then(response => response.json())
+            .then(data => {
+                // Cacher le chargement
+                loadingSection.style.display = 'none';
+
+                if (data.success) {
+                    // Afficher la section de résultat
+                    resultSection.style.display = 'block';
+
+                    // Initialiser WaveSurfer
+                    initWaveSurfer();
+
+                    // Définir la source de l'audio
+                    audioPlayer.src = data.audio_url;
+
+                    // Charger l'audio dans WaveSurfer
+                    wavesurfer.load(data.audio_url);
+
+                    // Mettre à jour le lien de téléchargement
+                    downloadAudio.setAttribute('data-url', data.audio_url);
+
+                    // Mettre à jour l'historique
+                    loadAudioHistory();
+                } else {
+                    // Afficher une erreur
+                    alert('Erreur: ' + (data.error || 'Échec de la génération audio'));
+                }
+            })
+            .catch(error => {
+                loadingSection.style.display = 'none';
+                console.error("Erreur lors de la génération audio:", error);
+                alert('Erreur lors de la génération audio: ' + error);
+            });
     });
+
+    // Gestion du bouton play/pause
+    playPauseButton.addEventListener('click', function() {
+        if (wavesurfer) {
+            wavesurfer.playPause();
+            if (wavesurfer.isPlaying()) {
+                playIcon.style.display = 'none';
+                pauseIcon.style.display = 'block';
+            } else {
+                playIcon.style.display = 'block';
+                pauseIcon.style.display = 'none';
+            }
+        }
+    });
+
+    // Gestion du téléchargement
+    downloadAudio.addEventListener('click', function() {
+        const audioUrl = this.getAttribute('data-url');
+        if (audioUrl) {
+            window.open('/download-audio/' + audioUrl.split('/').pop(), '_blank');
+        }
+    });
+
+    // Fermer le résultat
+    closeResult.addEventListener('click', function() {
+        resultSection.style.display = 'none';
+        if (wavesurfer) {
+            wavesurfer.pause();
+        }
+    });
+
+    // Nouveau audio
+    newAudio.addEventListener('click', function() {
+        resultSection.style.display = 'none';
+        if (wavesurfer) {
+            wavesurfer.pause();
+        }
+    });
+
+    // Fonction pour charger l'historique des audios
+    function loadAudioHistory() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        let url = '/api/audio/history?page=1&per_page=10';
+
+        if (token) {
+            url += `&token=${token}`;
+        }
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data && data.data.items) {
+                    displayAudioHistory(data.data.items);
+                } else {
+                    console.error('Error loading audio history:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching audio history:', error);
+            });
+    }
+
+    // Fonction pour afficher l'historique des audios
+    function displayAudioHistory(items) {
+        const historyContainer = document.getElementById('audioHistory');
+
+        // Supprimez l'état vide si des éléments sont présents
+        if (items.length > 0) {
+            const emptyState = historyContainer.querySelector('.empty_state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+        }
+
+        // Ajouter les nouveaux éléments au début
+        if (items.length === 0) {
+            return;
+        }
+
+        // Créer un fragment pour améliorer les performances
+        const fragment = document.createDocumentFragment();
+
+        items.forEach(item => {
+            const audioDate = new Date(item.timestamp);
+            const formattedDate = audioDate.toLocaleDateString() + ' ' + audioDate.toLocaleTimeString();
+
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history_item';
+
+            historyItem.innerHTML = `
+                <div class="item_header">
+                    <h4 class="item_title">${truncateText(item.text, 30)}</h4>
+                    <span class="item_meta">${capitalizeFirstLetter(item.voice)}</span>
+                </div>
+                <div class="item_content">
+                    <div class="mini_player">
+                        <button class="mini_play" data-url="${item.url}">
+                            <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg">
+                        </button>
+                        <div class="mini_waveform"></div>
+                    </div>
+                    <div class="item_date">${formattedDate}</div>
+                </div>
+            `;
+
+            fragment.appendChild(historyItem);
+        });
+
+        // Insérer au début de l'historique
+        historyContainer.insertBefore(fragment, historyContainer.firstChild);
+
+        // Ajouter les événements de lecture pour les mini-players
+        document.querySelectorAll('.mini_play').forEach(button => {
+            button.addEventListener('click', function() {
+                const url = this.getAttribute('data-url');
+                const tempAudio = new Audio(url);
+                tempAudio.play().catch(error => {
+                    console.error("Erreur lors de la lecture:", error);
+                });
+            });
+        });
+    }
+
+    // Fonctions utilitaires
+    function truncateText(text, maxLength) {
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+    }
+
+    function capitalizeFirstLetter(string) {
+        if (!string) return '';
+        return string.charAt(0).toUpperCase() + string.slice(1);
+    }
+
+    // Chargement initial de l'historique
+    loadAudioHistory();
 });
 </script>
 {% endblock %}
