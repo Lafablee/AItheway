@@ -210,7 +210,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (token) {
             fetchOptions.headers = {
-                'AUthorization': 'Bearer ' + token
+                'Authorization': 'Bearer ' + token
             };
         }
 
@@ -232,7 +232,18 @@ document.addEventListener('DOMContentLoaded', function() {
                 
                 // Charger et lire l'audio
                 audioPlayer.load();
-                
+
+                const playButton = document.createElement('button');
+                playButton.className = 'neltar_fn_button small';
+                playButton.innerHTML = '<span>Écouter</span>';
+                playButton.addEventListener('click', function() {
+                    audioPlayer.play().catch(error => {
+                        console.error("Erreur lors de la lecture:", error);
+                        alert("La lecture n'a pas pu démarrer. Veuillez vérifier vos paramètres audio.");
+                    });
+                });
+                document.querySelector('.result__content').insertBefore(playButton, document.getElementById('downloadAudio').parentNode);
+
                 // Mettre à jour l'historique (à implémenter)
                 updateAudioHistory();
             } else {

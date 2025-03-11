@@ -852,7 +852,13 @@ class AudioGenerator(AIModelGenerator):
                 params["speed"] = float(additional_params["speed"])
 
             response = await openai.audio.speech.create(**params)
-            audio_content = await response.read()
+
+            try:
+                # Méthode pour la version plus récente de l'API
+                audio_content = await response.read()
+            except AttributeError:
+                # Essayer d'accéder directement au contenu comme un bytes pour les versions plus anciennes
+                audio_content = response.content
 
             return {
                 "success": True,
