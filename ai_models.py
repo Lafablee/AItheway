@@ -836,6 +836,10 @@ class AudioGenerator(AIModelGenerator):
         openai.api_key = api_key
 
     async def generate(self, text, additional_params=None):
+        # Méthode asynchrone pour comptabilité avec l'interface
+        return self.generate_sync(text, additional_params)
+
+    def generate_sync(self, text, additional_params=None):
         try:
             params = {
                 "model": self.model,
@@ -851,9 +855,14 @@ class AudioGenerator(AIModelGenerator):
             if "speed" in additional_params:
                 params["speed"] = float(additional_params["speed"])
 
-            response = await openai.audio.speech.create(**params)
+            response = openai.audio.speech.create(**params)
 
-            audio_content = response.read()
+            if hasattr(response, 'content'):
+                audio_content = response.content
+            elif hasattr(response, 'read'):
+                audio_content = response.read()
+            else:
+                audio_content = response
 
             return {
                 "success": True,
