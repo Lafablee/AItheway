@@ -15,6 +15,7 @@ psycopg2-binary = "^2.9.10"
 runwayml = "^2.1.6"
 redis = {extras = ["hiredis"], version = "^5.2.1"}
 aiohttp = "^3.11.12"
+numpy = "^2.2.3"
 
 
 [tool.poetry.group.dev.dependencies]

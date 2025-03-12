@@ -647,26 +647,133 @@
                 </div>
             </div>
             <div class="sidebar_details">
-                <div class="number_of_images">
-                    <h4 class="title">Number of Images</h4>
-                    <div class="fn__quantity">
-                        <a href="#" class="decrease"></a>
-                        <input type="number" value="1" max="20" min="1">
-                        <a href="#" class="increase"></a>
-                    </div>
-                </div>
-                <div class="img_sizes">
-                    <h4 class="title">Image Dimensions</h4>
-                    <div class="img_size_select">
-                        <select>
-                            <option value="512_512" selected="">512 x 512px</option>
-                            <option value="768_768">768 x 768px</option>
-                            <option value="512_1024">512 x 1024px</option>
-                            <option value="768_1024">768 x 1024px</option>
-                            <option value="1024_1024">1024 x 1024px</option>
+                <div class="aspect_ratio">
+                    <h4 class="title">Image Format</h4>
+                    <div class="ratio_select">
+                        <select id="aspect-ratio-select">
+                            <option value="">Format par défaut</option>
+                            <option value="1:1">Carré (1:1)</option>
+                            <option value="16:9">Paysage (16:9)</option>
+                            <option value="9:16">TikTok (9:16)</option>
+                            <option value="4:3">Standard (4:3)</option>
+                            <option value="3:4">Portrait Standard (3:4)</option>
+                            <option value="2:1">Panoramique (2:1)</option>
+                            <option value="3:2">Photo (3:2)</option>
                         </select>
                     </div>
                 </div>
+                <div class="aspect-ratio-preview">
+                    <div id="ratio-preview-box" style="position: relative; width: 100%; height: 100px; background-color: #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-top: 10px;">
+                        <div id="ratio-preview-inner" style="width: 80%; height: 80%; background-color: #777; border-radius: 2px;"></div>
+                    </div>
+                </div>
+                <!-- Style Selector -->
+                <div class="style_selector">
+                    <h4 class="title">Style visuel</h4>
+                    <div class="style_select">
+                        <select id="style-select">
+                            <option value="">Style par défaut</option>
+                            <option value="raw">Brut (Raw)</option>
+                            <option value="cute">Mignon (Cute)</option>
+                            <option value="scenic">Paysage (Scenic)</option>
+                            <option value="expressive">Expressif (Expressive)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Medium Selector -->
+                <div class="medium_selector">
+                    <h4 class="title">Médium artistique</h4>
+                    <div class="medium_select">
+                        <select id="medium-select">
+                            <option value="">Aucun médium spécifique</option>
+                            <option value="digital">Art digital</option>
+                            <option value="traditional">Peinture traditionnelle</option>
+                            <option value="drawing">Dessin</option>
+                            <option value="print">Impression artistique</option>
+                            <option value="photographic">Photographique</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Chaos Level -->
+                <div class="chaos_level">
+                    <h4 class="title">Niveau de créativité</h4>
+                    <div class="fn__range">
+                        <div class="range_in">
+                            <input type="range" id="chaos-slider" min="0" max="100" value="0" step="10">
+                            <div class="slider"></div>
+                        </div>
+                        <div class="value" id="chaos-value">0</div>
+                    </div>
+                </div>
+
+                <!-- Seed Input -->
+                <div class="seed_input">
+                    <h4 class="title">Seed (génération reproductible)<span class="fn__tooltip" title="Utiliser la même seed permet de reproduire des résultats similaires."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
+                    <div class="fn__text_field">
+                        <input type="number" id="seed-input" placeholder="Laisser vide pour aléatoire">
+                    </div>
+                </div>
+
+                <!-- Advanced Options -->
+                <div class="prompt_options">
+                    <h4 class="title">Options avancées</h4>
+
+                    <!-- Quality Selection -->
+                    <div class="quality_option">
+                        <label for="quality_select">Qualité :</label>
+                        <select id="quality-select">
+                            <option value="2">Haute qualité (2)</option>
+                            <option value="1">Standard (1)</option>
+                        </select>
+                    </div>
+
+                    <!-- Checkboxes for Other Options -->
+                    <div class="option_checkboxes">
+                        <label class="fn__toggle">
+                            <span class="t_in">
+                                <input type="checkbox" id="enhance-details">
+                                <span class="t_slider"></span>
+                                <span class="t_content"></span>
+                            </span>
+                            <span class="option_label">Ajouter détails HD</span>
+                        </label>
+
+                        <label class="fn__toggle">
+                            <span class="t_in">
+                                <input type="checkbox" id="photorealistic">
+                                <span class="t_slider"></span>
+                                <span class="t_content"></span>
+                            </span>
+                            <span class="option_label">Photoréaliste</span>
+                        </label>
+
+                        <label class="fn__toggle">
+                            <span class="t_in">
+                                <input type="checkbox" id="no-text">
+                                <span class="t_slider"></span>
+                                <span class="t_content"></span>
+                            </span>
+                            <span class="option_label">Sans texte</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- Version Selector -->
+                <div class="version_selector">
+                    <h4 class="title">Version du modèle</h4>
+                    <div class="version_select">
+                        <select id="version-select">
+                            <option value="6.0">Version 6.0 (défaut)</option>
+                            <option value="5.2">Version 5.2</option>
+                            <option value="5.1">Version 5.1</option>
+                            <option value="5.0">Version 5.0</option>
+                            <option value="niji">Niji 5 (style anime)</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
                 <div class="guidance_scale">
                     <h4 class="title">Image Dimensions<span class="fn__tooltip" title="Select the resoultion of the images."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
                     <div class="fn__range">
@@ -1782,6 +1889,617 @@ function loadFontAwesome() {
         document.head.appendChild(link);
     }
 }
+
+// Ajoutez ce script à la fin de votre fichier template ou dans un fichier JS séparé
+
+// Mettre à jour l'aperçu du ratio
+function updateRatioPreview() {
+    const ratioSelect = document.getElementById('aspect-ratio-select');
+    const previewBox = document.getElementById('ratio-preview-box');
+    const previewInner = document.getElementById('ratio-preview-inner');
+
+    if (!ratioSelect || !previewBox || !previewInner) return;
+
+    const selectedRatio = ratioSelect.value;
+
+    if (!selectedRatio) {
+        // Format par défaut (1:1)
+        previewInner.style.width = '80%';
+        previewInner.style.height = '80%';
+        return;
+    }
+
+    const [width, height] = selectedRatio.split(':').map(Number);
+
+    // Calculer la taille de l'aperçu en fonction du ratio
+    const boxWidth = previewBox.clientWidth * 0.8;
+    const boxHeight = previewBox.clientHeight * 0.8;
+
+    let previewWidth, previewHeight;
+
+    if (width / height > boxWidth / boxHeight) {
+        // Limité par la largeur
+        previewWidth = boxWidth;
+        previewHeight = boxWidth * (height / width);
+    } else {
+        // Limité par la hauteur
+        previewHeight = boxHeight;
+        previewWidth = boxHeight * (width / height);
+    }
+
+    previewInner.style.width = `${previewWidth}px`;
+    previewInner.style.height = `${previewHeight}px`;
+}
+
+// Mettre à jour l'affichage du niveau de chaos
+function updateChaosValue() {
+    const chaosSlider = document.getElementById('chaos-slider');
+    const chaosValue = document.getElementById('chaos-value');
+
+    if (chaosSlider && chaosValue) {
+        chaosValue.textContent = chaosSlider.value;
+    }
+}
+
+// Fonction pour collecter tous les paramètres pour Midjourney
+function collectMidjourneyParams() {
+    return {
+        aspect_ratio: document.getElementById('aspect-ratio-select')?.value || null,
+        style: document.getElementById('style-select')?.value || null,
+        quality: document.getElementById('quality-select')?.value || null,
+        chaos: document.getElementById('chaos-slider')?.value || null,
+        version: document.getElementById('version-select')?.value || null,
+        seed: document.getElementById('seed-input')?.value || null,
+        no_text: document.getElementById('no-text')?.checked || false,
+        enhance_details: document.getElementById('enhance-details')?.checked || false,
+        photorealistic: document.getElementById('photorealistic')?.checked || false,
+        medium: document.getElementById('medium-select')?.value || null
+    };
+}
+
+// Modifier le gestionnaire d'événements du formulaire de génération d'image
+document.addEventListener('DOMContentLoaded', function() {
+    // Initialiser l'aperçu du ratio
+    updateRatioPreview();
+
+    // Initialiser l'affichage du niveau de chaos
+    updateChaosValue();
+
+    // Ajouter les gestionnaires d'événements
+    const ratioSelect = document.getElementById('aspect-ratio-select');
+    if (ratioSelect) {
+        ratioSelect.addEventListener('change', updateRatioPreview);
+    }
+
+    const chaosSlider = document.getElementById('chaos-slider');
+    if (chaosSlider) {
+        chaosSlider.addEventListener('input', updateChaosValue);
+    }
+
+    // Modifier le gestionnaire d'événements du formulaire
+    const generateForm = document.getElementById('generate-image-form');
+    if (generateForm) {
+        // Sauvegarder l'ancien gestionnaire d'événements si nécessaire
+        const originalSubmitHandler = generateForm.onsubmit;
+
+        generateForm.onsubmit = async function(event) {
+            event.preventDefault();
+
+            const promptInput = document.getElementById('prompt');
+            const promptText = promptInput.value;
+            const spinner = document.getElementById('spinner');
+            const generateText = document.getElementById('generate-text');
+
+            // Récupérer le modèle sélectionné
+            const modelOption = document.querySelector('.all_models a.selected');
+            const modelName = modelOption ? modelOption.textContent.toLowerCase() : currentModel;
+
+            // Si c'est Midjourney, collecter les paramètres supplémentaires
+            let additionalParams = {};
+            if (modelName.includes('midjourney')) {
+                additionalParams = collectMidjourneyParams();
+                console.log('Midjourney params:', additionalParams);
+            }
+
+            // Afficher l'état de chargement
+            promptInput.disabled = true;
+            spinner.style.display = 'inline-block';
+            generateText.style.display = 'none';
+
+            // Obtenir le token
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+
+            if (!token) {
+                showErrorOverlay('Erreur', 'Session invalide. Veuillez vous reconnecter.');
+                setTimeout(() => {
+                    window.location.href = LOGIN_URL;
+                }, 2000);
+                return;
+            }
+
+            try {
+                updateLoadingState('loading');
+
+                // Construire la requête
+                const requestData = new URLSearchParams();
+                requestData.append('prompt', promptText);
+                requestData.append('model', modelName);
+
+                // Ajouter les paramètres additionnels pour Midjourney
+                if (Object.keys(additionalParams).length > 0) {
+                    requestData.append('additional_params', JSON.stringify(additionalParams));
+                }
+
+                const requestOptions = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'X-Requested-With': 'XMLHttpRequest'
+                    },
+                    body: requestData
+                };
+
+                console.log('Sending request with options:', requestOptions);
+
+                // Envoyer la requête au backend
+                const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, requestOptions);
+
+                // Traitement de la réponse
+                console.log('Response status:', response.status);
+
+                const result = await response.json();
+                console.log('Response data:', result);
+
+                // Gestion des tokens insuffisants
+                if (result.error === "Insufficient tokens") {
+                    const modal = displayTokenError(result.tokens_available, result.tokens_required);
+                    updateLoadingState('default');
+                    return;
+                }
+
+                // Gestion des autres erreurs
+                if (!result.success) {
+                    console.error('Error in response:', result.error || 'Unknown error');
+                    showErrorOverlay('Erreur', result.message || result.error || 'Une erreur est survenue');
+                    updateLoadingState('default');
+                    return;
+                }
+
+                // Traitement des succès
+                console.log('Success response:', result);
+
+                // Cas spécial pour Midjourney (traitement asynchrone)
+                if (modelName === 'midjourney' && result.status === 'processing') {
+                    console.log('Starting Midjourney processing with task_id:', result.task_id);
+                    updateLoadingState('processing');
+                    displayInitialLoadingState();
+                    handleMidjourneyProcessing(result.task_id, token, promptText);
+                } else {
+                    // Cas DALL-E ou autre réponse immédiate
+                    console.log('Displaying generated image:', result.image_url);
+                    displayGeneratedImage(result.image_url);
+
+                    // Mise à jour explicite des tokens si disponible
+                    if (result.tokens_remaining !== undefined) {
+                        console.log('Updating tokens display to:', result.tokens_remaining);
+                        updateTokensUI(result.tokens_remaining);
+                    } else {
+                        // Sinon, rafraîchir les tokens via l'API
+                        updateTokensDisplay();
+                    }
+
+                    // Mettre à jour le texte du bouton
+                    generateText.textContent = 'Générer une nouvelle image';
+                }
+            } catch (error) {
+                console.error('Error in fetch operation:', error);
+                showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
+            } finally {
+                // Réinitialisation de l'interface
+                spinner.style.display = 'none';
+                generateText.style.display = 'inline';
+                promptInput.disabled = false;
+            }
+        };
+    }
+});
+
+// Fonction pour réinitialiser les paramètres Midjourney
+function resetMidjourneyParams() {
+    // Réinitialiser tous les sélecteurs et options
+    document.getElementById('aspect-ratio-select').value = '';
+    document.getElementById('style-select').value = '';
+    document.getElementById('medium-select').value = '';
+    document.getElementById('quality-select').value = '2';
+    document.getElementById('version-select').value = '6.0';
+    document.getElementById('seed-input').value = '';
+    document.getElementById('chaos-slider').value = '0';
+    document.getElementById('chaos-value').textContent = '0';
+    document.getElementById('enhance-details').checked = false;
+    document.getElementById('photorealistic').checked = false;
+    document.getElementById('no-text').checked = false;
+
+    // Mettre à jour l'aperçu du ratio
+    updateRatioPreview();
+}
+
+// Ajouter un gestionnaire pour le bouton "Nouvelle image"
+document.addEventListener('DOMContentLoaded', function() {
+    const newImageBtn = document.querySelector('.fn__icon_button[onclick="createNewInstance()"]');
+    if (newImageBtn) {
+        const originalOnclick = newImageBtn.onclick;
+        newImageBtn.onclick = function() {
+            if (originalOnclick) originalOnclick.call(this);
+            resetMidjourneyParams();
+        };
+    }
+
+    // Initialiser les fonctionnalités des modèles
+    initializeTemplateSystem();
+
+    // Ajouter des tooltips interactifs pour mieux expliquer les options
+    initializeTooltips();
+});
+
+// Système de modèles (templates)
+function initializeTemplateSystem() {
+    const templateSelect = document.getElementById('template-select');
+    if (!templateSelect) return;
+
+    // Gérer le changement de modèle
+    templateSelect.addEventListener('change', function() {
+        const selectedTemplate = this.value;
+
+        // Cacher tous les paramètres spécifiques
+        document.querySelectorAll('.template-specific-params').forEach(el => {
+            el.classList.add('d-none');
+        });
+
+        // Afficher les paramètres spécifiques au modèle sélectionné
+        if (selectedTemplate) {
+            document.getElementById('template-params').classList.remove('d-none');
+            const specificParams = document.getElementById(`params-${selectedTemplate}`);
+            if (specificParams) {
+                specificParams.classList.remove('d-none');
+            }
+        } else {
+            document.getElementById('template-params').classList.add('d-none');
+        }
+    });
+
+    // Ajouter un bouton pour appliquer le modèle
+    const applyTemplateBtn = document.getElementById('apply-template-btn');
+    if (applyTemplateBtn) {
+        applyTemplateBtn.addEventListener('click', function() {
+            applySelectedTemplate();
+        });
+    }
+}
+
+// Appliquer le modèle sélectionné au prompt
+function applySelectedTemplate() {
+    const templateType = document.getElementById('template-select').value;
+    if (!templateType) return;
+
+    const subject = document.getElementById('template-subject').value;
+    if (!subject) {
+        showTemplateError('Veuillez entrer un sujet principal');
+        return;
+    }
+
+    // Collecter les paramètres spécifiques au modèle
+    const params = {
+        subject: subject
+    };
+
+    // Récupérer les paramètres spécifiques en fonction du modèle
+    if (templateType === 'portrait') {
+        params.style = document.getElementById('portrait-style').value;
+        params.lighting = document.getElementById('portrait-lighting').value;
+        params.background = document.getElementById('portrait-background').value;
+    } else if (templateType === 'landscape') {
+        params.time_of_day = document.getElementById('landscape-time').value;
+        params.weather = document.getElementById('landscape-weather').value;
+        params.style = document.getElementById('landscape-style').value;
+    } else if (templateType === 'product') {
+        params.background = document.getElementById('product-background').value;
+        params.angle = document.getElementById('product-angle').value;
+    } else if (templateType === 'concept_art') {
+        params.style = document.getElementById('concept-style').value;
+        params.artist = document.getElementById('concept-artist').value;
+    } else if (templateType === 'food') {
+        params.lighting = document.getElementById('food-lighting').value;
+        params.angle = document.getElementById('food-angle').value;
+        params.style = document.getElementById('food-style').value;
+    }
+
+    // Appeler l'API pour générer le prompt
+    fetch(`/api/midjourney/templates/${templateType}?subject=${encodeURIComponent(subject)}&token=${encodeURIComponent(getToken())}${formatParamsForUrl(params)}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                // Mettre à jour le champ de prompt
+                document.getElementById('prompt').value = data.prompt;
+
+                // Afficher un message de succès
+                showSuccessNotification('Modèle appliqué avec succès!');
+            } else {
+                showTemplateError(data.error || 'Erreur lors de l\'application du modèle');
+            }
+        })
+        .catch(error => {
+            console.error('Error applying template:', error);
+            showTemplateError('Erreur de connexion');
+        });
+}
+
+// Formater les paramètres pour l'URL
+function formatParamsForUrl(params) {
+    let result = '';
+    for (const key in params) {
+        if (key !== 'subject' && params[key]) {
+            result += `&${key}=${encodeURIComponent(params[key])}`;
+        }
+    }
+    return result;
+}
+
+// Afficher une erreur de modèle
+function showTemplateError(message) {
+    const errorBox = document.createElement('div');
+    errorBox.className = 'template-error animated fadeIn';
+    errorBox.innerHTML = `
+        <div class="error-icon"><i class="fas fa-exclamation-circle"></i></div>
+        <div class="error-message">${message}</div>
+        <div class="error-close" onclick="this.parentNode.remove()">×</div>
+    `;
+
+    document.getElementById('template-params').appendChild(errorBox);
+
+    // Supprimer l'erreur après 5 secondes
+    setTimeout(() => {
+        errorBox.classList.add('fadeOut');
+        setTimeout(() => errorBox.remove(), 500);
+    }, 5000);
+}
+
+// Afficher une notification de succès
+function showSuccessNotification(message) {
+    const notification = document.createElement('div');
+    notification.className = 'success-notification animated fadeIn';
+    notification.innerHTML = `
+        <div class="success-icon"><i class="fas fa-check-circle"></i></div>
+        <div class="success-message">${message}</div>
+    `;
+
+    document.body.appendChild(notification);
+
+    // Supprimer la notification après 3 secondes
+    setTimeout(() => {
+        notification.classList.add('fadeOut');
+        setTimeout(() => notification.remove(), 500);
+    }, 3000);
+}
+
+// Initialiser les tooltips
+function initializeTooltips() {
+    // Ajouter des tooltips sur chaque option
+    const tooltipElements = document.querySelectorAll('[data-tooltip]');
+    tooltipElements.forEach(element => {
+        element.addEventListener('mouseenter', function() {
+            const tooltipText = this.getAttribute('data-tooltip');
+
+            // Créer le tooltip
+            const tooltip = document.createElement('div');
+            tooltip.className = 'custom-tooltip';
+            tooltip.textContent = tooltipText;
+
+            // Positionner le tooltip
+            const rect = this.getBoundingClientRect();
+            tooltip.style.left = `${rect.left + (rect.width / 2)}px`;
+            tooltip.style.top = `${rect.top - 5}px`;
+
+            // Ajouter au body
+            document.body.appendChild(tooltip);
+
+            // Animation d'entrée
+            setTimeout(() => tooltip.classList.add('visible'), 10);
+
+            // Stocker une référence au tooltip
+            this._tooltip = tooltip;
+        });
+
+        element.addEventListener('mouseleave', function() {
+            if (this._tooltip) {
+                this._tooltip.classList.remove('visible');
+                setTimeout(() => this._tooltip.remove(), 200);
+                this._tooltip = null;
+            }
+        });
+    });
+}
+
+// Obtenir le token de l'URL
+function getToken() {
+    const urlParams = new URLSearchParams(window.location.search);
+    return urlParams.get('token') || '';
+}
+
+// Gestion des collections
+function initializeCollections() {
+    // Charger les collections de l'utilisateur
+    loadUserCollections();
+
+    // Ajouter un gestionnaire pour le bouton de création de collection
+    const createCollectionBtn = document.getElementById('create-collection-btn');
+    if (createCollectionBtn) {
+        createCollectionBtn.addEventListener('click', function() {
+            showCreateCollectionModal();
+        });
+    }
+}
+
+// Charger les collections de l'utilisateur
+function loadUserCollections() {
+    fetch(`/api/midjourney/collections?token=${encodeURIComponent(getToken())}`)
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                renderCollections(data.collections);
+            } else {
+                console.error('Error loading collections:', data.error);
+            }
+        })
+        .catch(error => {
+            console.error('Error loading collections:', error);
+        });
+}
+
+// Afficher les collections
+function renderCollections(collections) {
+    const collectionsContainer = document.getElementById('collections-container');
+    if (!collectionsContainer) return;
+
+    if (collections.length === 0) {
+        collectionsContainer.innerHTML = '<div class="empty-collections">Aucune collection. Créez-en une pour organiser vos images.</div>';
+        return;
+    }
+
+    let html = '';
+    collections.forEach(collection => {
+        html += `
+            <div class="collection-item" data-id="${collection.id}">
+                <div class="collection-header">
+                    <h4>${collection.name}</h4>
+                    <div class="collection-count">${collection.images.length} images</div>
+                </div>
+                <div class="collection-description">${collection.description || 'Aucune description'}</div>
+                <div class="collection-actions">
+                    <button class="btn btn-sm btn-outline-primary view-collection-btn">Voir</button>
+                    <button class="btn btn-sm btn-outline-danger delete-collection-btn">Supprimer</button>
+                </div>
+            </div>
+        `;
+    });
+
+    collectionsContainer.innerHTML = html;
+
+    // Ajouter les gestionnaires d'événements
+    collectionsContainer.querySelectorAll('.view-collection-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const collectionId = this.closest('.collection-item').dataset.id;
+            viewCollection(collectionId);
+        });
+    });
+
+    collectionsContainer.querySelectorAll('.delete-collection-btn').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const collectionId = this.closest('.collection-item').dataset.id;
+            deleteCollection(collectionId);
+        });
+    });
+}
+
+// Afficher le modal de création de collection
+function showCreateCollectionModal() {
+    const modal = document.createElement('div');
+    modal.className = 'custom-modal';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4>Créer une collection</h4>
+                <span class="close-modal">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="form-group">
+                    <label for="collection-name">Nom de la collection</label>
+                    <input type="text" id="collection-name" class="form-control" placeholder="Ma collection">
+                </div>
+                <div class="form-group">
+                    <label for="collection-description">Description (optionnelle)</label>
+                    <textarea id="collection-description" class="form-control" rows="3" placeholder="Description de la collection"></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button id="create-collection-submit" class="btn btn-primary">Créer</button>
+                <button class="btn btn-secondary close-modal-btn">Annuler</button>
+            </div>
+        </div>
+    `;
+
+    document.body.appendChild(modal);
+
+    // Animation d'entrée
+    setTimeout(() => modal.classList.add('visible'), 10);
+
+    // Gestionnaires d'événements
+    modal.querySelector('.close-modal').addEventListener('click', () => closeModal(modal));
+    modal.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(modal));
+
+    modal.querySelector('#create-collection-submit').addEventListener('click', function() {
+        const name = document.getElementById('collection-name').value;
+        const description = document.getElementById('collection-description').value;
+
+        if (!name) {
+            showModalError(modal, 'Veuillez entrer un nom de collection');
+            return;
+        }
+
+        createCollection(name, description, modal);
+    });
+}
+
+// Fermer un modal
+function closeModal(modal) {
+    modal.classList.remove('visible');
+    setTimeout(() => modal.remove(), 300);
+}
+
+// Afficher une erreur dans le modal
+function showModalError(modal, message) {
+    let errorElement = modal.querySelector('.modal-error');
+
+    if (!errorElement) {
+        errorElement = document.createElement('div');
+        errorElement.className = 'modal-error';
+        modal.querySelector('.modal-body').prepend(errorElement);
+    }
+
+    errorElement.textContent = message;
+    errorElement.style.display = 'block';
+}
+
+// Créer une collection
+function createCollection(name, description, modal) {
+    fetch('/api/midjourney/collections', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Requested-With': 'XMLHttpRequest'
+        },
+        body: JSON.stringify({
+            name,
+            description,
+            token: getToken()
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            closeModal(modal);
+            showSuccessNotification('Collection créée avec succès!');
+            loadUserCollections();
+        } else {
+            showModalError(modal, data.error || 'Erreur lors de la création de la collection');
+        }
+    })
+    .catch(error => {
+        console.error('Error creating collection:', error);
+        showModalError(modal, 'Erreur de connexion');
+    });
+}
+
 function optimizeUpgradeButtons() {
     // Trouver les boutons upgrade existants
     const upgradeButtons = document.querySelectorAll('a.upgrade, button.upgrade, a.token_upgrade, .token-upgrade-btn');

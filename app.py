@@ -65,6 +65,12 @@ redis_client = redis.Redis(
     db=0,
     decode_responses=False  # Important pour les données binaires
 )
+from midjourney_extras import (
+    MidjourneyAnalyzer,
+    MidjourneyImageUtils,
+    MidjourneyTemplateSystem,
+    MidjourneyCollection
+)
 
 # Durées de conservation
 TEMP_STORAGE_DURATION = timedelta(hours=24)  # Pour les uploads temporaires
@@ -2152,6 +2158,15 @@ def generate_image(wp_user_id):
             model = request.form.get('model', 'dall-e')  # Default to DALL-E if not specified
             app.logger.error(f"Processing request - Model: {model}, Prompt: {prompt}")
 
+            additional_params = {}
+            additional_params_str = request.form.get('additional_params')
+            if additional_params_str:
+                try:
+                    additional_params = json.loads(additional_params_str)
+                    app.logger.error(f"Received additional params: {additional_params}")
+                except json.JSONDecodeError as e:
+                    app.logger.error(f"Error parsing additional params:{e}")
+
             if not prompt:
                 return jsonify({"message": "Create what inspires you!"}), 400
 
@@ -2969,6 +2984,126 @@ def midjourney_callback():
     except Exception as e:
         app.logger.error(f"Error in callback: {str(e)}")
         return jsonify({"error": str(e)}), 500
+
+
+@app.route('/api/midjourney/templates/<template_type>', methods=['GET'])
+@token_required
+def get_midjourney_template(wp_user_id, template_type):
+    subject = request.args.get('subject', '')
+
+    # Récupérer les options spécifiques pour ce modèle
+    template_options = {}
+    for param in request.args:
+        if param not in ['subject', 'token']:
+            template_options[param] = request.args.get(param)
+
+    # Générer le prompt à partir du modèle
+    prompt = MidjourneyTemplateSystem.generate_from_template(
+        template_type,
+        subject=subject,
+        **template_options
+    )
+
+    return jsonify({
+        'success': True,
+        'prompt': prompt,
+        'template_type': template_type
+    })
+
+
+@app.route('/api/midjourney/analyze-prompt', methods=['POST'])
+@token_required
+def analyze_midjourney_prompt(wp_user_id):
+    data = request.get_json()
+    prompt = data.get('prompt', '')
+
+    # Analyser le prompt
+    params = MidjourneyAnalyzer.extract_parameters(prompt)
+    clean_prompt = MidjourneyAnalyzer.clean_prompt(prompt)
+
+    return jsonify({
+        'success': True,
+        'parameters': params,
+        'clean_prompt': clean_prompt
+    })
+
+
+@app.route('/api/midjourney/collections', methods=['GET', 'POST'])
+@token_required
+def manage_collections(wp_user_id):
+    if request.method == 'GET':
+        # Récupérer les collections de l'utilisateur
+        collections = MidjourneyCollection.get_user_collections(redis_client, wp_user_id)
+        return jsonify({
+            'success': True,
+            'collections': collections
+        })
+
+    elif request.method == 'POST':
+        # Créer une nouvelle collection
+        data = request.get_json()
+        name = data.get('name', f"Collection {datetime.now().strftime('%Y-%m-%d')}")
+        description = data.get('description', '')
+
+        collection_id = MidjourneyCollection.create_collection(
+            redis_client,
+            wp_user_id,
+            name,
+            description
+        )
+
+        return jsonify({
+            'success': True,
+            'collection_id': collection_id,
+            'message': 'Collection created successfully'
+        })
+
+
+@app.route('/api/midjourney/collections/<collection_id>', methods=['GET', 'POST'])
+@token_required
+def collection_operations(wp_user_id, collection_id):
+    if request.method == 'GET':
+        # Récupérer une collection spécifique
+        collection = MidjourneyCollection.get_collection(redis_client, collection_id, wp_user_id)
+        if not collection:
+            return jsonify({
+                'success': False,
+                'error': 'Collection not found'
+            }), 404
+
+        return jsonify({
+            'success': True,
+            'collection': collection
+        })
+
+    elif request.method == 'POST':
+        # Ajouter une image à la collection
+        data = request.get_json()
+        image_key = data.get('image_key')
+
+        if not image_key:
+            return jsonify({
+                'success': False,
+                'error': 'Image key is required'
+            }), 400
+
+        success = MidjourneyCollection.add_image_to_collection(
+            redis_client,
+            collection_id,
+            image_key,
+            wp_user_id
+        )
+
+        if not success:
+            return jsonify({
+                'success': False,
+                'error': 'Failed to add image to collection'
+            }), 400
+
+        return jsonify({
+            'success': True,
+            'message': 'Image added to collection successfully'
+        })
 
 
 @app.route('/download-enhanced-image', methods=['POST'])

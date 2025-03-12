@@ -21,6 +21,7 @@ redis_client = redis.Redis(
     db=0,
     decode_responses=False
 )
+from midjourney_params import MidjourneyParams
 
 
 class AIModelGenerator(ABC):
@@ -614,6 +615,43 @@ class MidjourneyGenerator(AIModelGenerator):
 
     async def generate(self, prompt, additional_params=None):
         try:
+            # Extraire les paramètres Midjourney
+            aspect_ratio = additional_params.get('aspect_ratio') if additional_params else None
+            style = additional_params.get('style') if additional_params else None
+            quality = additional_params.get('quality') if additional_params else None
+            chaos = additional_params.get('chaos') if additional_params else None
+            version = additional_params.get('version') if additional_params else None
+            seed_value = additional_params.get('seed') if additional_params else None
+            no_text = additional_params.get('no_text', False) if additional_params else False
+
+            # Améliorer le prompt si demandé
+            enhance_details = additional_params.get('enhance_details', False) if additional_params else False
+            photorealistic = additional_params.get('photorealistic', False) if additional_params else False
+            medium = additional_params.get('medium') if additional_params else None
+
+            # Appliquer les améliorations de prompt
+            enhanced_prompt = MidjourneyParams.enhance_prompt(
+                prompt,
+                medium=medium,
+                enhance_details=enhance_details,
+                photorealistic=photorealistic
+            )
+
+            # Construire les paramètres Midjourney
+            params_string = MidjourneyParams.build_params(
+                aspect_ratio=aspect_ratio,
+                style=style,
+                quality=quality,
+                chaos=chaos,
+                version=version,
+                seed_value=seed_value,
+                no_text=no_text
+            )
+
+            # Combiner prompt et paramètres
+            final_prompt = f"{enhanced_prompt} {params_string}".strip()
+            app.logger.error(f"Final Midjourney prompt: {final_prompt}")
+
             # Generate task ID
             task_id = str(uuid.uuid4())
             metadata_key = f"midjourney_task:{task_id}"
@@ -622,14 +660,24 @@ class MidjourneyGenerator(AIModelGenerator):
             # Store initial metadata
             metadata = {
                 'type': b'generated',
-                'prompt': prompt.encode('utf-8'),
+                'prompt': final_prompt.encode('utf-8'),
+                'original_prompt': prompt.encode('utf-8'),
                 'timestamp': datetime.now().isoformat().encode('utf-8'),
                 'model': b'midjourney',
                 'status': b'processing',
                 'task_id': task_id.encode('utf-8'),
                 'parameters': json.dumps({
                     'model': 'midjourney',
-                    'size': '1024x1024'
+                    'aspect_ratio': aspect_ratio,
+                    'style': style,
+                    'quality': quality,
+                    'chaos': chaos,
+                    'version': version,
+                    'seed': seed_value,
+                    'no_text': no_text,
+                    'enhance_details': enhance_details,
+                    'photorealistic': photorealistic,
+                    'medium': medium,
                 }).encode('utf-8')
             }
 
@@ -670,7 +718,7 @@ class MidjourneyGenerator(AIModelGenerator):
                             {
                                 "type": 3,
                                 "name": "prompt",
-                                "value": prompt
+                                "value": final_prompt
                             }
                         ]
                     }
