@@ -2556,10 +2556,14 @@ def generate_audio(wp_user_id):
                         metadata
                     )
 
+                    # obtenir le nombre de token restant après génération
+                    tokens_remaining = get_user_tokens(wp_user_id)
+
                     return jsonify({
                         'success': True,
                         'audio_key': audio_key,
-                        'audio_url': f"/audio/{audio_key}"
+                        'audio_url': f"/audio/{audio_key}",
+                        'tokens_remaining': tokens_remaining
                     })
                 else:
                     refund_tokens(wp_user_id, token_cost)

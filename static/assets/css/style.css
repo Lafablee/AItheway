@@ -6560,6 +6560,9 @@ a.fn__like.no_border .fn__svg {
     --audio-text: var(--fn-color);
     --audio-shadow: rgba(0, 0, 0, 0.1);
 }
+[data-neltar-skin="dark"] .audio_generation_page {
+  --audio-shadow: rgba(0, 0, 0, 0.3);
+}
 
 .audio_studio_container {
     display: flex;
@@ -6890,6 +6893,15 @@ input[type="range"] {
     border-radius: 3px;
     outline: none;
 }
+/* Styles spécifiques pour le mode sombre */
+[data-neltar-skin="dark"] input[type="range"] {
+    background: linear-gradient(to right, var(--audio-primary), var(--audio-secondary));
+}
+
+[data-neltar-skin="dark"] input[type="range"]::-webkit-slider-thumb {
+    background: var(--audio-secondary);
+    border: 2px solid var(--fn-bg-color);
+}
 
 input[type="range"]::-webkit-slider-thumb {
     appearance: none;
@@ -7186,4 +7198,112 @@ input[type="range"]::-webkit-slider-thumb {
 
 .submit_button:active {
     animation: pulse 0.3s ease;
+}
+/* Dans le CSS, ajouter ces styles */
+.loading_overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.3s ease;
+}
+
+.loading_content {
+    text-align: center;
+    position: relative;
+}
+
+.loading_pulse {
+    position: absolute;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(120, 120, 255, 0.2) 0%, rgba(120, 120, 255, 0) 70%);
+    border-radius: 50%;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    animation: pulse 2s infinite alternate, shimmer 1.5s infinite;
+}
+
+.fn__preloader {
+    position: relative;
+    z-index: 1;
+    background-color: var(--audio-surface);
+    padding: 24px 32px;
+    border-radius: 12px;
+    box-shadow: 0 0 30px rgba(120, 120, 255, 0.3);
+}
+
+@keyframes pulse {
+    0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.5; }
+    100% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.8; }
+}
+
+@keyframes shimmer {
+    0% { box-shadow: 0 0 20px rgba(120, 120, 255, 0.3); }
+    50% { box-shadow: 0 0 40px rgba(120, 120, 255, 0.6); }
+    100% { box-shadow: 0 0 20px rgba(120, 120, 255, 0.3); }
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Ajouter ce style pour gérer les icônes SVG en mode sombre */
+[data-neltar-skin="dark"] .fn__svg {
+    filter: brightness(0) invert(1);
+}
+
+/* Pour l'icône pause spécifiquement */
+[data-neltar-skin="dark"] .pause_icon {
+    filter: brightness(0) invert(1);
+}
+
+/* Styles généraux pour le mode sombre */
+[data-neltar-skin="dark"] .studio_card,
+[data-neltar-skin="dark"] .sidebar_section {
+    background-color: var(--audio-surface);
+    border-color: var(--audio-border);
+}
+
+[data-neltar-skin="dark"] .voice_card {
+    background-color: var(--fn-bg-color);
+    border-color: var(--audio-border);
+}
+
+[data-neltar-skin="dark"] .voice_option input[type="radio"]:checked + .voice_card {
+    border-color: var(--audio-primary);
+    background-color: rgba(120, 120, 255, 0.15);
+}
+
+[data-neltar-skin="dark"] .text_input textarea {
+    background-color: var(--fn-bg-color);
+    color: var(--audio-text);
+    border-color: var(--audio-border);
+}
+
+[data-neltar-skin="dark"] .preview_button,
+[data-neltar-skin="dark"] .mini_play,
+[data-neltar-skin="dark"] .control_button {
+    filter: brightness(0.85);
+}
+
+/* Pour les icônes SVG dans des boutons */
+[data-neltar-skin="dark"] .button_icon .fn__svg,
+[data-neltar-skin="dark"] .preview_button .fn__svg,
+[data-neltar-skin="dark"] .mini_play .fn__svg,
+[data-neltar-skin="dark"] .control_button .fn__svg {
+    filter: none; /* Annuler l'inversion pour ces icônes car elles ont généralement un fond coloré */
+}
+
+/* Ajuster les couleurs pour WaveSurfer */
+[data-neltar-skin="dark"] .audio_waveform wave {
+    background-color: transparent !important;
 }
