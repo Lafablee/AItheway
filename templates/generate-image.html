@@ -509,10 +509,10 @@
                     </div>
                 </div>
                 <div class="header_bottom">
-                    <form id="generate-image-form">
+                    <form id="generate-image-form" method="POST" enctype="multipart/form-data">
 
                     <div class="include_area">
-                        <textarea  id="prompt" placeholder="Entrez une description" required rows="1"></textarea>
+                        <textarea  id="prompt" name="prompt" placeholder="Entrez une description" required rows="1"></textarea>
 
                     </div>
 
@@ -523,6 +523,8 @@
                             <div class="spinner-border" id="spinner" role="status"></div>
                         </button>
                     </div>
+                    <input type="hidden" id="model" name="model" value="midjourney">
+                    <input type="hidden" id="additional_params" name="additional_params" value="{}">
                 </form>
                 <div id="token-error" class="error-message alert alert-danger" style="display: none;"></div>
 
@@ -3393,6 +3395,7 @@ function showErrorOverlay(title, message) {
             const modelDisplay = document.getElementById('model_display');
             const midjourneyParams = document.querySelector('.midjourney-params');
             const generateForm = document.getElementById('generate-image-form');
+            console.error('Formualire trouvé:', !!generateForm);
             let currentModel = 'midjourney'; // Par défaut
 
             // Fonction pour collecter tous les paramètres
@@ -3415,11 +3418,15 @@ function showErrorOverlay(title, message) {
                 const enhanceDetails = document.getElementById('enhance_details').checked;
                 const photorealistic = document.getElementById('photorealistic').checked;
 
+                console.error("valeurs des contrôles:", {
+                    aspectRatio, style, quality, chaos, version, seed, noText, medium, enhanceDetails, photorealistic
+                });
+
                 // Ajouter seulement les paramètres qui ont une valeur
                 if (aspectRatio) params.aspect_ratio = aspectRatio;
                 if (style) params.style = style;
                 if (quality) params.quality = quality;
-                if (chaos !== '0') params.chaos = chaos;
+                if (chaos && chaos !== '0') params.chaos = chaos;
                 if (version) params.version = version;
                 if (seed) params.seed = parseInt(seed);
                 if (noText) params.no_text = true;
@@ -3427,6 +3434,7 @@ function showErrorOverlay(title, message) {
                 if (enhanceDetails) params.enhance_details = true;
                 if (photorealistic) params.photorealistic = true;
 
+                console.error('Prametres collectés:', params);
                 return params;
             }
 
@@ -3435,6 +3443,10 @@ function showErrorOverlay(title, message) {
                 const params = collectParameters();
                 const previewBox = document.getElementById('params_preview');
                 const previewCode = previewBox.querySelector('code');
+
+                if (!previewCode) {
+                    console.warn("Element de prévisualisations non trouvé");
+                }
 
                 if (Object.keys(params).length === 0) {
                     previewCode.textContent = 'Aucun paramètre sélectionné';
@@ -3468,12 +3480,11 @@ function showErrorOverlay(title, message) {
             }
             // Attacher les paramètres au formulaire lors de la soumission
             if (generateForm) {
-                generateForm.addEventListener('submit', function(event) {
-                    const params = collectParameters();
-
+                    console.error("Préparation de l'écouteur de soumissions du formulaire");
                     // Créer ou mettre à jour le champ caché pour les paramètres
                     let additionalParamsInput = document.getElementById('additional_params');
                     if (!additionalParamsInput) {
+                        console.error("Création du champ caché pour les paramètres supplémentaires");
                         additionalParamsInput = document.createElement('input');
                         additionalParamsInput.type = 'hidden';
                         additionalParamsInput.id = 'additional_params';
@@ -3481,20 +3492,50 @@ function showErrorOverlay(title, message) {
                         generateForm.appendChild(additionalParamsInput);
                     }
 
-                    // Convertir les paramètres en JSON
-                    additionalParamsInput.value = JSON.stringify(params);
-
                     // Mise à jour du champ du modèle
                     let modelInput = document.getElementById('model');
                     if (!modelInput) {
+                        console.error("Création du champ caché pour le modèle");
                         modelInput = document.createElement('input');
                         modelInput.type = 'hidden';
                         modelInput.id = 'model';
                         modelInput.name = 'model';
                         generateForm.appendChild(modelInput);
+                        modelInput.value = currentModel;
+                        generateForm.appendChild(modelInput);
                     }
+                    // Initialiser les valeurs des champs cachés
                     modelInput.value = currentModel;
+                    additionalParamsInput.value = JSON.stringify(collectParameters());
+
+                    generateForm.addEventListener('submit', function(event) {
+                        event.preventDefault();
+                        console.error("formualire en cours de soumission - Iterception");
+
+                        const params = collectParameters();
+
+                        // Mettre à jour les champs cachés
+                        additionalParamsInput.value = JSON.stringify(params);
+                        modelInput.value = currentModel;
+
+                        console.error("Formulaire soumis avec les paramètres:", {
+                            model: modelInput.value,
+                            additional_params: additionalParamsInput.value
+                        });
+
+                        // Déboguer les données du formulaire
+                        const formData = new FormData(generateForm);
+                        console.error("Contenu du formualire avant soumission:");
+                        for (let pair of formData.entries()) {
+                            console.error(pair[0] + ': ' + pair[1]);
+                        }
+
+                        // Continuer la soumission du formulaire
+                        console.error("soumission du formulaire");
+                        generateForm.submit();
                 });
+            } else {
+                console.error("Formulaire de génération d'image non trouvé");
             }
             // Changer de modèle
             modelSelectors.forEach(selector => {
@@ -3508,6 +3549,14 @@ function showErrorOverlay(title, message) {
                     // Mettre à jour l'affichage et le modèle actuel
                     currentModel = this.getAttribute('data-model');
                     modelDisplay.textContent = this.textContent;
+                    console.error("Modèle changé pour:", currentModel);
+
+                    // Si nous avons déjà un champ modèle, le mettre à jour
+                    const modelInput = document.getElementById('model');
+                    if (modelInput) {
+                        modelInput.value = currentModel;
+                        console.error("Champ du modèle mis à jour:", modelInput.value);
+                    }
 
                     // Afficher/masquer les paramètres Midjourney
                     if (currentModel === 'midjourney') {
@@ -3526,6 +3575,13 @@ function showErrorOverlay(title, message) {
                         if (tokenCostElement) {
                             tokenCostElement.textContent = '20';
                         }
+                    }
+                    // Mettre à jour le champ des paramètres selon le modèle
+                    const additionalParamsInput = document.getElementById('additional_params');
+                    if (additionalParamsInput) {
+                        additionalParamsInput.value = currentModel === 'midjourney' ?
+                            JSON.stringify(collectParameters()) : '{}';
+                        console.log("Champ des paramètres mis à jour:", additionalParamsInput.value);
                     }
                 });
             });
@@ -3547,6 +3603,15 @@ function showErrorOverlay(title, message) {
                     ratioPreview.style.aspectRatio = `${width}/${height}`;
                 });
             }
+            // Fonction pour mettre à jour les champs cachés quand un paramètre change
+            function updateHiddenParams() {
+                const additionalParamsInput = document.getElementById('additional_params');
+                if (additionalParamsInput && currentModel === 'midjourney') {
+                    const params = collectParameters();
+                    additionalParamsInput.value = JSON.stringify(params);
+                    console.log("Champ des paramètres mis à jour après changement:", additionalParamsInput.value);
+                }
+            }
 
             // Gérer les sliders pour la qualité et le chaos
             const qualitySlider = document.getElementById('quality');
@@ -3558,6 +3623,7 @@ function showErrorOverlay(title, message) {
                 qualitySlider.addEventListener('input', function() {
                     qualityValue.textContent = this.value;
                     updateParamsPreview();
+                    updateHiddenParams();
                 });
             }
 
@@ -3565,6 +3631,7 @@ function showErrorOverlay(title, message) {
                 chaosSlider.addEventListener('input', function() {
                     chaosValue.textContent = this.value;
                     updateParamsPreview();
+                    updateHiddenParams();
                 });
             }
 
@@ -3578,6 +3645,7 @@ function showErrorOverlay(title, message) {
                     const randomSeed = Math.floor(Math.random() * 4294967295);
                     seedInput.value = randomSeed;
                     updateParamsPreview();
+                    updateHiddenParams();
                 });
             }
 
@@ -3585,7 +3653,10 @@ function showErrorOverlay(title, message) {
             const allControls = document.querySelectorAll('.midjourney-params select, .midjourney-params input');
             allControls.forEach(control => {
                 const eventType = control.type === 'checkbox' ? 'change' : 'input';
-                control.addEventListener(eventType, updateParamsPreview);
+                control.addEventListener(eventType, function () {
+                    updateParamsPreview();
+                    updateHiddenParams();
+                });
             });
 
             // Bouton pour afficher/masquer la prévisualisation des paramètres
@@ -3612,6 +3683,8 @@ function showErrorOverlay(title, message) {
                 midjourneyParams.style.display = 'none';
             }
             updateParamsPreview();
+            updateHiddenParams();
+            console.error("Initialisation du script terminée");
 
             console.log("Page chargée, initialisation de l'affichage des tokens");
             updateTokensDisplay();

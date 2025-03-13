@@ -2158,14 +2158,22 @@ def generate_image(wp_user_id):
             model = request.form.get('model', 'dall-e')  # Default to DALL-E if not specified
             app.logger.error(f"Processing request - Model: {model}, Prompt: {prompt}")
 
+            app.logger.error(f"Formulaire complet: {request.form}")
+
             additional_params = {}
             additional_params_str = request.form.get('additional_params')
+            app.logger.error(f"additional_params_str brut: {additional_params_str}")
             if additional_params_str:
                 try:
                     additional_params = json.loads(additional_params_str)
                     app.logger.error(f"Received additional params: {additional_params}")
                 except json.JSONDecodeError as e:
                     app.logger.error(f"Error parsing additional params:{e}")
+                    app.logger.error(f"Contenu problématique: '{additional_params_str}'")
+
+            if model == 'midjourney' and not additional_params:
+                app.logger.error("Modèle Midjourney sans paramètres. Utilisation d'un dictionnaire vide.")
+                additional_params = {}
 
             if not prompt:
                 return jsonify({"message": "Create what inspires you!"}), 400
