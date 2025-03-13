@@ -2025,17 +2025,69 @@ function updateChaosValue() {
 
 // Fonction pour collecter tous les paramètres pour Midjourney
 function collectMidjourneyParams() {
+    console.log('Collecting Midjourney parameters...');
+    // Trouver l'option d'aspect ratio sélectionnée
+    let aspectRatio = null;
+    const selectedAspectRatio = document.querySelector('input[name="aspect_ratio"]:checked');
+    if (selectedAspectRatio) {
+        aspectRatio = selectedAspectRatio.value;
+        console.log('selected aspect ratio:', aspectRatio);
+    }
+
+    // Même chose pour les autres paramètres
+    let style = null;
+    const selectedStyle = document.querySelector('input[name="style"]:checked');
+    if (selectedStyle) {
+        style = selectedStyle.value;
+        console.log('selected style:', style);
+    }
+
+    let quality = null;
+    const selectedQuality = document.querySelector('input[name="quality"]:checked');
+    if (selectedQuality) {
+        quality = selectedQuality.value;
+        console.log('selected quality :', quality);
+    }
+    // Récupérer le niveau de créativité (chaos)
+    const chaosValue = document.getElementById('creativity-slider')?.value || null;
+    console.log('Chaos value:', chaosValue);
+
+    // Récupérer la seed
+    const seedValue = document.getElementById('seed-input')?.value || null;
+    console.log('Seed value:', seedValue);
+
+    // Récupérer les autres paramètres
+    const noText = document.getElementById('no-text')?.checked || false;
+    const enhanceDetails = document.getElementById('enhance-details')?.checked || false;
+    const photorealistic = document.getElementById('photorealistic')?.checked || false;
+
+    // Récupérer le medium artistique sélectionné
+    let medium = null;
+    const selectedMedium = document.querySelector('input[name="medium"]:checked');
+    if (selectedMedium && selectedMedium.value !== "none") {
+        medium = selectedMedium.value;
+        console.error('Selected medium:', medium);
+    }
+
+    // Récupérer la version sélectionnée
+    let version = null;
+    const selectedVersion = document.querySelector('input[name="version"]:checked');
+    if (selectedVersion) {
+        version = selectedVersion.value;
+        console.error('Selected version:', version);
+    }
+
     return {
-        aspect_ratio: document.getElementById('aspect-ratio-select')?.value || null,
-        style: document.getElementById('style-select')?.value || null,
-        quality: document.getElementById('quality-select')?.value || null,
-        chaos: document.getElementById('chaos-slider')?.value || null,
-        version: document.getElementById('version-select')?.value || null,
-        seed: document.getElementById('seed-input')?.value || null,
-        no_text: document.getElementById('no-text')?.checked || false,
-        enhance_details: document.getElementById('enhance-details')?.checked || false,
-        photorealistic: document.getElementById('photorealistic')?.checked || false,
-        medium: document.getElementById('medium-select')?.value || null
+        aspect_ratio: aspectRatio,
+        style: style,
+        quality: quality,
+        chaos: chaosValue,
+        version: version,
+        seed: seedValue,
+        no_text: noText,
+        enhance_details: enhanceDetails,
+        photorealistic: photorealistic,
+        medium: medium
     };
 }
 
@@ -2110,6 +2162,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
                 // Ajouter les paramètres additionnels pour Midjourney
                 if (Object.keys(additionalParams).length > 0) {
+                    console.error('Sending additionnal params:', additionalParams);
                     requestData.append('additional_params', JSON.stringify(additionalParams));
                 }
 
@@ -2407,6 +2460,90 @@ function getToken() {
     const urlParams = new URLSearchParams(window.location.search);
     return urlParams.get('token') || '';
 }
+// Fonction pour initialiser les gestionnaires d'événements pour les paramètres Midjourney
+function initializeMidjourneyParams() {
+    console.log('Initializing Midjourney parameters selectors...');
+
+    // Aspect Ratio
+    document.querySelectorAll('input[name="aspect_ratio"]').forEach(input => {
+        input.addEventListener('change', function() {
+            console.log('Aspect ratio changed to:', this.value);
+            updateRatioPreview();
+        });
+    });
+
+    // Style
+    document.querySelectorAll('input[name="style"]').forEach(input => {
+        input.addEventListener('change', function() {
+            console.log('Style changed to:', this.value);
+        });
+    });
+
+    // Qualité
+    document.querySelectorAll('input[name="quality"]').forEach(input => {
+        input.addEventListener('change', function() {
+            console.log('Quality changed to:', this.value);
+        });
+    });
+
+    // Niveau de créativité (chaos)
+    const creativitySlider = document.getElementById('creativity-slider');
+    if (creativitySlider) {
+        creativitySlider.addEventListener('input', function() {
+            const creativityValue = document.getElementById('creativity-value');
+            if (creativityValue) {
+                creativityValue.textContent = this.value;
+            }
+            console.log('Creativity level changed to:', this.value);
+        });
+    }
+
+    // Options additionnelles
+    ['no-text', 'enhance-details', 'photorealistic'].forEach(id => {
+        const checkbox = document.getElementById(id);
+        if (checkbox) {
+            checkbox.addEventListener('change', function() {
+                console.log(`${id} changed to:`, this.checked);
+            });
+        }
+    });
+
+    // Medium artistique
+    document.querySelectorAll('input[name="medium"]').forEach(input => {
+        input.addEventListener('change', function() {
+            console.log('Medium changed to:', this.value);
+        });
+    });
+
+    // Version
+    document.querySelectorAll('input[name="version"]').forEach(input => {
+        input.addEventListener('change', function() {
+            console.log('Version changed to:', this.value);
+        });
+    });
+
+    // Sélection du modèle
+    document.querySelectorAll('input[name="model"]').forEach(input => {
+        input.addEventListener('change', function() {
+            currentModel = this.value;
+            console.log('Model changed to:', currentModel);
+
+            // Mettre à jour l'affichage du coût en tokens
+            updateTokenCost();
+
+            // Afficher/masquer les options spécifiques à Midjourney
+            const midjourneyOptions = document.querySelector('.sidebar_details');
+            if (midjourneyOptions) {
+                midjourneyOptions.style.display = (currentModel === 'midjourney') ? 'block' : 'none';
+            }
+        });
+    });
+
+    // Initialiser l'aperçu du ratio
+    updateRatioPreview();
+    console.log('Midjourney parameters selectors initialized');
+}
+
 
 // Gestion des collections
 function initializeCollections() {
@@ -4172,6 +4309,7 @@ function showErrorOverlay(title, message) {
             improveTokensDisplay();
             optimizeUpgradeButtons();
             enhanceTokensInfoDisplay();
+            initializeMidjourneyParams();
             const extraStyleElement = document.createElement('style');
             extraStyleElement.textContent = extraStyles;
             document.head.appendChild(extraStyleElement);
