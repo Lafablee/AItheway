@@ -9261,3 +9261,239 @@ input:checked + .toggle-slider:before {
   font-size: 14px;
   cursor: pointer;
 }
+
+/* Styles pour les paramètres Midjourney */
+
+/* Section de paramètres */
+.param_section {
+    margin-bottom: 20px;
+    padding-bottom: 15px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.param_section:last-child {
+    border-bottom: none;
+}
+
+.param_section .title {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    color: #ffffff;
+}
+
+.param_section .fn__tooltip {
+    margin-left: 5px;
+}
+
+/* Sélecteurs */
+.param_select select {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.param_select select:hover {
+    background-color: rgba(255, 255, 255, 0.15);
+}
+
+.param_select select:focus {
+    outline: none;
+    border-color: rgba(142, 120, 255, 0.5);
+    box-shadow: 0 0 0 2px rgba(142, 120, 255, 0.25);
+}
+
+/* Prévisualisation du ratio d'aspect */
+.aspect_ratio_preview {
+    margin-top: 10px;
+    padding: 15px;
+    background-color: rgba(0, 0, 0, 0.2);
+    border-radius: 6px;
+}
+
+.preview_container {
+    width: 100%;
+    height: 120px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.ratio_box {
+    width: 100%;
+    height: 100%;
+    max-width: 120px;
+    max-height: 120px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 2px solid rgba(142, 120, 255, 0.5);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.ratio_box .inner_box {
+    width: 70%;
+    height: 70%;
+    background-color: rgba(142, 120, 255, 0.3);
+    border-radius: 3px;
+}
+
+/* Input pour seed */
+.fn__input {
+    width: 100%;
+    padding: 8px 12px;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    border-radius: 6px;
+    color: #ffffff;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.fn__input:focus {
+    outline: none;
+    border-color: rgba(142, 120, 255, 0.5);
+    box-shadow: 0 0 0 2px rgba(142, 120, 255, 0.25);
+}
+
+/* Bouton de seed aléatoire */
+.random_seed_btn {
+    width: 32px;
+    height: 32px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(255, 255, 255, 0.1);
+    border: none;
+    border-radius: 50%;
+    cursor: pointer;
+    margin-left: 8px;
+    vertical-align: middle;
+    transition: all 0.2s ease;
+}
+
+.random_seed_btn:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+}
+
+.random_seed_btn img {
+    width: 16px;
+    height: 16px;
+    filter: invert(1);
+}
+
+/* Prévisualisation des paramètres */
+.param_preview {
+    margin-top: 30px;
+}
+
+.show_params_btn {
+    width: 100%;
+    padding: 10px;
+    border-radius: 6px;
+    background-color: rgba(142, 120, 255, 0.15);
+    border: 1px solid rgba(142, 120, 255, 0.3);
+    color: #fff;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.show_params_btn:hover {
+    background-color: rgba(142, 120, 255, 0.25);
+}
+
+.params_preview_box {
+    display: none;
+    margin-top: 10px;
+    padding: 12px;
+    background-color: rgba(0, 0, 0, 0.3);
+    border-radius: 6px;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    color: #e0e0e0;
+    overflow-x: auto;
+    white-space: pre-wrap;
+    word-break: break-all;
+}
+
+/* Style pour les toggles améliorés */
+.fn__toggle .t_in {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 26px;
+}
+
+.fn__toggle .t_in input {
+    opacity: 0;
+    width: 0;
+    height: 0;
+}
+
+.fn__toggle .t_slider {
+    position: absolute;
+    cursor: pointer;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(255, 255, 255, 0.15);
+    transition: .4s;
+    border-radius: 34px;
+}
+
+.fn__toggle .t_slider:before {
+    position: absolute;
+    content: "";
+    height: 18px;
+    width: 18px;
+    left: 4px;
+    bottom: 4px;
+    background-color: white;
+    transition: .4s;
+    border-radius: 50%;
+}
+
+.fn__toggle input:checked + .t_slider {
+    background-color: rgba(142, 120, 255, 0.8);
+}
+
+.fn__toggle input:focus + .t_slider {
+    box-shadow: 0 0 1px rgba(142, 120, 255, 0.8);
+}
+
+.fn__toggle input:checked + .t_slider:before {
+    transform: translateX(24px);
+}
+
+/* Responsive: ajuster la sidebar sur mobile */
+@media (max-width: 768px) {
+    .generation__sidebar {
+        width: 100%;
+        max-width: 100%;
+        position: relative;
+        left: 0;
+        margin-top: 20px;
+    }
+
+    .preview_container {
+        height: 80px;
+    }
+
+    .ratio_box {
+        max-width: 80px;
+        max-height: 80px;
+    }
+}
