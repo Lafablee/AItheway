@@ -625,267 +625,157 @@
         </div>
 
         <div class="generation__sidebar">
-            <!-- Model Selection Section -->
-            <div class="sidebar_model sidebar-section">
-                <h4 class="title">Modèle d'IA</h4>
-                <div class="model-selector">
-                    <div class="model-option">
-                        <input type="radio" name="model" id="model-dalle" value="dall-e" checked>
-                        <label for="model-dalle">
-                            <div class="model-icon">
-                                <img src="{{ url_for('static', filename='assets/img/models/dalle.jpg') }}" alt="DALL-E">
-                            </div>
-                            <div class="model-name">DALL-E</div>
-                            <div class="model-description">OpenAI</div>
-                        </label>
-                    </div>
-                    <div class="model-option">
-                        <input type="radio" name="model" id="model-midjourney" value="midjourney">
-                        <label for="model-midjourney">
-                            <div class="model-icon">
-                                <img src="{{ url_for('static', filename='assets/img/models/midjourney.jpg') }}" alt="Midjourney">
-                            </div>
-                            <div class="model-name">Midjourney</div>
-                            <div class="model-description">Version 6</div>
-                        </label>
+            <div class="sidebar_model">
+                <div class="fn__select_model">
+                    <a class="model_open">
+                        <img class="user_img" src="{{ url_for('static', filename='assets/img/user/user.jpg') }}" alt="">
+                        <div class="author">
+                            <h4 class="subtitle">Model</h4>
+                            <h3 class="title">GPT 4o</h3>
+                        </div>
+                        <span class="fn__icon_button">
+                            <img src="{{ url_for('static', filename='assets/svg/arrow.svg') }}" alt="" class="fn__svg">
+                        </span>
+                    </a>
+                    <div class="all_models">
+                        <ul>
+                            <li><a class="selected" href="#">GPT 4o</a></li>
+                            <li><a href="#">Midjourney</a></li>
+
+                        </ul>
                     </div>
                 </div>
             </div>
-
             <div class="sidebar_details">
-                <!-- Aspect Ratio Section -->
-                <div class="sidebar-section">
-                    <h4 class="title">Format d'image
-                        <span class="fn__tooltip">
-                            <img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg">
-                        </span>
-                        <div class="enhanced-tooltip">Sélectionnez le ratio largeur/hauteur de votre image</div>
-                    </h4>
-                    <div class="tag-selector aspect-ratio-tags">
-                        <div class="tag-options">
-                            <div class="tag-option">
-                                <input type="radio" name="aspect_ratio" id="ratio-square" value="1:1" checked>
-                                <label for="ratio-square" data-dimensions="1024×1024">Carré</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="aspect_ratio" id="ratio-landscape" value="16:9">
-                                <label for="ratio-landscape" data-dimensions="1024×576">Paysage</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="aspect_ratio" id="ratio-portrait" value="9:16">
-                                <label for="ratio-portrait" data-dimensions="576×1024">Portrait</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="aspect_ratio" id="ratio-standard" value="4:3">
-                                <label for="ratio-standard" data-dimensions="1024×768">Standard</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="aspect_ratio" id="ratio-cinema" value="21:9">
-                                <label for="ratio-cinema" data-dimensions="1024×439">Cinéma</label>
-                            </div>
-                        </div>
+                <!-- Aspect Ratio Selector -->
+                <div class="aspect_ratio">
+                    <h4 class="title">Format d'Image</h4>
+                    <div class="ratio_select">
+                        <select id="aspect-ratio-select">
+                            <option value="">Format par défaut</option>
+                            <option value="1:1">Carré (1:1)</option>
+                            <option value="16:9">Paysage (16:9)</option>
+                            <option value="9:16">Portrait / TikTok (9:16)</option>
+                            <option value="4:3">Standard (4:3)</option>
+                            <option value="3:4">Portrait Standard (3:4)</option>
+                            <option value="2:1">Panoramique (2:1)</option>
+                            <option value="3:2">Photo (3:2)</option>
+                        </select>
                     </div>
-
-                    <!-- Aspect Ratio Preview -->
                     <div class="aspect-ratio-preview">
-                        <div id="ratio-preview-box">
-                            <div id="ratio-preview-inner"></div>
+                        <div id="ratio-preview-box" style="position: relative; width: 100%; height: 100px; background-color: #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-top: 10px;">
+                            <div id="ratio-preview-inner" style="width: 80%; height: 80%; background-color: #777; border-radius: 2px;"></div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Style Section -->
-                <div class="sidebar-section">
-                    <h4 class="title">Style visuel
-                        <span class="fn__tooltip">
-                            <img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg">
-                        </span>
-                        <div class="enhanced-tooltip">Le style détermine l'apparence générale de l'image</div>
-                    </h4>
-                    <div class="tag-selector style-tags">
-                        <div class="tag-options">
-                            <div class="tag-option">
-                                <input type="radio" name="style" id="style-realistic" value="realistic">
-                                <label for="style-realistic">
-                                    <span class="style-icon">📷</span>
-                                    Réaliste
-                                </label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="style" id="style-cartoon" value="cartoon">
-                                <label for="style-cartoon">
-                                    <span class="style-icon">🎨</span>
-                                    Cartoon
-                                </label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="style" id="style-anime" value="anime">
-                                <label for="style-anime">
-                                    <span class="style-icon">✨</span>
-                                    Anime
-                                </label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="style" id="style-abstract" value="abstract">
-                                <label for="style-abstract">
-                                    <span class="style-icon">🔳</span>
-                                    Abstrait
-                                </label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="style" id="style-digital" value="digital">
-                                <label for="style-digital">
-                                    <span class="style-icon">💻</span>
-                                    Digital
-                                </label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="style" id="style-painting" value="painting">
-                                <label for="style-painting">
-                                    <span class="style-icon">🖌️</span>
-                                    Peinture
-                                </label>
-                            </div>
-                        </div>
+                <!-- Style Selector -->
+                <div class="style_selector">
+                    <h4 class="title">Style visuel</h4>
+                    <div class="style_select">
+                        <select id="style-select">
+                            <option value="">Style par défaut</option>
+                            <option value="raw">Brut (Raw)</option>
+                            <option value="cute">Mignon (Cute)</option>
+                            <option value="scenic">Paysage (Scenic)</option>
+                            <option value="expressive">Expressif (Expressive)</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- Medium Section -->
-                <div class="sidebar-section">
+                <!-- Medium Selector -->
+                <div class="medium_selector">
                     <h4 class="title">Médium artistique</h4>
-                    <div class="tag-selector medium-tags">
-                        <div class="tag-options">
-                            <div class="tag-option">
-                                <input type="radio" name="medium" id="medium-none" value="" checked>
-                                <label for="medium-none">Aucun</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="medium" id="medium-photo" value="photo">
-                                <label for="medium-photo">Photo</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="medium" id="medium-3d" value="3d">
-                                <label for="medium-3d">3D</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="medium" id="medium-oil" value="oil">
-                                <label for="medium-oil">Huile</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="medium" id="medium-watercolor" value="watercolor">
-                                <label for="medium-watercolor">Aquarelle</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="medium" id="medium-sketch" value="sketch">
-                                <label for="medium-sketch">Croquis</label>
-                            </div>
-                        </div>
+                    <div class="medium_select">
+                        <select id="medium-select">
+                            <option value="">Aucun médium spécifique</option>
+                            <option value="digital">Art digital</option>
+                            <option value="traditional">Peinture traditionnelle</option>
+                            <option value="drawing">Dessin</option>
+                            <option value="print">Impression artistique</option>
+                            <option value="photographic">Photographique</option>
+                        </select>
                     </div>
                 </div>
 
-                <!-- Creativity Level Slider -->
-                <div class="sidebar-section">
-                    <div class="slider-control">
-                        <div class="slider-header">
-                            <h4 class="title">Niveau de créativité
-                                <span class="fn__tooltip">
-                                    <img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg">
-                                </span>
-                                <div class="enhanced-tooltip">Plus la valeur est élevée, plus l'image sera créative et moins prévisible</div>
-                            </h4>
-                            <div class="slider-value" id="creativity-value">50</div>
+                <!-- Chaos Level -->
+                <div class="chaos_level">
+                    <h4 class="title">Niveau de créativité</h4>
+                    <div class="fn__range">
+                        <div class="range_in">
+                            <input type="range" id="chaos-slider" min="0" max="100" value="0" step="10">
+                            <div class="slider"></div>
                         </div>
-                        <input type="range" id="creativity-slider" min="0" max="100" value="50" step="10">
-                    </div>
-                </div>
-
-                <!-- Quality Options -->
-                <div class="sidebar-section">
-                    <h4 class="title">Qualité de l'image</h4>
-                    <div class="quality-options">
-                        <div class="quality-option">
-                            <input type="radio" name="quality" id="quality-standard" value="1">
-                            <label for="quality-standard">
-                                <div class="quality-value">Standard</div>
-                                <div class="quality-desc">Bonne qualité, plus rapide</div>
-                            </label>
-                        </div>
-                        <div class="quality-option">
-                            <input type="radio" name="quality" id="quality-hd" value="2" checked>
-                            <label for="quality-hd">
-                                <div class="quality-value">HD</div>
-                                <div class="quality-desc">Haute qualité, plus détaillée</div>
-                            </label>
-                        </div>
+                        <div class="value" id="chaos-value">0</div>
                     </div>
                 </div>
 
                 <!-- Seed Input -->
-                <div class="sidebar-section">
-                    <h4 class="title">Seed (génération reproductible)
-                        <span class="fn__tooltip">
-                            <img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg">
-                        </span>
-                        <div class="enhanced-tooltip">Utiliser la même seed permet de reproduire des résultats similaires</div>
-                    </h4>
-                    <div class="seed-input">
+                <div class="seed_input">
+                    <h4 class="title">Seed (génération reproductible)<span class="fn__tooltip" title="Utiliser la même seed permet de reproduire des résultats similaires."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
+                    <div class="fn__text_field">
                         <input type="number" id="seed-input" placeholder="Laisser vide pour aléatoire">
                     </div>
                 </div>
 
-                <!-- Advanced Toggles -->
-                <div class="sidebar-section">
+                <!-- Advanced Options -->
+                <div class="prompt_options">
                     <h4 class="title">Options avancées</h4>
 
-                    <div class="toggle-switch">
-                        <div class="toggle-label">Ajouter détails HD</div>
-                        <label class="switch">
-                            <input type="checkbox" id="enhance-details">
-                            <span class="slider"></span>
-                        </label>
+                    <!-- Quality Selection -->
+                    <div class="quality_option">
+                        <label for="quality_select">Qualité :</label>
+                        <select id="quality-select">
+                            <option value="2">Haute qualité (2)</option>
+                            <option value="1">Standard (1)</option>
+                        </select>
                     </div>
 
-                    <div class="toggle-switch">
-                        <div class="toggle-label">Photoréaliste</div>
-                        <label class="switch">
-                            <input type="checkbox" id="photorealistic">
-                            <span class="slider"></span>
+                    <!-- Checkboxes for Other Options -->
+                    <div class="option_checkboxes">
+                        <label class="fn__toggle">
+                            <span class="t_in">
+                                <input type="checkbox" id="enhance-details">
+                                <span class="t_slider"></span>
+                                <span class="t_content"></span>
+                            </span>
+                            <span class="option_label">Ajouter détails HD</span>
                         </label>
-                    </div>
 
-                    <div class="toggle-switch">
-                        <div class="toggle-label">Sans texte</div>
-                        <label class="switch">
-                            <input type="checkbox" id="no-text">
-                            <span class="slider"></span>
+                        <label class="fn__toggle">
+                            <span class="t_in">
+                                <input type="checkbox" id="photorealistic">
+                                <span class="t_slider"></span>
+                                <span class="t_content"></span>
+                            </span>
+                            <span class="option_label">Photoréaliste</span>
+                        </label>
+
+                        <label class="fn__toggle">
+                            <span class="t_in">
+                                <input type="checkbox" id="no-text">
+                                <span class="t_slider"></span>
+                                <span class="t_content"></span>
+                            </span>
+                            <span class="option_label">Sans texte</span>
                         </label>
                     </div>
                 </div>
 
-                <!-- Version Selection -->
-                <div class="sidebar-section">
+                <!-- Version Selector -->
+                <div class="version_selector">
                     <h4 class="title">Version du modèle</h4>
-                    <div class="tag-selector version-tags">
-                        <div class="tag-options">
-                            <div class="tag-option">
-                                <input type="radio" name="version" id="version-6" value="6.0" checked>
-                                <label for="version-6">v6.0</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="version" id="version-5.2" value="5.2">
-                                <label for="version-5.2">v5.2</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="version" id="version-5.1" value="5.1">
-                                <label for="version-5.1">v5.1</label>
-                            </div>
-                            <div class="tag-option">
-                                <input type="radio" name="version" id="version-niji" value="niji">
-                                <label for="version-niji">Niji 5</label>
-                            </div>
-                        </div>
+                    <div class="version_select">
+                        <select id="version-select">
+                            <option value="6.0">Version 6.0 (défaut)</option>
+                            <option value="5.2">Version 5.2</option>
+                            <option value="5.1">Version 5.1</option>
+                            <option value="5.0">Version 5.0</option>
+                            <option value="niji">Niji 5 (style anime)</option>
+                        </select>
                     </div>
                 </div>
+            </div>
             </div>
         </div>
 
@@ -942,118 +832,165 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
             imageDiv: !!imageDiv,
             downloadSection: !! downloadSection
         });
+        updateRatioPreview();
+        updateChaosValue();
 
         console.error('Current Model:', currentModel);
         console.error('Prompt:', promptInput.value);
 
-        // Get the token from URL
-        const urlParams = new URLSearchParams(window.location.search);
-        const token = urlParams.get('token');
-
-        if (!token) {
-        showErrorOverlay('Erreur', 'Session invalide. Veuillez vous reconnecter.');
-        setTimeout(() => {
-            window.location.href = LOGIN_URL;
-        }, 2000);
-        return;
-    }
-
-        promptInput.disabled = true;
-        spinner.style.display = 'inline-block';
-        generateText.style.display = 'none';
-        downloadSection.style.display = 'none';
-
-        // Suppression de tout message d'erreur précédent
-        const existingError = document.querySelector('.token-error-box');
-        if (existingError) {
-            existingError.remove();
+        // Ajouter les gestionnaires d'événements
+        const ratioSelect = document.getElementById('aspect-ratio-select');
+        if (ratioSelect) {
+            ratioSelect.addEventListener('change', updateRatioPreview);
         }
 
-        try {
-            updateLoadingState('loading');
-            // Construction de la requête
-            const requestOptions = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-Requested-With': 'XMLHttpRequest'
-                },
-                body: `prompt=${encodeURIComponent(promptText)}&model=${encodeURIComponent(currentModel)}`
+        const chaosSlider = document.getElementById('chaos-slider');
+        if (chaosSlider) {
+            chaosSlider.addEventListener('input', updateChaosValue);
+        }
+
+        // Modifier le gestionnaire d'événements du formulaire
+        const generateForm = document.getElementById('generate-image-form');
+        if (generateForm) {
+            // Sauvegarder l'ancien gestionnaire d'événements si nécessaire
+            const originalSubmitHandler = generateForm.onsubmit;
+
+            generateForm.onsubmit = async function (event) {
+                event.preventDefault();
+
+                // Récupérer le modèle sélectionné
+                const modelOption = document.querySelector('.all_models a.selected');
+                const modelName = modelOption ? modelOption.textContent.toLowerCase() : currentModel;
+
+                // Si c'est Midjourney, collecter les paramètres supplémentaires
+                let additionalParams = {};
+                if (modelName.includes('midjourney')) {
+                    additionalParams = collectMidjourneyParams();
+                    console.log('Midjourney params:', additionalParams);
+                }
+
+                promptInput.disabled = true;
+                spinner.style.display = 'inline-block';
+                generateText.style.display = 'none';
+                downloadSection.style.display = 'none';
+
+
+                // Get the token from URL
+                const urlParams = new URLSearchParams(window.location.search);
+                const token = urlParams.get('token');
+
+                if (!token) {
+                    showErrorOverlay('Erreur', 'Session invalide. Veuillez vous reconnecter.');
+                    setTimeout(() => {
+                        window.location.href = LOGIN_URL;
+                    }, 2000);
+                    return;
+                }
+
+
+                // Suppression de tout message d'erreur précédent
+                const existingError = document.querySelector('.token-error-box');
+                if (existingError) {
+                    existingError.remove();
+                }
+
+                try {
+                    updateLoadingState('loading');
+
+                    const requestData = new URLSearchParams();
+                    requestData.append('prompt', promptText);
+                    requestData.append('model', modelName);
+
+                    // Ajouter les paramètres additionnels pour Midjourney
+                    if (Object.keys(additionalParams).length > 0) {
+                        requestData.append('additional_params', JSON.stringify(additionalParams));
+                    }
+
+                    // Construction de la requête
+                    const requestOptions = {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded',
+                            'X-Requested-With': 'XMLHttpRequest'
+                        },
+                        body: requestData
+                    };
+
+                    console.log('Sending request with options:', requestOptions);
+
+                    // Envoi de la requête au backend
+                    const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, requestOptions);
+
+                    // Traitement de la réponse
+                    console.log('Response status:', response.status);
+
+                    // Analyse du corps JSON (pour tout type de statut)
+                    const result = await response.json();
+                    console.log('Response data:', result);
+
+                    // Gestion spécifique des tokens insuffisants (maintenant avec code 200)
+                    if (result.error === "Insufficient tokens") {
+                        const modal = displayTokenError(result.tokens_available, result.tokens_required)
+                        // Analyse pour suggérer le bon forfait
+                        const tokenShortage = result.tokens_required - result.tokens_available;
+
+                        // Mettre en évidence le plan suggéré sur la base du manque de tokens
+                        if (tokenShortage > 500) {
+                            // Utilisateur a besoin de beaucoup de tokens, suggérer le plan Pro
+                            modal.querySelector('.token-message').innerHTML += `<br><strong class="plan-suggestion">Notre forfait Pro vous conviendrait parfaitement!</strong>`;
+                        } else if (tokenShortage > 100) {
+                            // Utilisateur a besoin d'un nombre moyen de tokens, suggérer le plan Premium
+                            modal.querySelector('.token-message').innerHTML += `<br><strong class="plan-suggestion">Notre forfait Premium semble fait pour vous!</strong>`;
+                        }
+
+                        updateLoadingState('default');
+                        return;
+                    }
+
+                    // Gestion des autres types d'erreurs
+                    if (!result.success) {
+                        console.error('Error in response:', result.error || 'Unknown error');
+                        showErrorOverlay('Erreur', result.message || result.error || 'Une erreur est survenue');
+                        updateLoadingState('default');
+                        return;
+                    }
+
+                    // Traitement des succès
+                    console.log('Success response:', result);
+
+                    // Cas spécial pour Midjourney (traitement asynchrone)
+                    if (currentModel === 'midjourney' && result.status === 'processing') {
+                        console.log('Starting Midjourney processing with task_id:', result.task_id);
+                        updateLoadingState('processing');
+                        displayInitialLoadingState();
+                        handleMidjourneyProcessing(result.task_id, token, promptText);
+                    } else {
+                        // Cas DALL-E ou autre réponse immédiate
+                        console.log('Displaying generated image:', result.image_url);
+                        displayGeneratedImage(result.image_url);
+
+                        // Mise à jour explicite des tokens si disponible
+                        if (result.tokens_remaining !== undefined) {
+                            console.log('Updating tokens display to:', result.tokens_remaining);
+                            updateTokensUI(result.tokens_remaining);
+                        } else {
+                            // Sinon, rafraîchir les tokens via l'API
+                            updateTokensDisplay();
+                        }
+
+                        // Mettre à jour le texte du bouton
+                        generateText.textContent = 'Générer une nouvelle image';
+                    }
+                } catch (error) {
+                    console.error('Error in fetch operation:', error);
+                    showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
+                } finally {
+                    // Réinitialisation de l'interface
+                    spinner.style.display = 'none';
+                    generateText.style.display = 'inline';
+                    promptInput.disabled = false;
+                }
             };
-
-            console.log('Sending request with options:', requestOptions);
-
-            // Envoi de la requête au backend
-            const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, requestOptions);
-
-            // Traitement de la réponse
-            console.log('Response status:', response.status);
-
-            // Analyse du corps JSON (pour tout type de statut)
-            const result = await response.json();
-            console.log('Response data:', result);
-
-            // Gestion spécifique des tokens insuffisants (maintenant avec code 200)
-            if (result.error === "Insufficient tokens") {
-                const modal = displayTokenError(result.tokens_available, result.tokens_required)
-                // Analyse pour suggérer le bon forfait
-                const tokenShortage = result.tokens_required - result.tokens_available;
-
-                // Mettre en évidence le plan suggéré sur la base du manque de tokens
-                if (tokenShortage > 500) {
-                    // Utilisateur a besoin de beaucoup de tokens, suggérer le plan Pro
-                    modal.querySelector('.token-message').innerHTML += `<br><strong class="plan-suggestion">Notre forfait Pro vous conviendrait parfaitement!</strong>`;
-                } else if (tokenShortage > 100) {
-                    // Utilisateur a besoin d'un nombre moyen de tokens, suggérer le plan Premium
-                    modal.querySelector('.token-message').innerHTML += `<br><strong class="plan-suggestion">Notre forfait Premium semble fait pour vous!</strong>`;
-                }
-
-                updateLoadingState('default');
-                return;
-            }
-
-            // Gestion des autres types d'erreurs
-            if (!result.success) {
-                console.error('Error in response:', result.error || 'Unknown error');
-                showErrorOverlay('Erreur', result.message || result.error || 'Une erreur est survenue');
-                updateLoadingState('default');
-                return;
-            }
-
-            // Traitement des succès
-            console.log('Success response:', result);
-
-            // Cas spécial pour Midjourney (traitement asynchrone)
-            if (currentModel === 'midjourney' && result.status === 'processing') {
-                console.log('Starting Midjourney processing with task_id:', result.task_id);
-                updateLoadingState('processing');
-                displayInitialLoadingState();
-                handleMidjourneyProcessing(result.task_id, token, promptText);
-            } else {
-                // Cas DALL-E ou autre réponse immédiate
-                console.log('Displaying generated image:', result.image_url);
-                displayGeneratedImage(result.image_url);
-
-                // Mise à jour explicite des tokens si disponible
-                if (result.tokens_remaining !== undefined) {
-                    console.log('Updating tokens display to:', result.tokens_remaining);
-                    updateTokensUI(result.tokens_remaining);
-                } else {
-                    // Sinon, rafraîchir les tokens via l'API
-                    updateTokensDisplay();
-                }
-
-                // Mettre à jour le texte du bouton
-                generateText.textContent = 'Générer une nouvelle image';
-            }
-        } catch (error) {
-            console.error('Error in fetch operation:', error);
-            showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
-        } finally {
-            // Réinitialisation de l'interface
-            spinner.style.display = 'none';
-            generateText.style.display = 'inline';
-            promptInput.disabled = false;
         }
     });
     const extraStyles = `
@@ -1114,33 +1051,10 @@ async function handleMidjourneyProcessing(taskId, token) {
     const generateText = document.getElementById('generate-text');
     generateText.textContent = 'Génération en cours...';
 
-    const generateButton = document.getElementById('generate_it');
-    if (generateButton) {
-        generateButton.classList.add('processing-pulse');
-    }
-    // Déduire immédiatement les tokens pour feedback instantané
-    updateTokenCost();
-    const tokenCostElement = document.querySelector('.token-cost');
-    const tokenCost = parseInt(tokenCostElement ? tokenCostElement.textContent : 30);
-
-    // Récupérer la valeur actuelle des tokens et les mettre à jour visuellement
-    const tokenCount = document.querySelector('.token_summary .count');
-    if (tokenCount) {
-        const currentTokens = parseInt(tokenCount.textContent);
-        if (!isNaN(currentTokens) && !isNaN(tokenCost)) {
-            const newTokens = Math.max(0, currentTokens - tokenCost);
-            // Mise à jour visuelle immédiate
-            updateTokensUI(newTokens);
-        }
-    }
 
     let lastImagesCount = 0;
     const maxAttempts = 30;
     let attempts = 0;
-
-    displayInitialLoadingState();
-    updateLoadingState('processing');
-    updateProgressIndicator(5);
 
     while (attempts < maxAttempts) {
         console.error(`Polling attempt ${attempts + 1}/${maxAttempts}`);
@@ -1195,10 +1109,6 @@ async function handleMidjourneyProcessing(taskId, token) {
                     if (data.images.length > lastImagesCount) {
                         lastImagesCount = data.images.length;
                         updateUpscaleProgress(data.images);
-
-                        // Augmenter la progression en fonction du nombre d'images reçues
-                        const progressPercentage = Math.min(80, 20 + (data.images.length / 4) * 60);
-                        updateProgressIndicator(progressPercentage);
                     }
                 }
 
@@ -1208,26 +1118,17 @@ async function handleMidjourneyProcessing(taskId, token) {
                     displayMidjourneyGroup(data);
                     console.error('call displayMidjourneyGroup');
                     updateLoadingState('complete');
-
-                    if (generateButton) {
-                        generateButton.classList.remove('processing-pulse');
-                    }
-                    updateProgressIndicator(100);
                     return;
                 } else if (data.images && data.images.length >=4) {
                     // If we have all 4 images but status isn't marked complete, show them anyway
                     console.error('All 4 images received, displaying anyway');
                     displayMidjourneyGroup(data);
                     updateLoadingState('complete');
-                    if (generateButton) {
-                        generateButton.classList.remove('processing-pulse');
-                    }
-                    updateProgressIndicator(100);
                     return;
                 }
 
                 // Mettre à jour la barre de progression
-                const progress = Math.min(90, 20 + (attempts / maxAttempts) * 70);
+                const progress = Math.min(90, (attempts / maxAttempts) * 100);(attempts / maxAttempts) * 100;
                 updateProgressIndicator(progress);
             }
 
@@ -1235,10 +1136,6 @@ async function handleMidjourneyProcessing(taskId, token) {
             if (statusResult.status === 'failed' || statusResult.data?.status === 'failed') {
                 showErrorOverlay('Erreur', 'La génération a échoué');
                 updateLoadingState('default');
-
-                if (generateButton) {
-                    generateButton.classList.remove('processing-pulse');
-                }
                 return;
             }
 
@@ -1251,9 +1148,6 @@ async function handleMidjourneyProcessing(taskId, token) {
             if (attempts === maxAttempts - 1) {
                 showErrorOverlay('Erreur', 'Erreur lors de la vérification du statut');
                 updateLoadingState('default');
-                if (generateButton) {
-                    generateButton.classList.remove('processing-pulse');
-                }
                 return;
             }
             await new Promise(resolve => setTimeout(resolve, 2000));
@@ -1263,9 +1157,24 @@ async function handleMidjourneyProcessing(taskId, token) {
 
     showErrorOverlay('Erreur', 'Le délai de génération a été dépassé');
     updateLoadingState('default');
-    if (generateButton) {
-        generateButton.classList.remove('processing-pulse');
-    }
+}
+// Fonction pour réinitialiser les paramètres Midjourney
+function resetMidjourneyParams() {
+    // Réinitialiser tous les sélecteurs et options
+    document.getElementById('aspect-ratio-select').value = '';
+    document.getElementById('style-select').value = '';
+    document.getElementById('medium-select').value = '';
+    document.getElementById('quality-select').value = '2';
+    document.getElementById('version-select').value = '6.0';
+    document.getElementById('seed-input').value = '';
+    document.getElementById('chaos-slider').value = '0';
+    document.getElementById('chaos-value').textContent = '0';
+    document.getElementById('enhance-details').checked = false;
+    document.getElementById('photorealistic').checked = false;
+    document.getElementById('no-text').checked = false;
+
+    // Mettre à jour l'aperçu du ratio
+    updateRatioPreview();
 }
 
 // Fonction d'affichage de l'image générée
@@ -1376,10 +1285,6 @@ function updateTokensDisplay(tokensValue = null) {
         console.error("Aucun token trouvé dans l'URL");
         return;
     }
-    const tokenSummary = document.querySelector('.token_summary');
-    if (tokenSummary) {
-        tokenSummary.classList.add('loading-tokens');
-    }
 
     console.log("Récupération des tokens depuis l'API");
     fetch(`/api/user/tokens?token=${encodeURIComponent(token)}`, {
@@ -1397,25 +1302,24 @@ function updateTokensDisplay(tokensValue = null) {
         console.log("Token data received:", data);
         if (data.success && data.data) {
             updateTokensUI(data.data.tokens_remaining, data.data);
-            const tokenInfoNearCost = document.querySelector('.token-info');
-            if (tokenInfoNearCost) {
-                const tokenCount = tokenInfoNearCost.querySelector('.count') ||
-                                   tokenInfoNearCost.querySelector('.token_summary .count');
+            // Mise à jour du popup d'information
 
-                if (tokenCount) {
-                    tokenCount.textContent = data.data.tokens_remaining || '--';
-                    // Animation pour montrer la mise à jour
-                    tokenCount.classList.add('token-change');
-                    setTimeout(() => tokenCount.classList.remove('token-change'), 500);
+            const tokenPopup = document.querySelector('.token__popup');
+            if (tokenPopup && data.data.next_refill) {
+                const nextRefill = new Date(data.data.next_refill);
+                const now = new Date();
+
+                // Calcul du temps restant
+                let timeText = "--";
+                if (!isNaN(nextRefill.getTime())) {
+                    const diffInHours = Math.max(0, Math.round((nextRefill - now) / (1000 * 60 * 60)));
+                    timeText = `${diffInHours} heure${diffInHours > 1 ? 's' : ''}`;
                 }
 
-                // Mise à jour du popup d'information sur les tokens
-                const tokenPopup = document.querySelector('.token__popup');
-                if (tokenPopup && data.data.next_refill) {
-                    updateTokenRefreshInfo(tokenPopup, data.data);
-                }
-            } else {
-                console.warn("Élément .token-info non trouvé");
+                tokenPopup.innerHTML = `
+                    Resets in <span>${timeText}</span><br>
+                    Daily limit is <span>${data.data.token_limit || '--'}</span>
+                `;
             }
         } else {
             console.error("Erreur lors de la récupération des tokens:", data.error || "Données invalides");
@@ -1423,48 +1327,7 @@ function updateTokensDisplay(tokensValue = null) {
     })
     .catch(error => {
         console.error('Erreur lors de la récupération des tokens:', error);
-    })
-    .finally(() => {
-        if (tokenSummary) {
-            tokenSummary.classList.remove('loading-tokens');
-        }
-    })
-}
-function updateTokenRefreshInfo(tokenPopup, data) {
-    const nextRefill = new Date(data.next_refill);
-    const now = new Date();
-
-    // Calcul du temps restant
-    let timeText = "--";
-    if (!isNaN(nextRefill.getTime())) {
-        const diffInHours = Math.max(0, Math.round((nextRefill - now) / (1000 * 60 * 60)));
-        const diffInMinutes = Math.max(0, Math.round((nextRefill - now) / (1000 * 60)) % 60);
-
-        if (diffInHours > 0) {
-            timeText = `${diffInHours} heure${diffInHours > 1 ? 's' : ''}`;
-            if (diffInMinutes > 0) {
-                timeText += ` et ${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''}`;
-            }
-        } else if (diffInMinutes > 0) {
-            timeText = `${diffInMinutes} minute${diffInMinutes > 1 ? 's' : ''}`;
-        } else {
-            timeText = "moins d'une minute";
-        }
-    }
-
-    // Mise à jour du contenu avec animation
-    const oldContent = tokenPopup.innerHTML;
-    const newContent = `
-        Resets in <span>${timeText}</span><br>
-        Daily limit is <span>${data.token_limit || '--'}</span>
-    `;
-
-    // Animation de transition
-    tokenPopup.style.opacity = '0.5';
-    setTimeout(() => {
-        tokenPopup.innerHTML = newContent;
-        tokenPopup.style.opacity = '1';
-    }, 300);
+    });
 }
 // Fonction auxiliaire pour mettre à jour l'interface utilisateur
 function updateTokensUI(tokensRemaining, fullData = null) {
@@ -1482,49 +1345,19 @@ function updateTokensUI(tokensRemaining, fullData = null) {
 
         // Ajouter une classe d'animation si la valeur a changé
         if (!isNaN(numericOldValue) && numericOldValue !== tokensRemaining) {
-            void tokenCount.offsetHeight;
-            tokenCount.classList.remove('token-change');
-
-            // Ajout de styles inline pour l'animation en cas d'urgence
-            if (numericOldValue > tokensRemaining) {
-                // Animation pour diminution (rouge)
-                tokenCount.style.color = '#ff6b6b';
-                tokenCount.style.fontWeight = 'bold';
-                setTimeout(() => {
-                    tokenCount.style.transition = 'color 0.5s ease';
-                    tokenCount.style.color = '';
-                    tokenCount.style.fontWeight = '';
-                }, 800);
-            }
-            // Ajouter la classe d'animation de manière asynchrone
-            setTimeout(() => {
-                tokenCount.classList.add('token-change');
-            }, 10);
-
-            // Retirer la classe après l'animation
-            setTimeout(() => tokenCount.classList.remove('token-change'), 800);
-
-            // Mise en évidence supplémentaire pour les tokens bas
+            tokenCount.classList.add('token-change');
+            setTimeout(() => tokenCount.classList.remove('token-change'), 500);
             if (tokensRemaining < 30) {
                 const upgradeButtons = document.querySelectorAll('a.upgrade, button.upgrade, a.token_upgrade, .token-upgrade-btn');
                 upgradeButtons.forEach(button => {
                     button.classList.add('pulse-upgrade');
-                    // Ajouter aussi une bordure rouge au conteneur de tokens
-                    const tokenContainer = document.querySelector('.token-info');
-                    if (tokenContainer) {
-                        tokenContainer.style.border = '2px solid #ff6b6b';
-                        setTimeout(() => {
-                            tokenContainer.style.transition = 'border 0.5s ease';
-                            tokenContainer.style.border = '1px solid rgba(142, 120, 255, 0.3)';
-                        }, 2000);
-                    }
                 });
             }
         }
     } else {
         console.warn("Élément .token_summary .count non trouvé");
     }
-    improveTokensDisplay();
+        improveTokensDisplay();
     updateTokenCost();
 }
 
@@ -1971,10 +1804,43 @@ function loadFontAwesome() {
         document.head.appendChild(link);
     }
 }
+function optimizeUpgradeButtons() {
+    // Trouver les boutons upgrade existants
+    const upgradeButtons = document.querySelectorAll('a.upgrade, button.upgrade, a.token_upgrade, .token-upgrade-btn');
 
-// Ajoutez ce script à la fin de votre fichier template ou dans un fichier JS séparé
+    // S'il y a plusieurs boutons, n'en garder que le plus pertinent
+    if (upgradeButtons.length > 1) {
+        // Conserver le bouton principal et masquer les autres
+        const mainButton = upgradeButtons[0];
+        mainButton.classList.add('primary-upgrade-button');
 
-// Mettre à jour l'aperçu du ratio
+        // Masquer les boutons secondaires ou les rendre moins visibles
+        for (let i = 1; i < upgradeButtons.length; i++) {
+            // Option 1: Masquer complètement
+            // upgradeButtons[i].style.display = 'none';
+
+            // Option 2: Rendre moins visible mais toujours accessible
+            upgradeButtons[i].classList.add('secondary-upgrade-button');
+            upgradeButtons[i].style.opacity = '0.7';
+            upgradeButtons[i].style.transform = 'scale(0.9)';
+        }
+    }
+
+    // Améliorer l'apparence des boutons upgrade conservés
+    upgradeButtons.forEach(button => {
+        // Vérifier si le bouton a déjà le style amélioré
+        if (!button.classList.contains('improved-upgrade-button')) {
+            button.classList.add('improved-upgrade-button');
+
+            // Ajouter une icône si elle n'existe pas déjà
+            if (!button.querySelector('i')) {
+                const buttonText = button.textContent.trim();
+                button.innerHTML = `<i class="fas fa-crown"></i> ${buttonText}`;
+            }
+        }
+    });
+}
+
 function updateRatioPreview() {
     const ratioSelect = document.getElementById('aspect-ratio-select');
     const previewBox = document.getElementById('ratio-preview-box');
@@ -2025,735 +1891,18 @@ function updateChaosValue() {
 
 // Fonction pour collecter tous les paramètres pour Midjourney
 function collectMidjourneyParams() {
-    console.log('Collecting Midjourney parameters...');
-    // Trouver l'option d'aspect ratio sélectionnée
-    let aspectRatio = null;
-    const selectedAspectRatio = document.querySelector('input[name="aspect_ratio"]:checked');
-    if (selectedAspectRatio) {
-        aspectRatio = selectedAspectRatio.value;
-        console.log('selected aspect ratio:', aspectRatio);
-    }
-
-    // Même chose pour les autres paramètres
-    let style = null;
-    const selectedStyle = document.querySelector('input[name="style"]:checked');
-    if (selectedStyle) {
-        style = selectedStyle.value;
-        console.log('selected style:', style);
-    }
-
-    let quality = null;
-    const selectedQuality = document.querySelector('input[name="quality"]:checked');
-    if (selectedQuality) {
-        quality = selectedQuality.value;
-        console.log('selected quality :', quality);
-    }
-    // Récupérer le niveau de créativité (chaos)
-    const chaosValue = document.getElementById('creativity-slider')?.value || null;
-    console.log('Chaos value:', chaosValue);
-
-    // Récupérer la seed
-    const seedValue = document.getElementById('seed-input')?.value || null;
-    console.log('Seed value:', seedValue);
-
-    // Récupérer les autres paramètres
-    const noText = document.getElementById('no-text')?.checked || false;
-    const enhanceDetails = document.getElementById('enhance-details')?.checked || false;
-    const photorealistic = document.getElementById('photorealistic')?.checked || false;
-
-    // Récupérer le medium artistique sélectionné
-    let medium = null;
-    const selectedMedium = document.querySelector('input[name="medium"]:checked');
-    if (selectedMedium && selectedMedium.value !== "none") {
-        medium = selectedMedium.value;
-        console.error('Selected medium:', medium);
-    }
-
-    // Récupérer la version sélectionnée
-    let version = null;
-    const selectedVersion = document.querySelector('input[name="version"]:checked');
-    if (selectedVersion) {
-        version = selectedVersion.value;
-        console.error('Selected version:', version);
-    }
-
     return {
-        aspect_ratio: aspectRatio,
-        style: style,
-        quality: quality,
-        chaos: chaosValue,
-        version: version,
-        seed: seedValue,
-        no_text: noText,
-        enhance_details: enhanceDetails,
-        photorealistic: photorealistic,
-        medium: medium
+        aspect_ratio: document.getElementById('aspect-ratio-select')?.value || null,
+        style: document.getElementById('style-select')?.value || null,
+        quality: document.getElementById('quality-select')?.value || null,
+        chaos: document.getElementById('chaos-slider')?.value || null,
+        version: document.getElementById('version-select')?.value || null,
+        seed: document.getElementById('seed-input')?.value || null,
+        no_text: document.getElementById('no-text')?.checked || false,
+        enhance_details: document.getElementById('enhance-details')?.checked || false,
+        photorealistic: document.getElementById('photorealistic')?.checked || false,
+        medium: document.getElementById('medium-select')?.value || null
     };
-}
-
-// Modifier le gestionnaire d'événements du formulaire de génération d'image
-document.addEventListener('DOMContentLoaded', function() {
-    // Initialiser l'aperçu du ratio
-    updateRatioPreview();
-
-    // Initialiser l'affichage du niveau de chaos
-    updateChaosValue();
-
-    // Ajouter les gestionnaires d'événements
-    const ratioSelect = document.getElementById('aspect-ratio-select');
-    if (ratioSelect) {
-        ratioSelect.addEventListener('change', updateRatioPreview);
-    }
-
-    const chaosSlider = document.getElementById('chaos-slider');
-    if (chaosSlider) {
-        chaosSlider.addEventListener('input', updateChaosValue);
-    }
-
-    // Modifier le gestionnaire d'événements du formulaire
-    const generateForm = document.getElementById('generate-image-form');
-    if (generateForm) {
-        // Sauvegarder l'ancien gestionnaire d'événements si nécessaire
-        const originalSubmitHandler = generateForm.onsubmit;
-
-        generateForm.onsubmit = async function(event) {
-            event.preventDefault();
-
-            const promptInput = document.getElementById('prompt');
-            const promptText = promptInput.value;
-            const spinner = document.getElementById('spinner');
-            const generateText = document.getElementById('generate-text');
-
-            // Récupérer le modèle sélectionné
-            const modelOption = document.querySelector('.all_models a.selected');
-            const modelName = modelOption ? modelOption.textContent.toLowerCase() : currentModel;
-
-            // Si c'est Midjourney, collecter les paramètres supplémentaires
-            let additionalParams = {};
-            if (modelName.includes('midjourney')) {
-                additionalParams = collectMidjourneyParams();
-                console.log('Midjourney params:', additionalParams);
-            }
-
-            // Afficher l'état de chargement
-            promptInput.disabled = true;
-            spinner.style.display = 'inline-block';
-            generateText.style.display = 'none';
-
-            // Obtenir le token
-            const urlParams = new URLSearchParams(window.location.search);
-            const token = urlParams.get('token');
-
-            if (!token) {
-                showErrorOverlay('Erreur', 'Session invalide. Veuillez vous reconnecter.');
-                setTimeout(() => {
-                    window.location.href = LOGIN_URL;
-                }, 2000);
-                return;
-            }
-
-            try {
-                updateLoadingState('loading');
-
-                // Construire la requête
-                const requestData = new URLSearchParams();
-                requestData.append('prompt', promptText);
-                requestData.append('model', modelName);
-
-                // Ajouter les paramètres additionnels pour Midjourney
-                if (Object.keys(additionalParams).length > 0) {
-                    console.error('Sending additionnal params:', additionalParams);
-                    requestData.append('additional_params', JSON.stringify(additionalParams));
-                }
-
-                const requestOptions = {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                        'X-Requested-With': 'XMLHttpRequest'
-                    },
-                    body: requestData
-                };
-
-                console.log('Sending request with options:', requestOptions);
-
-                // Envoyer la requête au backend
-                const response = await fetch(`/generate_image?token=${encodeURIComponent(token)}`, requestOptions);
-
-                // Traitement de la réponse
-                console.log('Response status:', response.status);
-
-                const result = await response.json();
-                console.log('Response data:', result);
-
-                // Gestion des tokens insuffisants
-                if (result.error === "Insufficient tokens") {
-                    const modal = displayTokenError(result.tokens_available, result.tokens_required);
-                    updateLoadingState('default');
-                    return;
-                }
-
-                // Gestion des autres erreurs
-                if (!result.success) {
-                    console.error('Error in response:', result.error || 'Unknown error');
-                    showErrorOverlay('Erreur', result.message || result.error || 'Une erreur est survenue');
-                    updateLoadingState('default');
-                    return;
-                }
-
-                // Traitement des succès
-                console.log('Success response:', result);
-
-                // Cas spécial pour Midjourney (traitement asynchrone)
-                if (modelName === 'midjourney' && result.status === 'processing') {
-                    console.log('Starting Midjourney processing with task_id:', result.task_id);
-                    updateLoadingState('processing');
-                    displayInitialLoadingState();
-                    handleMidjourneyProcessing(result.task_id, token, promptText);
-                } else {
-                    // Cas DALL-E ou autre réponse immédiate
-                    console.log('Displaying generated image:', result.image_url);
-                    displayGeneratedImage(result.image_url);
-
-                    // Mise à jour explicite des tokens si disponible
-                    if (result.tokens_remaining !== undefined) {
-                        console.log('Updating tokens display to:', result.tokens_remaining);
-                        updateTokensUI(result.tokens_remaining);
-                    } else {
-                        // Sinon, rafraîchir les tokens via l'API
-                        updateTokensDisplay();
-                    }
-
-                    // Mettre à jour le texte du bouton
-                    generateText.textContent = 'Générer une nouvelle image';
-                }
-            } catch (error) {
-                console.error('Error in fetch operation:', error);
-                showErrorOverlay('Erreur', 'Impossible de contacter le serveur. Veuillez réessayer plus tard.');
-            } finally {
-                // Réinitialisation de l'interface
-                spinner.style.display = 'none';
-                generateText.style.display = 'inline';
-                promptInput.disabled = false;
-            }
-        };
-    }
-});
-
-// Fonction pour réinitialiser les paramètres Midjourney
-function resetMidjourneyParams() {
-    // Réinitialiser tous les sélecteurs et options
-    document.getElementById('aspect-ratio-select').value = '';
-    document.getElementById('style-select').value = '';
-    document.getElementById('medium-select').value = '';
-    document.getElementById('quality-select').value = '2';
-    document.getElementById('version-select').value = '6.0';
-    document.getElementById('seed-input').value = '';
-    document.getElementById('chaos-slider').value = '0';
-    document.getElementById('chaos-value').textContent = '0';
-    document.getElementById('enhance-details').checked = false;
-    document.getElementById('photorealistic').checked = false;
-    document.getElementById('no-text').checked = false;
-
-    // Mettre à jour l'aperçu du ratio
-    updateRatioPreview();
-}
-
-// Ajouter un gestionnaire pour le bouton "Nouvelle image"
-document.addEventListener('DOMContentLoaded', function() {
-    const newImageBtn = document.querySelector('.fn__icon_button[onclick="createNewInstance()"]');
-    if (newImageBtn) {
-        const originalOnclick = newImageBtn.onclick;
-        newImageBtn.onclick = function() {
-            if (originalOnclick) originalOnclick.call(this);
-            resetMidjourneyParams();
-        };
-    }
-
-    // Initialiser les fonctionnalités des modèles
-    initializeTemplateSystem();
-
-    // Ajouter des tooltips interactifs pour mieux expliquer les options
-    initializeTooltips();
-});
-
-// Système de modèles (templates)
-function initializeTemplateSystem() {
-    const templateSelect = document.getElementById('template-select');
-    if (!templateSelect) return;
-
-    // Gérer le changement de modèle
-    templateSelect.addEventListener('change', function() {
-        const selectedTemplate = this.value;
-
-        // Cacher tous les paramètres spécifiques
-        document.querySelectorAll('.template-specific-params').forEach(el => {
-            el.classList.add('d-none');
-        });
-
-        // Afficher les paramètres spécifiques au modèle sélectionné
-        if (selectedTemplate) {
-            document.getElementById('template-params').classList.remove('d-none');
-            const specificParams = document.getElementById(`params-${selectedTemplate}`);
-            if (specificParams) {
-                specificParams.classList.remove('d-none');
-            }
-        } else {
-            document.getElementById('template-params').classList.add('d-none');
-        }
-    });
-
-    // Ajouter un bouton pour appliquer le modèle
-    const applyTemplateBtn = document.getElementById('apply-template-btn');
-    if (applyTemplateBtn) {
-        applyTemplateBtn.addEventListener('click', function() {
-            applySelectedTemplate();
-        });
-    }
-}
-
-// Appliquer le modèle sélectionné au prompt
-function applySelectedTemplate() {
-    const templateType = document.getElementById('template-select').value;
-    if (!templateType) return;
-
-    const subject = document.getElementById('template-subject').value;
-    if (!subject) {
-        showTemplateError('Veuillez entrer un sujet principal');
-        return;
-    }
-
-    // Collecter les paramètres spécifiques au modèle
-    const params = {
-        subject: subject
-    };
-
-    // Récupérer les paramètres spécifiques en fonction du modèle
-    if (templateType === 'portrait') {
-        params.style = document.getElementById('portrait-style').value;
-        params.lighting = document.getElementById('portrait-lighting').value;
-        params.background = document.getElementById('portrait-background').value;
-    } else if (templateType === 'landscape') {
-        params.time_of_day = document.getElementById('landscape-time').value;
-        params.weather = document.getElementById('landscape-weather').value;
-        params.style = document.getElementById('landscape-style').value;
-    } else if (templateType === 'product') {
-        params.background = document.getElementById('product-background').value;
-        params.angle = document.getElementById('product-angle').value;
-    } else if (templateType === 'concept_art') {
-        params.style = document.getElementById('concept-style').value;
-        params.artist = document.getElementById('concept-artist').value;
-    } else if (templateType === 'food') {
-        params.lighting = document.getElementById('food-lighting').value;
-        params.angle = document.getElementById('food-angle').value;
-        params.style = document.getElementById('food-style').value;
-    }
-
-    // Appeler l'API pour générer le prompt
-    fetch(`/api/midjourney/templates/${templateType}?subject=${encodeURIComponent(subject)}&token=${encodeURIComponent(getToken())}${formatParamsForUrl(params)}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                // Mettre à jour le champ de prompt
-                document.getElementById('prompt').value = data.prompt;
-
-                // Afficher un message de succès
-                showSuccessNotification('Modèle appliqué avec succès!');
-            } else {
-                showTemplateError(data.error || 'Erreur lors de l\'application du modèle');
-            }
-        })
-        .catch(error => {
-            console.error('Error applying template:', error);
-            showTemplateError('Erreur de connexion');
-        });
-}
-
-// Formater les paramètres pour l'URL
-function formatParamsForUrl(params) {
-    let result = '';
-    for (const key in params) {
-        if (key !== 'subject' && params[key]) {
-            result += `&${key}=${encodeURIComponent(params[key])}`;
-        }
-    }
-    return result;
-}
-
-// Afficher une erreur de modèle
-function showTemplateError(message) {
-    const errorBox = document.createElement('div');
-    errorBox.className = 'template-error animated fadeIn';
-    errorBox.innerHTML = `
-        <div class="error-icon"><i class="fas fa-exclamation-circle"></i></div>
-        <div class="error-message">${message}</div>
-        <div class="error-close" onclick="this.parentNode.remove()">×</div>
-    `;
-
-    document.getElementById('template-params').appendChild(errorBox);
-
-    // Supprimer l'erreur après 5 secondes
-    setTimeout(() => {
-        errorBox.classList.add('fadeOut');
-        setTimeout(() => errorBox.remove(), 500);
-    }, 5000);
-}
-
-// Afficher une notification de succès
-function showSuccessNotification(message) {
-    const notification = document.createElement('div');
-    notification.className = 'success-notification animated fadeIn';
-    notification.innerHTML = `
-        <div class="success-icon"><i class="fas fa-check-circle"></i></div>
-        <div class="success-message">${message}</div>
-    `;
-
-    document.body.appendChild(notification);
-
-    // Supprimer la notification après 3 secondes
-    setTimeout(() => {
-        notification.classList.add('fadeOut');
-        setTimeout(() => notification.remove(), 500);
-    }, 3000);
-}
-
-// Initialiser les tooltips
-function initializeTooltips() {
-    // Ajouter des tooltips sur chaque option
-    const tooltipElements = document.querySelectorAll('[data-tooltip]');
-    tooltipElements.forEach(element => {
-        element.addEventListener('mouseenter', function() {
-            const tooltipText = this.getAttribute('data-tooltip');
-
-            // Créer le tooltip
-            const tooltip = document.createElement('div');
-            tooltip.className = 'custom-tooltip';
-            tooltip.textContent = tooltipText;
-
-            // Positionner le tooltip
-            const rect = this.getBoundingClientRect();
-            tooltip.style.left = `${rect.left + (rect.width / 2)}px`;
-            tooltip.style.top = `${rect.top - 5}px`;
-
-            // Ajouter au body
-            document.body.appendChild(tooltip);
-
-            // Animation d'entrée
-            setTimeout(() => tooltip.classList.add('visible'), 10);
-
-            // Stocker une référence au tooltip
-            this._tooltip = tooltip;
-        });
-
-        element.addEventListener('mouseleave', function() {
-            if (this._tooltip) {
-                this._tooltip.classList.remove('visible');
-                setTimeout(() => this._tooltip.remove(), 200);
-                this._tooltip = null;
-            }
-        });
-    });
-}
-
-// Obtenir le token de l'URL
-function getToken() {
-    const urlParams = new URLSearchParams(window.location.search);
-    return urlParams.get('token') || '';
-}
-// Fonction pour initialiser les gestionnaires d'événements pour les paramètres Midjourney
-function initializeMidjourneyParams() {
-    console.log('Initializing Midjourney parameters selectors...');
-
-    // Aspect Ratio
-    document.querySelectorAll('input[name="aspect_ratio"]').forEach(input => {
-        input.addEventListener('change', function() {
-            console.log('Aspect ratio changed to:', this.value);
-            updateRatioPreview();
-        });
-    });
-
-    // Style
-    document.querySelectorAll('input[name="style"]').forEach(input => {
-        input.addEventListener('change', function() {
-            console.log('Style changed to:', this.value);
-        });
-    });
-
-    // Qualité
-    document.querySelectorAll('input[name="quality"]').forEach(input => {
-        input.addEventListener('change', function() {
-            console.log('Quality changed to:', this.value);
-        });
-    });
-
-    // Niveau de créativité (chaos)
-    const creativitySlider = document.getElementById('creativity-slider');
-    if (creativitySlider) {
-        creativitySlider.addEventListener('input', function() {
-            const creativityValue = document.getElementById('creativity-value');
-            if (creativityValue) {
-                creativityValue.textContent = this.value;
-            }
-            console.log('Creativity level changed to:', this.value);
-        });
-    }
-
-    // Options additionnelles
-    ['no-text', 'enhance-details', 'photorealistic'].forEach(id => {
-        const checkbox = document.getElementById(id);
-        if (checkbox) {
-            checkbox.addEventListener('change', function() {
-                console.log(`${id} changed to:`, this.checked);
-            });
-        }
-    });
-
-    // Medium artistique
-    document.querySelectorAll('input[name="medium"]').forEach(input => {
-        input.addEventListener('change', function() {
-            console.log('Medium changed to:', this.value);
-        });
-    });
-
-    // Version
-    document.querySelectorAll('input[name="version"]').forEach(input => {
-        input.addEventListener('change', function() {
-            console.log('Version changed to:', this.value);
-        });
-    });
-
-    // Sélection du modèle
-    document.querySelectorAll('input[name="model"]').forEach(input => {
-        input.addEventListener('change', function() {
-            currentModel = this.value;
-            console.log('Model changed to:', currentModel);
-
-            // Mettre à jour l'affichage du coût en tokens
-            updateTokenCost();
-
-            // Afficher/masquer les options spécifiques à Midjourney
-            const midjourneyOptions = document.querySelector('.sidebar_details');
-            if (midjourneyOptions) {
-                midjourneyOptions.style.display = (currentModel === 'midjourney') ? 'block' : 'none';
-            }
-        });
-    });
-
-    // Initialiser l'aperçu du ratio
-    updateRatioPreview();
-    console.log('Midjourney parameters selectors initialized');
-}
-
-
-// Gestion des collections
-function initializeCollections() {
-    // Charger les collections de l'utilisateur
-    loadUserCollections();
-
-    // Ajouter un gestionnaire pour le bouton de création de collection
-    const createCollectionBtn = document.getElementById('create-collection-btn');
-    if (createCollectionBtn) {
-        createCollectionBtn.addEventListener('click', function() {
-            showCreateCollectionModal();
-        });
-    }
-}
-
-// Charger les collections de l'utilisateur
-function loadUserCollections() {
-    fetch(`/api/midjourney/collections?token=${encodeURIComponent(getToken())}`)
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                renderCollections(data.collections);
-            } else {
-                console.error('Error loading collections:', data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error loading collections:', error);
-        });
-}
-
-// Afficher les collections
-function renderCollections(collections) {
-    const collectionsContainer = document.getElementById('collections-container');
-    if (!collectionsContainer) return;
-
-    if (collections.length === 0) {
-        collectionsContainer.innerHTML = '<div class="empty-collections">Aucune collection. Créez-en une pour organiser vos images.</div>';
-        return;
-    }
-
-    let html = '';
-    collections.forEach(collection => {
-        html += `
-            <div class="collection-item" data-id="${collection.id}">
-                <div class="collection-header">
-                    <h4>${collection.name}</h4>
-                    <div class="collection-count">${collection.images.length} images</div>
-                </div>
-                <div class="collection-description">${collection.description || 'Aucune description'}</div>
-                <div class="collection-actions">
-                    <button class="btn btn-sm btn-outline-primary view-collection-btn">Voir</button>
-                    <button class="btn btn-sm btn-outline-danger delete-collection-btn">Supprimer</button>
-                </div>
-            </div>
-        `;
-    });
-
-    collectionsContainer.innerHTML = html;
-
-    // Ajouter les gestionnaires d'événements
-    collectionsContainer.querySelectorAll('.view-collection-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const collectionId = this.closest('.collection-item').dataset.id;
-            viewCollection(collectionId);
-        });
-    });
-
-    collectionsContainer.querySelectorAll('.delete-collection-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const collectionId = this.closest('.collection-item').dataset.id;
-            deleteCollection(collectionId);
-        });
-    });
-}
-
-// Afficher le modal de création de collection
-function showCreateCollectionModal() {
-    const modal = document.createElement('div');
-    modal.className = 'custom-modal';
-    modal.innerHTML = `
-        <div class="modal-content">
-            <div class="modal-header">
-                <h4>Créer une collection</h4>
-                <span class="close-modal">&times;</span>
-            </div>
-            <div class="modal-body">
-                <div class="form-group">
-                    <label for="collection-name">Nom de la collection</label>
-                    <input type="text" id="collection-name" class="form-control" placeholder="Ma collection">
-                </div>
-                <div class="form-group">
-                    <label for="collection-description">Description (optionnelle)</label>
-                    <textarea id="collection-description" class="form-control" rows="3" placeholder="Description de la collection"></textarea>
-                </div>
-            </div>
-            <div class="modal-footer">
-                <button id="create-collection-submit" class="btn btn-primary">Créer</button>
-                <button class="btn btn-secondary close-modal-btn">Annuler</button>
-            </div>
-        </div>
-    `;
-
-    document.body.appendChild(modal);
-
-    // Animation d'entrée
-    setTimeout(() => modal.classList.add('visible'), 10);
-
-    // Gestionnaires d'événements
-    modal.querySelector('.close-modal').addEventListener('click', () => closeModal(modal));
-    modal.querySelector('.close-modal-btn').addEventListener('click', () => closeModal(modal));
-
-    modal.querySelector('#create-collection-submit').addEventListener('click', function() {
-        const name = document.getElementById('collection-name').value;
-        const description = document.getElementById('collection-description').value;
-
-        if (!name) {
-            showModalError(modal, 'Veuillez entrer un nom de collection');
-            return;
-        }
-
-        createCollection(name, description, modal);
-    });
-}
-
-// Fermer un modal
-function closeModal(modal) {
-    modal.classList.remove('visible');
-    setTimeout(() => modal.remove(), 300);
-}
-
-// Afficher une erreur dans le modal
-function showModalError(modal, message) {
-    let errorElement = modal.querySelector('.modal-error');
-
-    if (!errorElement) {
-        errorElement = document.createElement('div');
-        errorElement.className = 'modal-error';
-        modal.querySelector('.modal-body').prepend(errorElement);
-    }
-
-    errorElement.textContent = message;
-    errorElement.style.display = 'block';
-}
-
-// Créer une collection
-function createCollection(name, description, modal) {
-    fetch('/api/midjourney/collections', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-            'X-Requested-With': 'XMLHttpRequest'
-        },
-        body: JSON.stringify({
-            name,
-            description,
-            token: getToken()
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            closeModal(modal);
-            showSuccessNotification('Collection créée avec succès!');
-            loadUserCollections();
-        } else {
-            showModalError(modal, data.error || 'Erreur lors de la création de la collection');
-        }
-    })
-    .catch(error => {
-        console.error('Error creating collection:', error);
-        showModalError(modal, 'Erreur de connexion');
-    });
-}
-
-function optimizeUpgradeButtons() {
-    // Trouver les boutons upgrade existants
-    const upgradeButtons = document.querySelectorAll('a.upgrade, button.upgrade, a.token_upgrade, .token-upgrade-btn');
-
-    // S'il y a plusieurs boutons, n'en garder que le plus pertinent
-    if (upgradeButtons.length > 1) {
-        // Conserver le bouton principal et masquer les autres
-        const mainButton = upgradeButtons[0];
-        mainButton.classList.add('primary-upgrade-button');
-
-        // Masquer les boutons secondaires ou les rendre moins visibles
-        for (let i = 1; i < upgradeButtons.length; i++) {
-            // Option 1: Masquer complètement
-            // upgradeButtons[i].style.display = 'none';
-
-            // Option 2: Rendre moins visible mais toujours accessible
-            upgradeButtons[i].classList.add('secondary-upgrade-button');
-            upgradeButtons[i].style.opacity = '0.7';
-            upgradeButtons[i].style.transform = 'scale(0.9)';
-        }
-    }
-
-    // Améliorer l'apparence des boutons upgrade conservés
-    upgradeButtons.forEach(button => {
-        // Vérifier si le bouton a déjà le style amélioré
-        if (!button.classList.contains('improved-upgrade-button')) {
-            button.classList.add('improved-upgrade-button');
-
-            // Ajouter une icône si elle n'existe pas déjà
-            if (!button.querySelector('i')) {
-                const buttonText = button.textContent.trim();
-                button.innerHTML = `<i class="fas fa-crown"></i> ${buttonText}`;
-            }
-        }
-    });
 }
 
 // 4. Fonction pour améliorer l'affichage global des tokens et limites
@@ -3642,27 +2791,19 @@ function updateProgressIndicator(percentage) {
         const progressContainer = document.createElement('div');
         progressContainer.className = 'progress-container mt-4';
         progressContainer.innerHTML = `
-            <div class="w-full bg-gray-200 rounded-full h-2.5" style="background-color: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
+            <div class="w-full bg-gray-200 rounded-full h-2.5">
                 <div class="progress-bar bg-blue-600 h-2.5 rounded-full transition-all duration-500"
-                     style="background-color: #8e78ff; height: 100%; width: ${percentage}%; transition: width 0.5s ease;"></div>
+                     style="width: ${percentage}%"></div>
             </div>
-            <div class="text-sm mt-2" style="color: rgba(255,255,255,0.7); font-size: 12px; text-align: center; margin-top: 8px;">
+            <div class="text-sm text-gray-600 mt-2">
                 Génération en cours : ${Math.round(percentage)}%
             </div>
         `;
         document.getElementById('generated-image').appendChild(progressContainer);
     } else {
         progressBar.style.width = `${percentage}%`;
-        const textEl = progressBar.parentElement.nextElementSibling;
-        if (textEl) {
-            textEl.textContent = `Génération en cours : ${Math.round(percentage)}%`;
-
-            // Ajouter un effet pulse quand la progression change
-            textEl.classList.add('progress-pulse');
-            setTimeout(() => {
-                textEl.classList.remove('progress-pulse');
-            }, 500);
-        }
+        progressBar.parentElement.nextElementSibling.textContent =
+            `Génération en cours : ${Math.round(percentage)}%`;
     }
 }
 function showImageDetail(image, prompt) {
@@ -4309,11 +3450,11 @@ function showErrorOverlay(title, message) {
             improveTokensDisplay();
             optimizeUpgradeButtons();
             enhanceTokensInfoDisplay();
-            initializeMidjourneyParams();
             const extraStyleElement = document.createElement('style');
             extraStyleElement.textContent = extraStyles;
             document.head.appendChild(extraStyleElement);
             updateTokenCost();
+
 
 
             console.log("Page chargée, initialisation de l'affichage des tokens");
@@ -4360,50 +3501,6 @@ function showErrorOverlay(title, message) {
                     }
                 }
             });
-            const style = document.createElement('style');
-            style.textContent = `
-                @keyframes progressPulse {
-                    0% { opacity: 0.7; }
-                    50% { opacity: 1; }
-                    100% { opacity: 0.7; }
-                }
-
-                .progress-pulse {
-                    animation: progressPulse 1s ease;
-                }
-
-                @keyframes processingPulse {
-                    0% { box-shadow: 0 0 0 0 rgba(142, 120, 255, 0.7); }
-                    70% { box-shadow: 0 0 0 10px rgba(142, 120, 255, 0); }
-                    100% { box-shadow: 0 0 0 0 rgba(142, 120, 255, 0); }
-                }
-
-                .processing-pulse {
-                    animation: processingPulse 1.5s infinite;
-                }
-
-                .loading-tokens {
-                    position: relative;
-                }
-
-                .loading-tokens::after {
-                    content: '';
-                    position: absolute;
-                    top: 0;
-                    left: 0;
-                    right: 0;
-                    bottom: 0;
-                    background: linear-gradient(90deg, transparent, rgba(142, 120, 255, 0.2), transparent);
-                    background-size: 200% 100%;
-                    animation: loadingShimmer 1.5s infinite;
-                }
-
-                @keyframes loadingShimmer {
-                    0% { background-position: -100% 0; }
-                    100% { background-position: 100% 0; }
-                }
-            `;
-            document.head.appendChild(style);
 
             // Intercepter fetch pour les  erreurs d'authentification
             fetch = (originalFetch => {
@@ -4432,4 +3529,5 @@ function showErrorOverlay(title, message) {
 
 
 {% endblock %}
+
 
