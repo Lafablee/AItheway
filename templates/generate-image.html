@@ -512,7 +512,7 @@
                     <form id="generate-image-form" method="POST" enctype="multipart/form-data">
 
                     <div class="include_area">
-                        <textarea  id="prompt" name="prompt" placeholder="Entrez une description" required rows="1"></textarea>
+                        <textarea  id="prompt" placeholder="Entrez une description" required rows="1"></textarea>
 
                     </div>
 
@@ -3510,6 +3510,12 @@ function showErrorOverlay(title, message) {
 
                     generateForm.addEventListener('submit', function(event) {
                         event.preventDefault();
+                        const promptTextarea = document.getElementById('prompt');
+                        if (!promptTextarea || !promptTextarea.value.trim()) {
+                            console.error("Aucun prompt saisi!");
+                            alert("Veuillez entrer une description pour générer l'image.");
+                            return; // Empêcher la soumission sans prompt
+                        }
                         console.error("formualire en cours de soumission - Iterception");
 
                         const params = collectParameters();
