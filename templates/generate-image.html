@@ -625,184 +625,266 @@
         </div>
 
         <div class="generation__sidebar">
-            <div class="sidebar_model">
-                <div class="fn__select_model">
-                    <a class="model_open">
-                        <img class="user_img" src="{{ url_for('static', filename='assets/img/user/user.jpg') }}" alt="">
-                        <div class="author">
-                            <h4 class="subtitle">Model</h4>
-                            <h3 class="title">GPT 4o</h3>
-                        </div>
-                        <span class="fn__icon_button">
-                            <img src="{{ url_for('static', filename='assets/svg/arrow.svg') }}" alt="" class="fn__svg">
-                        </span>
-                    </a>
-                    <div class="all_models">
-                        <ul>
-                            <li><a class="selected" href="#">GPT 4o</a></li>
-                            <li><a href="#">Midjourney</a></li>
-
-                        </ul>
+            <!-- Model Selection Section -->
+            <div class="sidebar_model sidebar-section">
+                <h4 class="title">Modèle d'IA</h4>
+                <div class="model-selector">
+                    <div class="model-option">
+                        <input type="radio" name="model" id="model-dalle" value="dall-e" checked>
+                        <label for="model-dalle">
+                            <div class="model-icon">
+                                <img src="{{ url_for('static', filename='assets/img/models/dalle.jpg') }}" alt="DALL-E">
+                            </div>
+                            <div class="model-name">DALL-E</div>
+                            <div class="model-description">OpenAI</div>
+                        </label>
+                    </div>
+                    <div class="model-option">
+                        <input type="radio" name="model" id="model-midjourney" value="midjourney">
+                        <label for="model-midjourney">
+                            <div class="model-icon">
+                                <img src="{{ url_for('static', filename='assets/img/models/midjourney.jpg') }}" alt="Midjourney">
+                            </div>
+                            <div class="model-name">Midjourney</div>
+                            <div class="model-description">Version 6</div>
+                        </label>
                     </div>
                 </div>
             </div>
+
             <div class="sidebar_details">
-                <div class="aspect_ratio">
-                    <h4 class="title">Image Format</h4>
-                    <div class="ratio_select">
-                        <select id="aspect-ratio-select">
-                            <option value="">Format par défaut</option>
-                            <option value="1:1">Carré (1:1)</option>
-                            <option value="16:9">Paysage (16:9)</option>
-                            <option value="9:16">TikTok (9:16)</option>
-                            <option value="4:3">Standard (4:3)</option>
-                            <option value="3:4">Portrait Standard (3:4)</option>
-                            <option value="2:1">Panoramique (2:1)</option>
-                            <option value="3:2">Photo (3:2)</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="aspect-ratio-preview">
-                    <div id="ratio-preview-box" style="position: relative; width: 100%; height: 100px; background-color: #444; border-radius: 4px; display: flex; align-items: center; justify-content: center; margin-top: 10px;">
-                        <div id="ratio-preview-inner" style="width: 80%; height: 80%; background-color: #777; border-radius: 2px;"></div>
-                    </div>
-                </div>
-                <!-- Style Selector -->
-                <div class="style_selector">
-                    <h4 class="title">Style visuel</h4>
-                    <div class="style_select">
-                        <select id="style-select">
-                            <option value="">Style par défaut</option>
-                            <option value="raw">Brut (Raw)</option>
-                            <option value="cute">Mignon (Cute)</option>
-                            <option value="scenic">Paysage (Scenic)</option>
-                            <option value="expressive">Expressif (Expressive)</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Medium Selector -->
-                <div class="medium_selector">
-                    <h4 class="title">Médium artistique</h4>
-                    <div class="medium_select">
-                        <select id="medium-select">
-                            <option value="">Aucun médium spécifique</option>
-                            <option value="digital">Art digital</option>
-                            <option value="traditional">Peinture traditionnelle</option>
-                            <option value="drawing">Dessin</option>
-                            <option value="print">Impression artistique</option>
-                            <option value="photographic">Photographique</option>
-                        </select>
-                    </div>
-                </div>
-
-                <!-- Chaos Level -->
-                <div class="chaos_level">
-                    <h4 class="title">Niveau de créativité</h4>
-                    <div class="fn__range">
-                        <div class="range_in">
-                            <input type="range" id="chaos-slider" min="0" max="100" value="0" step="10">
-                            <div class="slider"></div>
+                <!-- Aspect Ratio Section -->
+                <div class="sidebar-section">
+                    <h4 class="title">Format d'image
+                        <span class="fn__tooltip">
+                            <img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg">
+                        </span>
+                        <div class="enhanced-tooltip">Sélectionnez le ratio largeur/hauteur de votre image</div>
+                    </h4>
+                    <div class="tag-selector aspect-ratio-tags">
+                        <div class="tag-options">
+                            <div class="tag-option">
+                                <input type="radio" name="aspect_ratio" id="ratio-square" value="1:1" checked>
+                                <label for="ratio-square" data-dimensions="1024×1024">Carré</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="aspect_ratio" id="ratio-landscape" value="16:9">
+                                <label for="ratio-landscape" data-dimensions="1024×576">Paysage</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="aspect_ratio" id="ratio-portrait" value="9:16">
+                                <label for="ratio-portrait" data-dimensions="576×1024">Portrait</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="aspect_ratio" id="ratio-standard" value="4:3">
+                                <label for="ratio-standard" data-dimensions="1024×768">Standard</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="aspect_ratio" id="ratio-cinema" value="21:9">
+                                <label for="ratio-cinema" data-dimensions="1024×439">Cinéma</label>
+                            </div>
                         </div>
-                        <div class="value" id="chaos-value">0</div>
+                    </div>
+
+                    <!-- Aspect Ratio Preview -->
+                    <div class="aspect-ratio-preview">
+                        <div id="ratio-preview-box">
+                            <div id="ratio-preview-inner"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Style Section -->
+                <div class="sidebar-section">
+                    <h4 class="title">Style visuel
+                        <span class="fn__tooltip">
+                            <img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg">
+                        </span>
+                        <div class="enhanced-tooltip">Le style détermine l'apparence générale de l'image</div>
+                    </h4>
+                    <div class="tag-selector style-tags">
+                        <div class="tag-options">
+                            <div class="tag-option">
+                                <input type="radio" name="style" id="style-realistic" value="realistic">
+                                <label for="style-realistic">
+                                    <span class="style-icon">📷</span>
+                                    Réaliste
+                                </label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="style" id="style-cartoon" value="cartoon">
+                                <label for="style-cartoon">
+                                    <span class="style-icon">🎨</span>
+                                    Cartoon
+                                </label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="style" id="style-anime" value="anime">
+                                <label for="style-anime">
+                                    <span class="style-icon">✨</span>
+                                    Anime
+                                </label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="style" id="style-abstract" value="abstract">
+                                <label for="style-abstract">
+                                    <span class="style-icon">🔳</span>
+                                    Abstrait
+                                </label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="style" id="style-digital" value="digital">
+                                <label for="style-digital">
+                                    <span class="style-icon">💻</span>
+                                    Digital
+                                </label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="style" id="style-painting" value="painting">
+                                <label for="style-painting">
+                                    <span class="style-icon">🖌️</span>
+                                    Peinture
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Medium Section -->
+                <div class="sidebar-section">
+                    <h4 class="title">Médium artistique</h4>
+                    <div class="tag-selector medium-tags">
+                        <div class="tag-options">
+                            <div class="tag-option">
+                                <input type="radio" name="medium" id="medium-none" value="" checked>
+                                <label for="medium-none">Aucun</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="medium" id="medium-photo" value="photo">
+                                <label for="medium-photo">Photo</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="medium" id="medium-3d" value="3d">
+                                <label for="medium-3d">3D</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="medium" id="medium-oil" value="oil">
+                                <label for="medium-oil">Huile</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="medium" id="medium-watercolor" value="watercolor">
+                                <label for="medium-watercolor">Aquarelle</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="medium" id="medium-sketch" value="sketch">
+                                <label for="medium-sketch">Croquis</label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Creativity Level Slider -->
+                <div class="sidebar-section">
+                    <div class="slider-control">
+                        <div class="slider-header">
+                            <h4 class="title">Niveau de créativité
+                                <span class="fn__tooltip">
+                                    <img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg">
+                                </span>
+                                <div class="enhanced-tooltip">Plus la valeur est élevée, plus l'image sera créative et moins prévisible</div>
+                            </h4>
+                            <div class="slider-value" id="creativity-value">50</div>
+                        </div>
+                        <input type="range" id="creativity-slider" min="0" max="100" value="50" step="10">
+                    </div>
+                </div>
+
+                <!-- Quality Options -->
+                <div class="sidebar-section">
+                    <h4 class="title">Qualité de l'image</h4>
+                    <div class="quality-options">
+                        <div class="quality-option">
+                            <input type="radio" name="quality" id="quality-standard" value="1">
+                            <label for="quality-standard">
+                                <div class="quality-value">Standard</div>
+                                <div class="quality-desc">Bonne qualité, plus rapide</div>
+                            </label>
+                        </div>
+                        <div class="quality-option">
+                            <input type="radio" name="quality" id="quality-hd" value="2" checked>
+                            <label for="quality-hd">
+                                <div class="quality-value">HD</div>
+                                <div class="quality-desc">Haute qualité, plus détaillée</div>
+                            </label>
+                        </div>
                     </div>
                 </div>
 
                 <!-- Seed Input -->
-                <div class="seed_input">
-                    <h4 class="title">Seed (génération reproductible)<span class="fn__tooltip" title="Utiliser la même seed permet de reproduire des résultats similaires."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
-                    <div class="fn__text_field">
+                <div class="sidebar-section">
+                    <h4 class="title">Seed (génération reproductible)
+                        <span class="fn__tooltip">
+                            <img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg">
+                        </span>
+                        <div class="enhanced-tooltip">Utiliser la même seed permet de reproduire des résultats similaires</div>
+                    </h4>
+                    <div class="seed-input">
                         <input type="number" id="seed-input" placeholder="Laisser vide pour aléatoire">
                     </div>
                 </div>
 
-                <!-- Advanced Options -->
-                <div class="prompt_options">
+                <!-- Advanced Toggles -->
+                <div class="sidebar-section">
                     <h4 class="title">Options avancées</h4>
 
-                    <!-- Quality Selection -->
-                    <div class="quality_option">
-                        <label for="quality_select">Qualité :</label>
-                        <select id="quality-select">
-                            <option value="2">Haute qualité (2)</option>
-                            <option value="1">Standard (1)</option>
-                        </select>
+                    <div class="toggle-switch">
+                        <div class="toggle-label">Ajouter détails HD</div>
+                        <label class="switch">
+                            <input type="checkbox" id="enhance-details">
+                            <span class="slider"></span>
+                        </label>
                     </div>
 
-                    <!-- Checkboxes for Other Options -->
-                    <div class="option_checkboxes">
-                        <label class="fn__toggle">
-                            <span class="t_in">
-                                <input type="checkbox" id="enhance-details">
-                                <span class="t_slider"></span>
-                                <span class="t_content"></span>
-                            </span>
-                            <span class="option_label">Ajouter détails HD</span>
+                    <div class="toggle-switch">
+                        <div class="toggle-label">Photoréaliste</div>
+                        <label class="switch">
+                            <input type="checkbox" id="photorealistic">
+                            <span class="slider"></span>
                         </label>
+                    </div>
 
-                        <label class="fn__toggle">
-                            <span class="t_in">
-                                <input type="checkbox" id="photorealistic">
-                                <span class="t_slider"></span>
-                                <span class="t_content"></span>
-                            </span>
-                            <span class="option_label">Photoréaliste</span>
-                        </label>
-
-                        <label class="fn__toggle">
-                            <span class="t_in">
-                                <input type="checkbox" id="no-text">
-                                <span class="t_slider"></span>
-                                <span class="t_content"></span>
-                            </span>
-                            <span class="option_label">Sans texte</span>
+                    <div class="toggle-switch">
+                        <div class="toggle-label">Sans texte</div>
+                        <label class="switch">
+                            <input type="checkbox" id="no-text">
+                            <span class="slider"></span>
                         </label>
                     </div>
                 </div>
 
-                <!-- Version Selector -->
-                <div class="version_selector">
+                <!-- Version Selection -->
+                <div class="sidebar-section">
                     <h4 class="title">Version du modèle</h4>
-                    <div class="version_select">
-                        <select id="version-select">
-                            <option value="6.0">Version 6.0 (défaut)</option>
-                            <option value="5.2">Version 5.2</option>
-                            <option value="5.1">Version 5.1</option>
-                            <option value="5.0">Version 5.0</option>
-                            <option value="niji">Niji 5 (style anime)</option>
-                        </select>
-                    </div>
-                </div>
-            </div>
-                <div class="guidance_scale">
-                    <h4 class="title">Image Dimensions<span class="fn__tooltip" title="Select the resoultion of the images."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
-                    <div class="fn__range">
-                        <div class="range_in">
-                            <input type="range" min="1" max="40" value="7">
-                            <div class="slider"></div>
+                    <div class="tag-selector version-tags">
+                        <div class="tag-options">
+                            <div class="tag-option">
+                                <input type="radio" name="version" id="version-6" value="6.0" checked>
+                                <label for="version-6">v6.0</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="version" id="version-5.2" value="5.2">
+                                <label for="version-5.2">v5.2</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="version" id="version-5.1" value="5.1">
+                                <label for="version-5.1">v5.1</label>
+                            </div>
+                            <div class="tag-option">
+                                <input type="radio" name="version" id="version-niji" value="niji">
+                                <label for="version-niji">Niji 5</label>
+                            </div>
                         </div>
-                        <div class="value">7</div>
                     </div>
-                </div>
-                <div class="prompt_magic_switcher">
-                    <h4 class="title"><label for="prompt_switcher">Prompt Magic</label><span class="fn__tooltip" title="TechWave Prompt v3.0. Our custom render pipeline which has much faster compliance and can improve the result with any model selected. Applies a 2x multiplier to accepted costs due to higher GPU overhead."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
-                    <label class="fn__toggle">
-                        <span class="t_in">
-                            <input type="checkbox" checked="" id="prompt_switcher">
-                            <span class="t_slider"></span>
-                            <span class="t_content"></span>
-                        </span>
-                    </label>
-                </div>
-                <div class="contrast_switcher">
-                    <h4 class="title"><label for="contrast_switcher">High Contrast</label><span class="fn__tooltip" title="If your photo consists of extremely bright and dark areas, then it's considered high contrast. When it has a wide range of tones that go from pure white to pure black, it's medium contrast. No pure whites or blacks and a range of middle tones means it's low contrast."><img src="{{ url_for('static', filename='assets/svg/question.svg') }}" alt="" class="fn__svg"></span></h4>
-                    <label class="fn__toggle">
-                        <span class="t_in">
-                            <input type="checkbox" id="contrast_switcher">
-                            <span class="t_slider"></span>
-                            <span class="t_content"></span>
-                        </span>
-                    </label>
                 </div>
             </div>
         </div>
