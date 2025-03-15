@@ -71,6 +71,7 @@ from midjourney_extras import (
     MidjourneyTemplateSystem,
     MidjourneyCollection
 )
+from gallery_manager import GalleryManager
 
 # Durées de conservation
 TEMP_STORAGE_DURATION = timedelta(hours=24)  # Pour les uploads temporaires
@@ -2156,6 +2157,10 @@ def generate_image(wp_user_id):
         if request.method == 'POST':
             prompt = request.form.get('prompt')
             model = request.form.get('model', 'dall-e')  # Default to DALL-E if not specified
+
+            # Gallery share community option
+            share_to_gallery = request.form.get('share_to_gallery', 'false').lower() == 'true'
+
             app.logger.error(f"Processing request - Model: {model}, Prompt: {prompt}")
 
             app.logger.error(f"Formulaire complet: {request.form}")
@@ -2201,6 +2206,9 @@ def generate_image(wp_user_id):
                         metadata_key = f"midjourney_task:{result['task_id']}"
                         redis_client.hset(metadata_key, 'wp_user_id', str(wp_user_id).encode('utf-8'))
 
+                        if share_to_gallery:
+                            redis_client.hset(metadata_key, 'share_to_gallery', b'true')
+
                         # Ajouter également une entrée dans l'index utilisateur
                         user_history_key = f"user:{wp_user_id}:midjourney_history"
                         redis_client.sadd(user_history_key, result['task_id'])
@@ -2244,10 +2252,26 @@ def generate_image(wp_user_id):
                             stored_metadata = image_manager.redis.hgetall(f"{image_key}:meta")
                             app.logger.error(f"Stored metadata verification: {stored_metadata}")
 
+                            # Share in the gallery if required
+                            if share_to_gallery:
+                                # Add image to the gallery
+                                decoded_metadata = {
+                                    'prompt': prompt,
+                                    'timestamp': datetime.now().isoformat(),
+                                    'model': model,
+                                    'parameters': {
+                                        'model': model,
+                                        'size': '1024x1024'
+                                    }
+                                }
+                                gallery_item_id = gallery_manager.add_to_gallery(image_key, decoded_metadata, wp_user_id)
+                                app.logger.error(f"Image ajoutée à la galerie avec l'ID: {gallery_item_id}")
+
                             return jsonify({
                                 'success': True,
                                 'image_key': image_key,
-                                'image_url': f"/image/{image_key}"
+                                'image_url': f"/image/{image_key}",
+                                'share_to_gallery': share_to_gallery,
                             })
                         else:
                             refund_tokens(wp_user_id, token_cost)
@@ -2675,6 +2699,261 @@ def download_audio(audio_key):
         as_attachment=True,
         download_name=f"aitheway_audio_{voice}_{timestamp}.mp3"
     )
+
+# Initialize gallery handler
+gallery_manager = GalleryManager(redis_client)
+
+
+@app.route('/gallery', methods=['GET'])
+@token_required
+def get_gallery(wp_user_id):
+    """
+    Récupère et affiche la galerie publique
+    """
+    try:
+        client = get_client_by_wp_user_id(wp_user_id)
+
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Vérifier les permissions (tous les utilisateurs peuvent voir le contenu)
+        if not check_client_permission(client["id"], "view_content"):
+            return jsonify({"error": "Permission denied"}), 403
+
+        # Récupérer les paramètres de requête pour le filtrage et la pagination
+        page = request.args.get('page', 1, type=int)
+        per_page = min(50, request.args.get('per_page', 20, type=int))
+
+        # Paramètres de filtrage
+        environment = request.args.get('environment', 'tous')
+        movement = request.args.get('movement', 'tous')
+        duration = request.args.get('duration', 'tous')
+        model = request.args.get('model', 'tous')
+
+        # Paramètre de tri
+        sort_by = request.args.get('sort', 'recent')
+
+        # Construire les filtres
+        filters = {
+            'environment': environment,
+            'movement': movement,
+            'duration': duration,
+            'model': model
+        }
+
+        # Récupérer les éléments de la galerie
+        gallery_data = gallery_manager.get_gallery_items(
+            page=page,
+            per_page=per_page,
+            filters=filters,
+            sort_by=sort_by
+        )
+
+        # Pour une requête AJAX, retourner JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'data': gallery_data
+            })
+
+        # Pour une requête normale, rendre le template HTML
+        return render_template('gallery.html',
+                               gallery_data=gallery_data,
+                               current_filters=filters,
+                               current_sort=sort_by
+                               )
+
+    except Exception as e:
+        app.logger.error(f"Error fetching gallery: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch gallery'
+        }), 500
+
+
+@app.route('/gallery/item/<gallery_item_id>', methods=['GET'])
+@token_required
+def get_gallery_item(wp_user_id, gallery_item_id):
+    """
+    Récupère les détails d'un élément spécifique de la galerie
+    """
+    try:
+        client = get_client_by_wp_user_id(wp_user_id)
+
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Vérifier les permissions
+        if not check_client_permission(client["id"], "view_content"):
+            return jsonify({"error": "Permission denied"}), 403
+
+        # Récupérer l'élément
+        item_data = gallery_manager.get_gallery_item(gallery_item_id)
+
+        if not item_data:
+            return jsonify({"error": "Item not found"}), 404
+
+        # Pour une requête AJAX, retourner JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'data': item_data
+            })
+
+        # Pour une requête normale, rendre le template HTML de détail
+        return render_template('gallery-item-detail.html', item=item_data)
+
+    except Exception as e:
+        app.logger.error(f"Error fetching gallery item: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch gallery item'
+        }), 500
+
+
+@app.route('/gallery/like/<gallery_item_id>', methods=['POST'])
+@token_required
+def like_gallery_item(wp_user_id, gallery_item_id):
+    """
+    Ajoute ou retire un like sur un élément de la galerie
+    """
+    try:
+        client = get_client_by_wp_user_id(wp_user_id)
+
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Vérifier les permissions
+        if not check_client_permission(client["id"], "view_content"):
+            return jsonify({"error": "Permission denied"}), 403
+
+        # Ajouter/retirer le like
+        result = gallery_manager.like_gallery_item(gallery_item_id, wp_user_id)
+
+        return jsonify(result)
+
+    except Exception as e:
+        app.logger.error(f"Error liking gallery item: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to like gallery item'
+        }), 500
+
+
+@app.route('/gallery/featured', methods=['GET'])
+@token_required
+def get_featured_gallery_items(wp_user_id):
+    """
+    Récupère les éléments mis en avant de la galerie
+    """
+    try:
+        client = get_client_by_wp_user_id(wp_user_id)
+
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Vérifier les permissions
+        if not check_client_permission(client["id"], "view_content"):
+            return jsonify({"error": "Permission denied"}), 403
+
+        # Récupérer le nombre d'éléments à afficher
+        limit = request.args.get('limit', 6, type=int)
+
+        # Récupérer les éléments mis en avant
+        featured_items = gallery_manager.get_featured_items(limit=limit)
+
+        return jsonify({
+            'success': True,
+            'data': featured_items
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error fetching featured gallery items: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch featured gallery items'
+        }), 500
+
+
+# Routes administratives (sécurisées)
+@app.route('/admin/gallery/feature/<gallery_item_id>', methods=['POST'])
+@token_required
+def feature_gallery_item(wp_user_id, gallery_item_id):
+    """
+    Marque un élément comme mis en avant (admin seulement)
+    """
+    try:
+        client = get_client_by_wp_user_id(wp_user_id)
+
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Vérifier si l'utilisateur est un administrateur (à adapter selon votre système)
+        is_admin = False  # Par défaut, aucun utilisateur n'est admin
+
+        # Logique pour vérifier si l'utilisateur est un administrateur
+        # Par exemple, vous pourriez avoir une table ou un champ dans votre base de données
+        # is_admin = check_if_admin(wp_user_id)
+
+        if not is_admin:
+            return jsonify({"error": "Admin access required"}), 403
+
+        # Récupérer l'état de mise en avant depuis la requête
+        featured = request.json.get('featured', True)
+
+        # Mettre à jour l'élément
+        success = gallery_manager.feature_gallery_item(gallery_item_id, featured)
+
+        if not success:
+            return jsonify({"error": "Item not found or update failed"}), 404
+
+        return jsonify({
+            'success': True,
+            'message': f"Item {'featured' if featured else 'unfeatured'} successfully"
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error featuring gallery item: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to update item'
+        }), 500
+
+
+@app.route('/admin/gallery/delete/<gallery_item_id>', methods=['DELETE'])
+@token_required
+def delete_gallery_item(wp_user_id, gallery_item_id):
+    """
+    Supprime un élément de la galerie (admin ou propriétaire seulement)
+    """
+    try:
+        client = get_client_by_wp_user_id(wp_user_id)
+
+        if not client:
+            return jsonify({"error": "Client not found"}), 404
+
+        # Vérifier si l'utilisateur est un administrateur
+        is_admin = False  # Par défaut, aucun utilisateur n'est admin
+        # is_admin = check_if_admin(wp_user_id)
+
+        # Supprimer l'élément (la fonction vérifiera si l'utilisateur est autorisé)
+        success = gallery_manager.delete_from_gallery(gallery_item_id, wp_user_id, is_admin)
+
+        if not success:
+            return jsonify({"error": "Item not found or permission denied"}), 404
+
+        return jsonify({
+            'success': True,
+            'message': "Item deleted successfully"
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error deleting gallery item: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to delete item'
+        }), 500
+
 @app.route('/save-image', methods=['POST'])
 @token_required
 def save_image(wp_user_id):
@@ -2957,6 +3236,41 @@ def midjourney_callback():
                 group_info['status'] = 'completed'
                 pipe.hset(metadata_key, 'status', b'completed')
                 status = "completed"
+
+                # Nouveau: Vérifier si l'image doit être partagée dans la galerie
+                share_to_gallery = redis_client.hget(metadata_key, b'share_to_gallery')
+                wp_user_id = redis_client.hget(metadata_key, b'wp_user_id')
+
+                if share_to_gallery and wp_user_id:
+                    share_to_gallery = share_to_gallery.decode('utf-8') if isinstance(share_to_gallery,
+                                                                                      bytes) else share_to_gallery
+                    wp_user_id = wp_user_id.decode('utf-8') if isinstance(wp_user_id, bytes) else wp_user_id
+
+                    if share_to_gallery == 'true':
+                        # Partager chaque image dans la galerie
+                        prompt = group_info.get('prompt', '')
+
+                        for img in group_info['images']:
+                            # Préparer les métadonnées pour la galerie
+                            metadata = {
+                                'prompt': prompt,
+                                'timestamp': datetime.now().isoformat(),
+                                'model': 'midjourney',
+                                'parameters': {
+                                    'model': 'midjourney',
+                                    'task_id': task_id,
+                                    'variation_number': img.get('variation_number', 0)
+                                }
+                            }
+
+                            # Clé de l'image
+                            image_key = img.get('key', f"midjourney_image:{task_id}:{img.get('variation_number', 0)}")
+
+                            # Ajouter à la galerie
+                            gallery_item_id = gallery_manager.add_to_gallery(image_key, metadata, wp_user_id)
+                            app.logger.error(
+                                f"Midjourney image {image_key} ajoutée à la galerie avec l'ID: {gallery_item_id}")
+
                 app.logger.error(f"All 4 images received for task {task_id}, marking as completed")
             else:
                 status = "processing"

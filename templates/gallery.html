@@ -1,0 +1,306 @@
+{% extends 'base.html' %}
+
+{% block title %}Galerie d'inspirations{% endblock %}
+
+{% block content %}
+<div class="header">
+    <h1 class="page-title">Galerie d'inspirations</h1>
+    <p class="page-subtitle">Explorez les images et vidéos générées par la communauté et trouvez l'inspiration pour vos propres créations.</p>
+    
+    <div class="filter-bar">
+        <div class="filter-groups">
+            <div class="filter-group">
+                <div class="filter-label">Environnement</div>
+                <div class="filter-options">
+                    <a href="{{ url_for('get_gallery', environment='tous', movement=current_filters.movement, duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.environment == 'tous' %}active{% endif %}">Tous</a>
+                    <a href="{{ url_for('get_gallery', environment='forêt', movement=current_filters.movement, duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.environment == 'forêt' %}active{% endif %}">Forêt</a>
+                    <a href="{{ url_for('get_gallery', environment='urbain', movement=current_filters.movement, duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.environment == 'urbain' %}active{% endif %}">Urbain</a>
+                    <a href="{{ url_for('get_gallery', environment='plage', movement=current_filters.movement, duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.environment == 'plage' %}active{% endif %}">Plage</a>
+                    <a href="{{ url_for('get_gallery', environment='montagne', movement=current_filters.movement, duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.environment == 'montagne' %}active{% endif %}">Montagne</a>
+                </div>
+            </div>
+            
+            <div class="filter-group">
+                <div class="filter-label">Type</div>
+                <div class="filter-options">
+                    <a href="{{ url_for('get_gallery', environment=current_filters.environment, movement='tous', duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.movement == 'tous' %}active{% endif %}">Tous</a>
+                    <a href="{{ url_for('get_gallery', environment=current_filters.environment, movement='marche', duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.movement == 'marche' %}active{% endif %}">Paysage</a>
+                    <a href="{{ url_for('get_gallery', environment=current_filters.environment, movement='course', duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.movement == 'course' %}active{% endif %}">Portrait</a>
+                    <a href="{{ url_for('get_gallery', environment=current_filters.environment, movement='vol', duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.movement == 'vol' %}active{% endif %}">Abstrait</a>
+                    <a href="{{ url_for('get_gallery', environment=current_filters.environment, movement='conduite', duration=current_filters.duration, model=current_filters.model, sort=current_sort) }}" class="filter-option {% if current_filters.movement == 'conduite' %}active{% endif %}">Science-fiction</a>
+                </div>
+            </div>
+            
+            <div class="filter-group">
+                <div class="filter-label">Modèle</div>
+                <div class="filter-options">
+                    <a href="{{ url_for('get_gallery', environment=current_filters.environment, movement=current_filters.movement, duration=current_filters.duration, model='tous', sort=current_sort) }}" class="filter-option {% if current_filters.model == 'tous' %}active{% endif %}">Tous</a>
+                    <a href="{{ url_for('get_gallery', environment=current_filters.environment, movement=current_filters.movement, duration=current_filters.duration, model='dall-e', sort=current_sort) }}" class="filter-option {% if current_filters.model == 'dall-e' %}active{% endif %}">DALL-E</a>
+                    <a href="{{ url_for('get_gallery', environment=current_filters.environment, movement=current_filters.movement, duration=current_filters.duration, model='midjourney', sort=current_sort) }}" class="filter-option {% if current_filters.model == 'midjourney' %}active{% endif %}">Midjourney</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="sort-dropdown">
+            <select id="sort-select" onchange="window.location = this.value;">
+                <option value="{{ url_for('get_gallery', environment=current_filters.environment, movement=current_filters.movement, duration=current_filters.duration, model=current_filters.model, sort='recent') }}" {% if current_sort == 'recent' %}selected{% endif %}>Les plus récents</option>
+                <option value="{{ url_for('get_gallery', environment=current_filters.environment, movement=current_filters.movement, duration=current_filters.duration, model=current_filters.model, sort='popular') }}" {% if current_sort == 'popular' %}selected{% endif %}>Les plus populaires</option>
+                <option value="{{ url_for('get_gallery', environment=current_filters.environment, movement=current_filters.movement, duration=current_filters.duration, model=current_filters.model, sort='views') }}" {% if current_sort == 'views' %}selected{% endif %}>Les plus vus</option>
+            </select>
+        </div>
+    </div>
+</div>
+
+<div class="gallery-container">
+    <div class="gallery-grid" id="gallery-grid">
+        {% for item in gallery_data.items %}
+            <div class="gallery-item {{ item.size }}" data-id="{{ item.gallery_id }}">
+                <div class="gallery-image-container">
+                    <img src="{{ item.image_url }}" alt="{{ item.prompt }}" class="gallery-image">
+                    <div class="gallery-badges">
+                        {% if item.featured == 'True' %}
+                            <div class="gallery-badge badge-featured">Featured</div>
+                        {% endif %}
+                        {% if (item.timestamp|string)[:10] == current_date|string %}
+                            <div class="gallery-badge badge-new">New</div>
+                        {% endif %}
+                    </div>
+                    <div class="gallery-overlay">
+                        <div class="gallery-title">{{ item.prompt[:50] + '...' if item.prompt|length > 50 else item.prompt }}</div>
+                        <div class="gallery-desc">{{ item.model|capitalize }}</div>
+                        <div class="gallery-meta">
+                            <div class="gallery-user">
+                                <div class="user-avatar">{{ item.shared_by[:1]|upper }}</div>
+                                <div>ID: {{ item.shared_by }}</div>
+                            </div>
+                            <div class="gallery-stats">
+                                <div class="gallery-stat">
+                                    <i>♥</i> {{ item.likes }}
+                                </div>
+                                <div class="gallery-stat">
+                                    <i>👁️</i> {{ item.views }}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="gallery-footer">
+                    <div class="gallery-category">
+                        {{ item.timestamp[:10] }}
+                    </div>
+                    <div class="gallery-actions">
+                        <div class="action-button like-button" data-id="{{ item.gallery_id }}">♥</div>
+                        <button class="use-button" data-prompt="{{ item.prompt }}">Utiliser</button>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <div class="no-results">
+                <div class="no-results-icon">🔍</div>
+                <h3>Aucun résultat trouvé</h3>
+                <p>Essayez avec d'autres filtres ou revenez plus tard.</p>
+            </div>
+        {% endfor %}
+    </div>
+    
+    {% if gallery_data.pagination.has_more %}
+        <div class="load-more-container">
+            <button id="load-more" class="load-more-button" data-page="{{ gallery_data.pagination.current_page + 1 }}">
+                Charger plus
+            </button>
+        </div>
+    {% endif %}
+    
+    <div class="loading-container" id="loading-container" style="display: none;">
+        <div class="loading-spinner"></div>
+        <div>Chargement de plus d'inspirations...</div>
+    </div>
+</div>
+
+<div class="back-to-top" id="back-to-top">↑</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const galleryGrid = document.getElementById('gallery-grid');
+        const loadMoreButton = document.getElementById('load-more');
+        const loadingContainer = document.getElementById('loading-container');
+        const backToTop = document.getElementById('back-to-top');
+        
+        // Fonction pour animer l'apparition des éléments
+        function animateItems() {
+            const items = document.querySelectorAll('.gallery-item:not(.visible)');
+            items.forEach((item, index) => {
+                setTimeout(() => {
+                    item.classList.add('visible');
+                }, index * 100);
+            });
+        }
+        
+        // Animation initiale
+        animateItems();
+        
+        // Chargement de plus d'éléments
+        if (loadMoreButton) {
+            loadMoreButton.addEventListener('click', function() {
+                const nextPage = parseInt(this.dataset.page);
+                loadingContainer.style.display = 'flex';
+                loadMoreButton.style.display = 'none';
+                
+                // Construire l'URL avec les filtres actuels
+                const environment = '{{ current_filters.environment }}';
+                const movement = '{{ current_filters.movement }}';
+                const duration = '{{ current_filters.duration }}';
+                const model = '{{ current_filters.model }}';
+                const sort = '{{ current_sort }}';
+                
+                fetch(`/gallery?page=${nextPage}&per_page=20&environment=${environment}&movement=${movement}&duration=${duration}&model=${model}&sort=${sort}`, {
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success && data.data.items.length > 0) {
+                        // Ajouter les nouveaux éléments à la grille
+                        const items = data.data.items;
+                        
+                        items.forEach(item => {
+                            const itemHTML = `
+                                <div class="gallery-item ${item.size}" data-id="${item.gallery_id}">
+                                    <div class="gallery-image-container">
+                                        <img src="${item.image_url}" alt="${item.prompt}" class="gallery-image">
+                                        <div class="gallery-badges">
+                                            ${item.featured === 'True' ? '<div class="gallery-badge badge-featured">Featured</div>' : ''}
+                                            ${new Date(item.timestamp).toISOString().slice(0, 10) === new Date().toISOString().slice(0, 10) ? '<div class="gallery-badge badge-new">New</div>' : ''}
+                                        </div>
+                                        <div class="gallery-overlay">
+                                            <div class="gallery-title">${item.prompt.length > 50 ? item.prompt.slice(0, 50) + '...' : item.prompt}</div>
+                                            <div class="gallery-desc">${item.model.charAt(0).toUpperCase() + item.model.slice(1)}</div>
+                                            <div class="gallery-meta">
+                                                <div class="gallery-user">
+                                                    <div class="user-avatar">${item.shared_by.charAt(0).toUpperCase()}</div>
+                                                    <div>ID: ${item.shared_by}</div>
+                                                </div>
+                                                <div class="gallery-stats">
+                                                    <div class="gallery-stat">
+                                                        <i>♥</i> ${item.likes}
+                                                    </div>
+                                                    <div class="gallery-stat">
+                                                        <i>👁️</i> ${item.views}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div class="gallery-footer">
+                                        <div class="gallery-category">
+                                            ${item.timestamp.slice(0, 10)}
+                                        </div>
+                                        <div class="gallery-actions">
+                                            <div class="action-button like-button" data-id="${item.gallery_id}">♥</div>
+                                            <button class="use-button" data-prompt="${item.prompt}">Utiliser</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            `;
+                            
+                            galleryGrid.insertAdjacentHTML('beforeend', itemHTML);
+                        });
+                        
+                        // Animer les nouveaux éléments
+                        animateItems();
+                        
+                        // Mettre à jour le bouton de chargement
+                        if (data.data.pagination.has_more) {
+                            loadMoreButton.dataset.page = nextPage + 1;
+                            loadMoreButton.style.display = 'block';
+                        } else {
+                            loadMoreButton.style.display = 'none';
+                        }
+                    } else {
+                        // Aucun élément supplémentaire
+                        loadMoreButton.style.display = 'none';
+                    }
+                    
+                    loadingContainer.style.display = 'none';
+                })
+                .catch(error => {
+                    console.error('Error loading more items:', error);
+                    loadingContainer.style.display = 'none';
+                    loadMoreButton.style.display = 'block';
+                });
+            });
+        }
+        
+        // Gestion des likes
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('like-button')) {
+                const galleryItemId = e.target.dataset.id;
+                
+                fetch(`/gallery/like/${galleryItemId}`, {
+                    method: 'POST',
+                    headers: {
+                        'X-Requested-With': 'XMLHttpRequest',
+                        'Content-Type': 'application/json'
+                    }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.success) {
+                        // Mise à jour de l'interface
+                        if (data.action === 'liked') {
+                            e.target.innerHTML = '❤️';
+                            e.target.classList.add('liked');
+                            
+                            // Incrémenter le compteur de likes affiché
+                            const likesElement = e.target.closest('.gallery-actions').parentNode.parentNode.querySelector('.gallery-stat:first-child');
+                            const likesCount = parseInt(likesElement.textContent.replace(/[^0-9]/g, '')) + 1;
+                            likesElement.innerHTML = `<i>♥</i> ${likesCount}`;
+                        } else {
+                            e.target.innerHTML = '♥';
+                            e.target.classList.remove('liked');
+                            
+                            // Décrémenter le compteur de likes affiché
+                            const likesElement = e.target.closest('.gallery-actions').parentNode.parentNode.querySelector('.gallery-stat:first-child');
+                            const likesCount = parseInt(likesElement.textContent.replace(/[^0-9]/g, '')) - 1;
+                            likesElement.innerHTML = `<i>♥</i> ${likesCount}`;
+                        }
+                    }
+                })
+                .catch(error => {
+                    console.error('Error liking item:', error);
+                });
+            }
+        });
+        
+        // Gestion du bouton "Utiliser"
+        document.addEventListener('click', function(e) {
+            if (e.target.classList.contains('use-button')) {
+                const prompt = e.target.dataset.prompt;
+                
+                // Rediriger vers la page de génération avec le prompt pré-rempli
+                window.location.href = `/generate_image?prompt=${encodeURIComponent(prompt)}`;
+            }
+        });
+        
+        // Afficher/masquer le bouton "Retour en haut"
+        window.addEventListener('scroll', function() {
+            if (window.scrollY > 300) {
+                backToTop.classList.add('visible');
+            } else {
+                backToTop.classList.remove('visible');
+            }
+        });
+        
+        // Retour en haut de la page
+        backToTop.addEventListener('click', function() {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+    });
+</script>
+{% endblock %}

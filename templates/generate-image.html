@@ -510,9 +510,8 @@
                 </div>
                 <div class="header_bottom">
                     <form id="generate-image-form" method="POST" enctype="multipart/form-data">
-
                     <div class="include_area">
-                        <textarea  id="prompt" placeholder="Entrez une description" required rows="1"></textarea>
+                        <textarea id="prompt" name="prompt" placeholder="Entrez une description" required rows="1"></textarea>
 
                     </div>
 
@@ -523,6 +522,13 @@
                             <div class="spinner-border" id="spinner" role="status"></div>
                         </button>
                     </div>
+                        <div class="form-group">
+                          <label class="checkbox-container">
+                            <input type="checkbox" name="share_to_gallery" value="true">
+                            <span class="checkmark"></span>
+                            Partager cette création dans la galerie publique
+                          </label>
+                        </div>
                     <input type="hidden" id="model" name="model" value="midjourney">
                     <input type="hidden" id="additional_params" name="additional_params" value="{}">
                 </form>
