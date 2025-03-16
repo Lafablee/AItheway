@@ -619,7 +619,6 @@ class MidjourneyGenerator(AIModelGenerator):
             if additional_params:
                 # Si c'est une chaîne JSON, la convertir en dictionnaire
                 if isinstance(additional_params, str):
-                    import json
                     try:
                         additional_params = json.loads(additional_params)
                     except json.JSONDecodeError:
