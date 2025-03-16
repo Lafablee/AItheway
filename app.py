@@ -2784,7 +2784,7 @@ def get_gallery(wp_user_id):
 
 @app.route('/gallery/item/<gallery_item_id>', methods=['GET'])
 @token_required
-def get_gallery(wp_user_id):
+def get_gallery_item(wp_user_id):
     """
     Version simplifiée de la galerie pour diagnostiquer le problème
     """
