@@ -104,15 +104,41 @@ class GalleryManager:
                 # Récupérer les clés correspondant à chaque filtre
                 filter_keys = []
 
-                for filter_type, filter_value in filters.items():
-                    if filter_value and filter_value.lower() != 'tous':
+                # Vérifier que filters est bien un dictionnaire
+                if not isinstance(filters, dict):
+                    app.logger.error(f"filters n'est pas un dictionnaire: {type(filters)}")
+                    filters = {}
+
+                # Vérifier que items() est bien disponible
+                try:
+                    filter_items = filters.items()
+                except AttributeError:
+                    app.logger.error(f"filters n'a pas de méthode items(): {type(filters)}")
+                    filter_items = []
+
+                for filter_type, filter_value in filter_items:
+                    if filter_value and isinstance(filter_value, str) and filter_value.lower() != 'tous':
                         filter_set = f"{self.prefix}:filter:{filter_type}:{filter_value}"
-                        filter_keys.append(set(self.redis.smembers(filter_set)))
+                        try:
+                            members = self.redis.smembers(filter_set)
+                            if not callable(members):  # Vérifier que ce n'est pas une fonction
+                                filter_keys.append(set(members))
+                            else:
+                                app.logger.error(f"smembers a retourné une fonction au lieu d'un ensemble")
+                        except Exception as e:
+                            app.logger.error(f"Erreur lors de la récupération des membres du filtre {filter_set}: {e}")
 
                 # Intersection des ensembles pour obtenir les éléments correspondant à TOUS les filtres
                 if filter_keys:
-                    intersection = set.intersection(*filter_keys)
-                    item_keys = list(intersection)
+                    try:
+                        if len(filter_keys) > 0:
+                            intersection = set.intersection(*filter_keys)
+                            item_keys = list(intersection)
+                        else:
+                            item_keys = []
+                    except Exception as e:
+                        app.logger.error(f"Erreur lors de l'intersection des filtres: {e}")
+                        item_keys = []
 
                 # Si aucun résultat après filtrage
                 if not item_keys:

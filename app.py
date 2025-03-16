@@ -2711,6 +2711,7 @@ def get_gallery(wp_user_id):
     Récupère et affiche la galerie publique
     """
     try:
+        app.logger.error(f"Debut get_gallery pour : {wp_user_id}")
         client = get_client_by_wp_user_id(wp_user_id)
 
         if not client:
@@ -2740,6 +2741,11 @@ def get_gallery(wp_user_id):
             'duration': duration,
             'model': model
         }
+
+        app.logger.info(f"Filtres: {filters}")
+        app.logger.info(f"Type de filters: {type(filters)}")
+        app.logger.info(f"Type de gallery_manager: {type(gallery_manager)}")
+        app.logger.info(f"Type de gallery_manager.redis: {type(gallery_manager.redis)}")
 
         # Récupérer les éléments de la galerie
         gallery_data = gallery_manager.get_gallery_items(
