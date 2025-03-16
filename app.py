@@ -2701,8 +2701,74 @@ def download_audio(audio_key):
     )
 
 # Initialize gallery handler
-gallery_manager = GalleryManager(redis_client)
+gallery_manager = None
 
+def init_gallery_manager():
+    global gallery_manager
+    from gallery_manager import GalleryManager
+    gallery_manager = GalleryManager(redis_client)
+
+
+@app.route('/gallery-test', methods=['GET'])
+@token_required
+def gallery_test(wp_user_id):
+    """
+    Version ultra-simplifiée de la galerie pour tests
+    """
+    try:
+        # Données statiques pour le test
+        gallery_data = {
+            'items': [
+                {
+                    'gallery_id': 'test-1',
+                    'prompt': 'Exemple de prompt pour test',
+                    'image_url': '/static/placeholder.jpg',
+                    'model': 'dall-e',
+                    'shared_by': wp_user_id,
+                    'timestamp': datetime.now().isoformat(),
+                    'likes': 5,
+                    'views': 10,
+                    'size': 'large',
+                    'featured': 'True'
+                }
+            ],
+            'pagination': {
+                'current_page': 1,
+                'per_page': 20,
+                'total_items': 1,
+                'has_more': False
+            }
+        }
+
+        # Filtres pour le template
+        current_filters = {
+            'environment': 'tous',
+            'movement': 'tous',
+            'duration': 'tous',
+            'model': 'tous'
+        }
+
+        # Pour une requête AJAX, retourner JSON
+        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return jsonify({
+                'success': True,
+                'data': gallery_data
+            })
+
+        # Rendre le template
+        return render_template('gallery.html',
+                               gallery_data=gallery_data,
+                               current_filters=current_filters,
+                               current_sort='recent',
+                               current_date=datetime.now().strftime('%Y-%m-%d')
+                               )
+
+    except Exception as e:
+        app.logger.error(f"Error in test gallery: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Error: {str(e)}'
+        }), 500
 
 @app.route('/gallery', methods=['GET'])
 @token_required
@@ -3602,6 +3668,8 @@ def init_background_tasks(_app):
     # Start the background task
     loop = asyncio.get_event_loop()
     return loop.create_task(check_pending_midjourney_tasks())
+
+init_gallery_manager()
 
 if __name__ == '__main__':
     background_task = init_background_tasks(app)
