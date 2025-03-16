@@ -933,13 +933,28 @@ const LOGIN_URL = "{{ LOGIN_URL }}";
         try {
             updateLoadingState('loading');
             // Construction de la requête
+            const formData = new FormData();
+            formData.append('prompt', promptText);
+            formData.append('model', currentModel);
+
+            // Récupérer les données des paramètres supplémentaires
+            const additionalParamsInput = document.getElementById('additional_params');
+            if (additionalParamsInput) {
+                formData.append('additional_params', additionalParamsInput.value);
+            }
+
+            // Ajouter l'option de partage si elle existe
+            const shareGalleryCheckbox = document.querySelector('input[name="share_to_gallery"]');
+            if (shareGalleryCheckbox && shareGalleryCheckbox.checked) {
+                formData.append('share_to_gallery', 'true');
+            }
+
             const requestOptions = {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
                     'X-Requested-With': 'XMLHttpRequest'
                 },
-                body: `prompt=${encodeURIComponent(promptText)}&model=${encodeURIComponent(currentModel)}`
+                body: formData
             };
 
             console.log('Sending request with options:', requestOptions);
@@ -3541,10 +3556,6 @@ function showErrorOverlay(title, message) {
                         for (let pair of formData.entries()) {
                             console.error(pair[0] + ': ' + pair[1]);
                         }
-
-                        // Continuer la soumission du formulaire
-                        console.error("soumission du formulaire");
-                        generateForm.submit();
                 });
             } else {
                 console.error("Formulaire de génération d'image non trouvé");
