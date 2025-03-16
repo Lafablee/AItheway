@@ -615,6 +615,17 @@ class MidjourneyGenerator(AIModelGenerator):
 
     async def generate(self, prompt, additional_params=None):
         try:
+            # Analyser les paramètres additionnels si fournis
+            if additional_params:
+                # Si c'est une chaîne JSON, la convertir en dictionnaire
+                if isinstance(additional_params, str):
+                    import json
+                    try:
+                        additional_params = json.loads(additional_params)
+                    except json.JSONDecodeError:
+                        app.logger.error(f"Failed to parse additional_params JSON: {additional_params}")
+                        additional_params = {}
+
             # Extraire les paramètres Midjourney
             aspect_ratio = additional_params.get('aspect_ratio') if additional_params else None
             style = additional_params.get('style') if additional_params else None
