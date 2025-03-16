@@ -2779,9 +2779,9 @@ def get_gallery(wp_user_id):
 
 @app.route('/gallery/item/<gallery_item_id>', methods=['GET'])
 @token_required
-def get_gallery_item(wp_user_id, gallery_item_id):
+def get_gallery(wp_user_id):
     """
-    Récupère les détails d'un élément spécifique de la galerie
+    Version simplifiée de la galerie pour diagnostiquer le problème
     """
     try:
         client = get_client_by_wp_user_id(wp_user_id)
@@ -2793,27 +2793,70 @@ def get_gallery_item(wp_user_id, gallery_item_id):
         if not check_client_permission(client["id"], "view_content"):
             return jsonify({"error": "Permission denied"}), 403
 
-        # Récupérer l'élément
-        item_data = gallery_manager.get_gallery_item(gallery_item_id)
-
-        if not item_data:
-            return jsonify({"error": "Item not found"}), 404
+        # Créer des données de galerie statiques
+        mock_gallery_data = {
+            'items': [
+                {
+                    'gallery_id': 'mock-item-1',
+                    'prompt': 'Exemple de prompt pour la galerie',
+                    'image_url': '/static/assets/placeholder-image.jpg',
+                    'model': 'dall-e',
+                    'shared_by': wp_user_id,
+                    'timestamp': datetime.now().isoformat(),
+                    'likes': 5,
+                    'views': 20,
+                    'size': 'large',
+                    'featured': 'True'
+                },
+                {
+                    'gallery_id': 'mock-item-2',
+                    'prompt': 'Un autre exemple pour démontrer la galerie',
+                    'image_url': '/static/assets/placeholder-image2.jpg',
+                    'model': 'midjourney',
+                    'shared_by': wp_user_id,
+                    'timestamp': (datetime.now() - timedelta(days=2)).isoformat(),
+                    'likes': 10,
+                    'views': 35,
+                    'size': 'medium',
+                    'featured': 'False'
+                }
+            ],
+            'pagination': {
+                'current_page': 1,
+                'per_page': 20,
+                'total_items': 2,
+                'has_more': False
+            }
+        }
 
         # Pour une requête AJAX, retourner JSON
         if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
             return jsonify({
                 'success': True,
-                'data': item_data
+                'data': mock_gallery_data
             })
 
-        # Pour une requête normale, rendre le template HTML de détail
-        return render_template('gallery-item-detail.html', item=item_data)
+        # Paramètres de filtrage pour le template
+        current_filters = {
+            'environment': 'tous',
+            'movement': 'tous',
+            'duration': 'tous',
+            'model': 'tous'
+        }
+
+        # Pour une requête normale, rendre le template HTML
+        return render_template('gallery.html',
+                               gallery_data=mock_gallery_data,
+                               current_filters=current_filters,
+                               current_sort='recent',
+                               current_date=datetime.now().strftime('%Y-%m-%d')
+                               )
 
     except Exception as e:
-        app.logger.error(f"Error fetching gallery item: {str(e)}")
+        app.logger.error(f"Error in simplified gallery: {str(e)}")
         return jsonify({
             'success': False,
-            'error': 'Failed to fetch gallery item'
+            'error': f'Error in gallery: {str(e)}'
         }), 500
 
 
@@ -2959,6 +3002,64 @@ def delete_gallery_item(wp_user_id, gallery_item_id):
             'success': False,
             'error': 'Failed to delete item'
         }), 500
+
+
+#  TEMP Route de diagnostic à ajouter dans app.py TEMP
+@app.route('/test-redis', methods=['GET'])
+def test_redis():
+    """
+    Route de diagnostic pour tester Redis
+    """
+    result = {
+        'redis_client_type': str(type(redis_client)),
+        'redis_methods': []
+    }
+
+    # Vérifier quelques méthodes clés
+    for method_name in ['get', 'set', 'smembers', 'zadd', 'pipeline']:
+        try:
+            method = getattr(redis_client, method_name)
+            result['redis_methods'].append({
+                'name': method_name,
+                'type': str(type(method)),
+                'is_callable': callable(method)
+            })
+        except Exception as e:
+            result['redis_methods'].append({
+                'name': method_name,
+                'error': str(e)
+            })
+
+    # Test simple de fonctionnement
+    test_key = "test:key:diagnostic"
+    test_value = "test_value"
+
+    try:
+        # Test de set/get
+        redis_client.set(test_key, test_value)
+        get_result = redis_client.get(test_key)
+        result['basic_get_set'] = {
+            'success': get_result == test_value.encode('utf-8') or get_result == test_value,
+            'value_received': str(get_result),
+            'value_type': str(type(get_result))
+        }
+
+        # Test de smembers (pertinent pour notre erreur)
+        test_set_key = "test:set:diagnostic"
+        redis_client.sadd(test_set_key, "value1", "value2")
+        members = redis_client.smembers(test_set_key)
+        result['smembers_test'] = {
+            'result_type': str(type(members)),
+            'is_iterable': hasattr(members, '__iter__'),
+            'members': [m.decode('utf-8') if isinstance(m, bytes) else m for m in members] if hasattr(members,
+                                                                                                      '__iter__') else str(
+                members)
+        }
+
+    except Exception as e:
+        result['test_error'] = str(e)
+
+    return jsonify(result)
 
 @app.route('/save-image', methods=['POST'])
 @token_required
