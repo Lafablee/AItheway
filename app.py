@@ -2197,7 +2197,7 @@ def generate_image(wp_user_id):
 
             try:
                 # Utiliser le gestionnaire de modèles
-                result = ai_manager.generate_image_sync(model, prompt)
+                result = ai_manager.generate_image_sync(model, prompt, additional_params)
                 app.logger.error(f"Generation result: {result}")
 
                 if result['success']:
