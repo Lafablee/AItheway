@@ -646,42 +646,34 @@ class MidjourneyGenerator(AIModelGenerator):
             photorealistic = additional_params.get('photorealistic', False) if additional_params else False
             medium = additional_params.get('medium') if additional_params else None
 
-            try:
-                from midjourney_params import MidjourneyParams
-                app.logger.error("DEBUGGING: MidjourneyParams imported successfully")
-
-                # Appliquer les améliorations de prompt
-                enhanced_prompt = MidjourneyParams.enhance_prompt(
-                    prompt,
-                    medium=medium,
-                    enhance_details=enhance_details,
-                    photorealistic=photorealistic
-                )
-                app.logger.error(f"DEBUGGING: Enhanced prompt: {enhanced_prompt}")
 
 
-                # Construire les paramètres Midjourney
-                params_string = MidjourneyParams.build_params(
-                    aspect_ratio=aspect_ratio,
-                    style=style,
-                    quality=quality,
-                    chaos=chaos,
-                    version=version,
-                    seed_value=seed_value,
-                    no_text=no_text
-                )
-                app.logger.error(f"DEBUGGING: Params string: {params_string}")
+            app.logger.error("DEBUGGING: MidjourneyParams imported successfully")
 
-                # Combiner prompt et paramètres
-                final_prompt = f"{enhanced_prompt} {params_string}".strip()
-                app.logger.error(f"Final Midjourney prompt: {final_prompt}")
+            # Appliquer les améliorations de prompt
+            enhanced_prompt = MidjourneyParams.enhance_prompt(
+                prompt,
+                medium=medium,
+                enhance_details=enhance_details,
+                photorealistic=photorealistic
+            )
+            app.logger.error(f"DEBUGGING: Enhanced prompt: {enhanced_prompt}")
 
-            except ImportError as e:
-                app.logger.error(f"DEBUGGING: Error importing Midjourney params: {e}")
-                final_prompt = prompt
-            except Exception as e:
-                app.logger.error(f"DEBUGGING: Error applying params: {e}")
 
+            # Construire les paramètres Midjourney
+            params_string = MidjourneyParams.build_params(
+                aspect_ratio=aspect_ratio,
+                style=style,
+                quality=quality,
+                chaos=chaos,
+                version=version,
+                seed_value=seed_value,
+                no_text=no_text
+            )
+            app.logger.error(f"DEBUGGING: Params string: {params_string}")
+
+            # Combiner prompt et paramètres
+            final_prompt = f"{enhanced_prompt} {params_string}".strip()
             app.logger.error(f"Final Midjourney prompt: {final_prompt}")
 
             # Generate task ID
