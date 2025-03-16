@@ -614,6 +614,10 @@ class MidjourneyGenerator(AIModelGenerator):
 
 
     async def generate(self, prompt, additional_params=None):
+        app.logger.error(f"DEBUGGING: Starting generate method in ai_models.py")
+        app.logger.error(f"DEBUGGING: Prompt: {prompt}")
+        app.logger.error(f"DEBUGGING: Additional params: {additional_params}")
+
         try:
             # Analyser les paramètres additionnels si fournis
             if additional_params:
@@ -621,6 +625,7 @@ class MidjourneyGenerator(AIModelGenerator):
                 if isinstance(additional_params, str):
                     try:
                         additional_params = json.loads(additional_params)
+                        app.logger.error(f"DEBUGGING: Parsed JSON: {additional_params}")
                     except json.JSONDecodeError:
                         app.logger.error(f"Failed to parse additional_params JSON: {additional_params}")
                         additional_params = {}
@@ -634,32 +639,49 @@ class MidjourneyGenerator(AIModelGenerator):
             seed_value = additional_params.get('seed') if additional_params else None
             no_text = additional_params.get('no_text', False) if additional_params else False
 
+            app.logger.error(f"DEBUGGING: Extracted params - AR: {aspect_ratio}, Style: {style}, Quality: {quality}")
+
             # Améliorer le prompt si demandé
             enhance_details = additional_params.get('enhance_details', False) if additional_params else False
             photorealistic = additional_params.get('photorealistic', False) if additional_params else False
             medium = additional_params.get('medium') if additional_params else None
 
-            # Appliquer les améliorations de prompt
-            enhanced_prompt = MidjourneyParams.enhance_prompt(
-                prompt,
-                medium=medium,
-                enhance_details=enhance_details,
-                photorealistic=photorealistic
-            )
+            try:
+                from midjourney_params import MidjourneyParams
+                app.logger.error("DEBUGGING: MidjourneyParams imported successfully")
 
-            # Construire les paramètres Midjourney
-            params_string = MidjourneyParams.build_params(
-                aspect_ratio=aspect_ratio,
-                style=style,
-                quality=quality,
-                chaos=chaos,
-                version=version,
-                seed_value=seed_value,
-                no_text=no_text
-            )
+                # Appliquer les améliorations de prompt
+                enhanced_prompt = MidjourneyParams.enhance_prompt(
+                    prompt,
+                    medium=medium,
+                    enhance_details=enhance_details,
+                    photorealistic=photorealistic
+                )
+                app.logger.error(f"DEBUGGING: Enhanced prompt: {enhanced_prompt}")
 
-            # Combiner prompt et paramètres
-            final_prompt = f"{enhanced_prompt} {params_string}".strip()
+
+                # Construire les paramètres Midjourney
+                params_string = MidjourneyParams.build_params(
+                    aspect_ratio=aspect_ratio,
+                    style=style,
+                    quality=quality,
+                    chaos=chaos,
+                    version=version,
+                    seed_value=seed_value,
+                    no_text=no_text
+                )
+                app.logger.error(f"DEBUGGING: Params string: {params_string}")
+
+                # Combiner prompt et paramètres
+                final_prompt = f"{enhanced_prompt} {params_string}".strip()
+                app.logger.error(f"Final Midjourney prompt: {final_prompt}")
+
+            except ImportError as e:
+                app.logger.error(f"DEBUGGING: Error importing Midjourney params: {e}")
+                final_prompt = prompt
+            except Exception as e:
+                app.logger.error(f"DEBUGGING: Error applying params: {e}")
+
             app.logger.error(f"Final Midjourney prompt: {final_prompt}")
 
             # Generate task ID
