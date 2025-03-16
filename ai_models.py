@@ -843,7 +843,6 @@ class MidjourneyGenerator(AIModelGenerator):
                     await redis.hset(metadata_key, 'error', str(e).encode('utf-8'))
                 except:
                     pass
-
                 return {"success": False, "error": str(e)}
 
         finally:
