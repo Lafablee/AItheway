@@ -127,6 +127,19 @@
         const loadMoreButton = document.getElementById('load-more');
         const loadingContainer = document.getElementById('loading-container');
         const backToTop = document.getElementById('back-to-top');
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        if (token) {
+            // Ajouter le token à tous les liens internes du menu
+            document.querySelectorAll('.menu__item').forEach(function(link) {
+                const href = link.getAttribute('href');
+                if (href && !href.includes('token=') && href.startsWith('/')) {
+                    link.setAttribute('href', href + (href.includes('?') ? '&' : '?') + 'token=' + token);
+                }
+            });
+        }
         
         // Fonction pour animer l'apparition des éléments
         function animateItems() {

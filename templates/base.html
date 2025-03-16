@@ -43,7 +43,6 @@
 <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/plugins.css') }}">
 <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/style.css') }}">
 
-<link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/sidebar-fixes.css') }}">
 <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/image-generation-fixes.css') }}">
 <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/right-sidebar-tags.css') }}">
 
@@ -194,51 +193,74 @@
 
 		</header>
 
-		<!-- Improved Left Panel Structure -->
-        <div class="neltar_fn_leftpanel">
-          <div class="leftpanel_logo">
-            <a href="index.html" class="fn_logo">
-              <h1><strong>AItheway</strong></h1>
-            </a>
-            <a href="#" class="fn__icon_button desktop_closer">
-              <img src="{{ url_for('static', filename='assets/svg/arrow.svg') }}" alt="" class="fn__svg">
-            </a>
-            <a href="#" class="fn__icon_button mobile_closer">
-              <img src="{{ url_for('static', filename='assets/svg/arrow.svg') }}" alt="" class="fn__svg">
-            </a>
-          </div>
+		<div class="neltar_fn_leftpanel">
 
-          <div class="leftpanel_content">
-            <div class="nav_group">
-              <ul class="group__list">
-                <li>
-                  <a href="{{ url_for('index') }}" class="fn__tooltip menu__item {% if request.path == url_for('index') %}active{% endif %}">
-                    <span class="icon"><img src="{{ url_for('static', filename='assets/svg/home.svg') }}" alt="" class="fn__svg"></span>
-                    <span class="text">Home</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ url_for('generate_image') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_image') %}active{% endif %}">
-                    <span class="icon"><img src="{{ url_for('static', filename='assets/svg/image.svg') }}" alt="" class="fn__svg"></span>
-                    <span class="text">Générer une Image</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ url_for('upload_enhance') }}" class="fn__tooltip menu__item {% if request.path == url_for('upload_enhance') %}active{% endif %}">
-                    <span class="icon"><img src="{{ url_for('static', filename='assets/svg/cube.svg') }}" alt="" class="fn__svg"></span>
-                    <span class="text">Améliorer la Qualité</span>
-                  </a>
-                </li>
-                <li>
-                  <a href="{{ url_for('generate_audio') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_audio') %}active{% endif %}">
-                    <span class="icon"><img src="{{ url_for('static', filename='assets/svg/volume.svg') }}" alt="" class="fn__svg"></span>
-                    <span class="text">Générer Audio</span>
-                  </a>
-                </li>
-              </ul>
-            </div>
-          </div>
-        </div>
+ 			<div class="mobile_extra_closer"></div>
+
+ 			<div class="leftpanel_logo">
+ 				<a href="index.html" class="fn_logo">
+
+                     <h1><strong>AItheway</strong></h1>
+ 					<!-- <span class="full_logo">
+ 						<img src="{{ url_for('static', filename='assets/img/logo-desktop-full.png') }}" alt="" class="desktop_logo">
+ 						<img src="{{ url_for('static', filename='assets/img/logo-retina-full.png') }}" alt="" class="retina_logo">
+ 					</span>
+ 					<span class="short_logo">
+ 						<img src="{{ url_for('static', filename='assets/img/logo-desktop-mini.png') }}" alt="" class="desktop_logo">
+ 						<img src="{{ url_for('static', filename='assets/img/logo-retina-mini.png') }}" alt="" class="retina_logo">
+ 					</span> -->
+ 				</a>
+ 				<a href="#" class="fn__closer fn__icon_button desktop_closer">
+ 					<img src="{{ url_for('static', filename='assets/svg/arrow.svg') }}" alt="" class="fn__svg">
+ 				</a>
+ 				<a href="#" class="fn__closer fn__icon_button mobile_closer">
+ 					<img src="{{ url_for('static', filename='assets/svg/arrow.svg') }}" alt="" class="fn__svg">
+ 				</a>
+ 			</div>
+
+ 			<div class="leftpanel_content">
+
+ 				<div class="nav_group">
+ 					<ul class="group__list">
+ 						<li>
+ 							<a href="{{ url_for('index') }}" class="fn__tooltip menu__item {% if request.path == url_for('index') %}active{% endif %}" data-position="right" title="Home">
+ 								<span class="icon"><img src="{{ url_for('static', filename='assets/svg/home.svg') }}" alt="" class="fn__svg"></span>
+ 								<span class="text">Home</span>
+ 							</a>
+ 						</li>
+ 						<li>
+ 							<a href="{{ url_for('generate_image') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_image') %}active{% endif %}" data-position="right" title="Community Feed">
+ 								<span class="icon"><img src="{{ url_for('static', filename='assets/svg/image.svg') }}" alt="" class="fn__svg"></span>
+ 								<span class="text">Générer une Image</span>
+ 							</a>
+ 						</li>
+ 						<li>
+ 							<a href="{{ url_for('upload_enhance') }}" class="fn__tooltip menu__item {% if request.path == url_for('upload_enhance') %}active{% endif %}" data-position="right" title="Personal Feed">
+ 								<span class="icon"><img src="{{ url_for('static', filename='assets/svg/cube.svg') }}" alt="" class="fn__svg"></span>
+ 								<span class="text">Améliorer la Qualité</span>
+ 							</a>
+ 						</li>
+                         <li>
+                             <a href="{{ url_for('generate_audio') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_audio') %}active{% endif %}" data-position="right" title="Génération Audio">
+                                 <span class="icon"><img src="{{ url_for('static', filename='assets/svg/volume.svg') }}" alt="" class="fn__svg"></span>
+                                 <span class="text">Générer Audio</span>
+                             </a>
+                         </li>
+                        <li>
+                            <a href="{{ url_for('get_gallery') }}" class="fn__tooltip menu__item gallery-link {% if request.path == url_for('get_gallery') %}active{% endif %}" data-position="right" title="Community creation">
+                                <span class="icon"><img src="{{ url_for('static', filename='assets/svg/community.svg') }}" alt="" class="fn__svg"></span>
+                                <span class="text">See Community creation</span>
+                            </a>
+                        </li>
+
+ 					</ul>
+ 				</div>
+
+
+
+ 			</div>
+
+ 		</div>
 
 		<div class="neltar_fn_content">
 
