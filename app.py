@@ -2528,17 +2528,6 @@ def enhance_image_quality(file_path):
         app.logger.error(f"Unexpected error contacting DeepAI: {str(e)}")
         return None
 
-@app.route('/image/<image_key>')
-def serve_image(image_key):
-    image_data = image_manager.get_image(image_key)
-    if not image_data:
-        return "Image not found", 404
-    return send_file(
-        BytesIO(image_data),
-        mimetype='image/png'
-    )
-
-
 @app.route('/generate_audio', methods=['GET', 'POST'])
 @token_required
 def generate_audio(wp_user_id):
@@ -2645,17 +2634,6 @@ def generate_audio(wp_user_id):
     except Exception as e:
         app.logger.error(f"Unexpected error in generate_audio: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
-
-@app.route('/audio/<audio_key>')
-def serve_audio(audio_key):
-    audio_data = audio_manager.get_audio(audio_key)  # Réutilise le même système de stockage
-    if not audio_data:
-        return "Audio not found", 404
-    return send_file(
-        BytesIO(audio_data),
-        mimetype='audio/mpeg',
-        as_attachment=False
-    )
 
 
 @app.route('/api/audio/history', methods=['GET'])
