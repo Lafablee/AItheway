@@ -41,14 +41,12 @@ template_temp_dir = os.path.abspath('templates_temp')
 STORAGE_BASE_PATH = os.getenv("STORAGE_BASE_PATH", os.path.join(os.getcwd(), 'storage'))
 file_storage = FileStorage(STORAGE_BASE_PATH)
 
-print(f"Type de TEMP_STORAGE_DURATION: {type(TEMP_STORAGE_DURATION)}")
-print(f"Valeur: {TEMP_STORAGE_DURATION}")
 
 # Créer le gestionnaire de stockage unifié
 storage_manager = StorageManager(
     redis_client=redis_client,
     file_storage=file_storage,
-    temp_duration=TEMP_STORAGE_DURATION
+    temp_duration=timedelta(seconds=TEMP_STORAGE_DURATION) if isinstance(TEMP_STORAGE_DURATION, int) else TEMP_STORAGE_DURATION
 )
 
 
