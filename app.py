@@ -38,7 +38,7 @@ template_temp_dir = os.path.abspath('templates_temp')
 
 
 # Configuration du stockage fichier
-STORAGE_BASE_PATH = os.getenv("STORAGE_BASE_PATH", "./storage")
+STORAGE_BASE_PATH = os.getenv("STORAGE_BASE_PATH", os.path.join(os.getcwd(), 'storage'))
 file_storage = FileStorage(STORAGE_BASE_PATH)
 
 # Créer le gestionnaire de stockage unifié
@@ -648,9 +648,9 @@ class MidjourneyGroupManager:
             return None
 
 
-image_manager = ImageManager(redis_client)
-midjourney_group_manager = MidjourneyGroupManager(redis_client)
-audio_manager = AudioManager(redis_client)
+image_manager = ImageManager(storage_manager)
+midjourney_group_manager = MidjourneyGroupManager(storage_manager)
+audio_manager = AudioManager(storage_manager)
 
 
 class MidjourneyImageGroup:
@@ -834,12 +834,6 @@ class ChatManager:
 
 # Initialisation
 chat_manager = ChatManager(redis_client)
-
-# Initialiser les gestionnaires avec le StorageManager plutôt que Redis directement
-image_manager = ImageManager(storage_manager)
-audio_manager = AudioManager(storage_manager)
-midjourney_group_manager = MidjourneyGroupManager(storage_manager)
-
 
 def get_paginated_history(wp_user_id, history_type):
     """
