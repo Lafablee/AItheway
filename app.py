@@ -24,6 +24,10 @@ from audio_manager import AudioManager
 from tasks import start_background_tasks
 import uuid
 import asyncio
+from pathlib import Path
+from storage_manager import FileStorage, StorageManager
+from storage_tasks import migrate_old_redis_content
+
 from config import redis_client, TEMP_STORAGE_DURATION, PERMANENT_STORAGE_DURATION
 
 
@@ -33,6 +37,16 @@ template_dir = os.path.abspath('templates')
 template_temp_dir = os.path.abspath('templates_temp')
 
 
+# Configuration du stockage fichier
+STORAGE_BASE_PATH = os.getenv("STORAGE_BASE_PATH", "./storage")
+file_storage = FileStorage(STORAGE_BASE_PATH)
+
+# Créer le gestionnaire de stockage unifié
+storage_manager = StorageManager(
+    redis_client=redis_client,
+    file_storage=file_storage,
+    temp_duration=TEMP_STORAGE_DURATION
+)
 
 
 load_dotenv(dotenv_path='.env')
@@ -110,8 +124,8 @@ PERMISSIONS = {
 }
 
 class ImageManager:
-    def __init__(self, redis_client):
-        self.redis = redis_client
+    def __init__(self, storage_manager):
+        self.storage = storage_manager
         self.prefix = "img"
 
     def _generate_key(self, user_id, type="temp"):
@@ -127,30 +141,21 @@ class ImageManager:
             key = self._generate_key(user_id)
             app.logger.error(f"Generated key for image: {key}")
 
-            # Pipeline pour les opérations atomiques
-            pipe = self.redis.pipeline()
+            # Convertir les métadonnées dict en format Redis si nécessaire
+            if metadata and isinstance(metadata, dict):
+                redis_metadata = {
+                    k: v.encode('utf-8') if isinstance(v, str) else v
+                    for k, v in metadata.items()
+                }
+            else:
+                redis_metadata = metadata
 
-            # Stockage de l'image
-            pipe.setex(
-                key,
-                TEMP_STORAGE_DURATION,
-                image_data
-            )
+            # Stocker via le gestionnaire de stockage
+            self.storage.store(key, image_data, redis_metadata, 'images')
 
-            # Stockage des métadonnées si présentes
-            if metadata:
-                metadata_key = f"{key}:meta"
-                app.logger.error(f"Original metadata: {metadata}")
-
-                pipe.hmset(metadata_key, metadata)
-                pipe.expire(metadata_key, TEMP_STORAGE_DURATION)
-
-                # Ajouter à l'index utilisateur
-                user_index_key = f"user:{user_id}:images"
-                pipe.lpush(user_index_key, key)
-
-            results = pipe.execute()
-            app.logger.error(f"Pipeline execution results: {results}")
+            # Ajouter à l'index utilisateur
+            user_index_key = f"user:{user_id}:images"
+            self.storage.redis.lpush(user_index_key, key)
 
             return key
 
@@ -163,6 +168,7 @@ class ImageManager:
         """Récupère l'historique des images d'un utilisateur"""
         app.logger.error(f"Fetching history for user {user_id} with type {history_type}")
 
+        # Les patterns restent les mêmes car on interroge toujours Redis pour les clés
         patterns = [
             f"img:temp:image:{user_id}:*",
             "img:temp:image:midjourney:*"
@@ -170,21 +176,22 @@ class ImageManager:
         images = []
         processed_groups = set()
 
+        # Récupérer toutes les clés depuis Redis (pas besoin de changer cette partie)
         all_keys = []
         for pattern in patterns:
-            keys = self.redis.keys(pattern)
+            keys = self.storage.redis.keys(pattern)
             all_keys.extend(keys)
 
         app.logger.error(f"Found all keys: {all_keys}")
 
         # Filtrer pour ne garder que les clés d'images (pas les métadonnées)
-        app.logger.error(f"Found all keys: {all_keys}")
         image_keys = [k for k in all_keys if not k.endswith(b':meta')]
         app.logger.error(f"Filtered image keys: {image_keys}")
 
+        # Traitement spécial pour les images générées par Midjourney
         if history_type == "generated":
             user_midjourney_key = f"user:{user_id}:midjourney_history"
-            midjourney_task_ids = self.redis.smembers(user_midjourney_key)
+            midjourney_task_ids = self.storage.redis.smembers(user_midjourney_key)
 
             if midjourney_task_ids:
                 # Convertir les task_ids en bytes si nécessaire
@@ -201,11 +208,19 @@ class ImageManager:
 
                     # Récupérer les données du groupe Midjourney
                     group_key = f"midjourney_group:{task_id}"
-                    group_data_bytes = self.redis.get(group_key)
 
-                    if group_data_bytes:
+                    # Ici, on utilise le StorageManager pour récupérer les données du groupe
+                    # Le format est différent car StorageManager normalise les données
+                    group_data = self.storage.get(group_key, 'metadata')
+
+                    if group_data:
                         try:
-                            group = json.loads(group_data_bytes)
+                            # Si les données sont binaires, les décoder
+                            if isinstance(group_data, bytes):
+                                group = json.loads(group_data.decode('utf-8'))
+                            else:
+                                group = json.loads(group_data)
+
                             # Vérifier si le groupe est complet
                             if group and (group.get('status') == 'completed' or group.get('status') == 'complete'):
                                 # S'assurer que le groupe a des images
@@ -241,22 +256,30 @@ class ImageManager:
                             app.logger.error(f"Error parsing Midjourney group data: {e}")
                             continue
 
+        # Traitement des images individuelles
         for key in image_keys:
             try:
-                # Construire la clé des métadonnées
-                metadata_key = f"{key.decode('utf-8')}:meta"
-                metadata = self.redis.hgetall(metadata_key)
-                app.logger.error(f"Checking metadata for key {metadata_key}: {metadata}")
+                # Convertir la clé en string si nécessaire
+                key_str = key.decode('utf-8') if isinstance(key, bytes) else key
+
+                # Récupérer les métadonnées via le StorageManager
+                metadata = self.storage.get_metadata(key_str)
+                app.logger.error(f"Checking metadata for key {key_str}: {metadata}")
 
                 # Vérifier si l'image existe toujours
-                if not self.redis.exists(key):
-                    app.logger.error(f"Image {key} no longer exists, skipping")
+                if not self.storage.get(key_str, 'images'):
+                    app.logger.error(f"Image {key_str} no longer exists, skipping")
                     continue
 
+                # Ici, les métadonnées sont déjà normalisées par StorageManager (pas de bytes)
+                image_type = metadata.get('type') if metadata else None
+
                 # Traitement selon le type d'historique demandé
-                if history_type == "generated" and metadata.get(b'type') == b'generated':
-                    if metadata.get(b'model', b'').decode('utf-8') == 'midjourney':
-                        task_id = metadata.get(b'task_id', b'').decode('utf-8')
+                if history_type == "generated" and image_type == 'generated':
+                    model = metadata.get('model', '')
+
+                    if model == 'midjourney':
+                        task_id = metadata.get('task_id', '')
 
                         # Éviter de traiter plusieurs fois le même groupe
                         if task_id in processed_groups:
@@ -289,30 +312,30 @@ class ImageManager:
                                 app.logger.error(f"Added Midjourney group: {image_data}")
 
                     else:
-
                         try:
-                            # Décoder les métadonnées essentielles
-                            decoded_prompt = metadata.get(b'prompt', b'').decode('utf-8')
-                            decoded_timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
-                            model = metadata.get(b'model', b'unknown').decode('utf-8')
+                            # Récupérer les valeurs des métadonnées
+                            decoded_prompt = metadata.get('prompt', '')
+                            decoded_timestamp = metadata.get('timestamp', '')
+                            model = metadata.get('model', 'unknown')
 
                             # Vérifier que l'image appartient à l'utilisateur pour les images DALL-E
                             # Pour Midjourney, on accepte toutes les images car elles sont partagées
-                            if model != 'midjourney' and f"img:temp:image:{user_id}" not in key.decode('utf-8'):
+                            if model != 'midjourney' and f"img:temp:image:{user_id}" not in key_str:
                                 continue
 
-                            # Décoder et parser les paramètres
+                            # Récupérer les paramètres (déjà en string)
                             try:
-                                parameters_str = metadata.get(b'parameters', b'{}').decode('utf-8')
-                                parameters = json.loads(parameters_str)
+                                parameters_str = metadata.get('parameters', '{}')
+                                parameters = json.loads(parameters_str) if isinstance(parameters_str,
+                                                                                      str) else parameters_str
                             except (json.JSONDecodeError, TypeError):
                                 app.logger.error(f"Error parsing parameters for key {key}")
                                 parameters = {}
 
                             # Construire l'objet image
                             image_data = {
-                                'key': key.decode('utf-8'),
-                                'url': f"/image/{key.decode('utf-8')}",
+                                'key': key_str,
+                                'url': f"/image/{key_str}",
                                 'prompt': decoded_prompt,
                                 'timestamp': decoded_timestamp,
                                 'parameters': parameters,
@@ -321,8 +344,8 @@ class ImageManager:
 
                             # Ajouter des champs spécifiques à Midjourney si présents
                             if model == 'midjourney':
-                                image_data['task_id'] = metadata.get(b'task_id', b'').decode('utf-8')
-                                image_data['make_task_id'] = metadata.get(b'make_task_id', b'').decode('utf-8')
+                                image_data['task_id'] = metadata.get('task_id', '')
+                                image_data['make_task_id'] = metadata.get('make_task_id', '')
 
                             images.append(image_data)
                             app.logger.error(f"Added generated image to history: {image_data}")
@@ -331,18 +354,18 @@ class ImageManager:
                             app.logger.error(f"Error processing generated image metadata: {e}")
                             continue
 
-                elif history_type == "enhanced" and metadata.get(b'type') == b'enhanced':
+                elif history_type == "enhanced" and image_type == 'enhanced':
                     try:
                         # Traitement spécifique pour les images améliorées
-                        original_key = metadata.get(b'original_key')
-                        timestamp = metadata.get(b'timestamp', b'').decode('utf-8')
+                        original_key = metadata.get('original_key')
+                        timestamp = metadata.get('timestamp', '')
 
                         enhanced_data = {
-                            'enhanced_key': key.decode('utf-8'),
-                            'original_key': original_key.decode('utf-8') if original_key else None,
+                            'enhanced_key': key_str,
+                            'original_key': original_key if original_key else None,
                             'timestamp': timestamp,
-                            'enhanced_url': f"/image/{key.decode('utf-8')}",
-                            'original_url': f"/image/{original_key.decode('utf-8')}" if original_key else None
+                            'enhanced_url': f"/image/{key_str}",
+                            'original_url': f"/image/{original_key}" if original_key else None
                         }
 
                         images.append(enhanced_data)
@@ -356,7 +379,7 @@ class ImageManager:
                 app.logger.error(f"Error processing image key {key}: {e}")
                 continue
 
-            # Trier les images par timestamp (plus récent en premier)
+        # Trier les images par timestamp (plus récent en premier)
         sorted_images = sorted(images, key=lambda x: x['timestamp'], reverse=True)
         app.logger.error(f"Returning {len(sorted_images)} sorted images")
 
@@ -365,30 +388,22 @@ class ImageManager:
     def save_image(self, user_id, image_data):
         """Sauvegarde une image de manière permanente"""
         key = f"user:{user_id}:images:{datetime.now().timestamp()}"
-        self.redis.setex(
-            key,
-            PERMANENT_STORAGE_DURATION,
-            image_data
-        )
+
+        # Stocker directement sur le disque en contournant Redis
+        self.storage.file_storage.store_file(key, image_data, 'images')
         return key
 
     def get_image(self, key):
-        """Récupère une image"""
-        if not self.redis.exists(key):
-            return None
-        return self.redis.get(key)
+        """Récupère une image depuis n'importe quel stockage"""
+        return self.storage.get(key, 'images')
 
     def delete_image(self, key):
         """Suppression propre avec métadonnées"""
-        pipe = self.redis.pipeline()
-        pipe.delete(key)
-        pipe.delete(f"{key}:meta")
-        pipe.execute()
+        return self.storage.delete(key, 'images')
 
     def get_image_metadata(self, key):
         """Récupère les métadonnées d'une image"""
-        metadata_key = f"{key}:metadata"
-        return self.redis.hgetall(metadata_key)
+        return self.storage.get_metadata(key)
 
     def create_midjourney_group(self, task_id, prompt):
         group_key = f"midjourney_group:{task_id}"
@@ -820,6 +835,10 @@ class ChatManager:
 # Initialisation
 chat_manager = ChatManager(redis_client)
 
+# Initialiser les gestionnaires avec le StorageManager plutôt que Redis directement
+image_manager = ImageManager(storage_manager)
+audio_manager = AudioManager(storage_manager)
+midjourney_group_manager = MidjourneyGroupManager(storage_manager)
 
 
 def get_paginated_history(wp_user_id, history_type):
@@ -3009,62 +3028,28 @@ def delete_gallery_item(wp_user_id, gallery_item_id):
         }), 500
 
 
-#  TEMP Route de diagnostic à ajouter dans app.py TEMP
-@app.route('/test-redis', methods=['GET'])
-def test_redis():
-    """
-    Route de diagnostic pour tester Redis
-    """
-    result = {
-        'redis_client_type': str(type(redis_client)),
-        'redis_methods': []
-    }
+# Routes de service mises à jour
+@app.route('/image/<image_key>')
+def serve_image(image_key):
+    image_data = storage_manager.get(image_key, 'images')
+    if not image_data:
+        return "Image not found", 404
+    return send_file(
+        BytesIO(image_data),
+        mimetype='image/png'
+    )
 
-    # Vérifier quelques méthodes clés
-    for method_name in ['get', 'set', 'smembers', 'zadd', 'pipeline']:
-        try:
-            method = getattr(redis_client, method_name)
-            result['redis_methods'].append({
-                'name': method_name,
-                'type': str(type(method)),
-                'is_callable': callable(method)
-            })
-        except Exception as e:
-            result['redis_methods'].append({
-                'name': method_name,
-                'error': str(e)
-            })
+@app.route('/audio/<audio_key>')
+def serve_audio(audio_key):
+    audio_data = storage_manager.get(audio_key, 'audio')
+    if not audio_data:
+        return "Audio not found", 404
+    return send_file(
+        BytesIO(audio_data),
+        mimetype='audio/mpeg',
+        as_attachment=False
+    )
 
-    # Test simple de fonctionnement
-    test_key = "test:key:diagnostic"
-    test_value = "test_value"
-
-    try:
-        # Test de set/get
-        redis_client.set(test_key, test_value)
-        get_result = redis_client.get(test_key)
-        result['basic_get_set'] = {
-            'success': get_result == test_value.encode('utf-8') or get_result == test_value,
-            'value_received': str(get_result),
-            'value_type': str(type(get_result))
-        }
-
-        # Test de smembers (pertinent pour notre erreur)
-        test_set_key = "test:set:diagnostic"
-        redis_client.sadd(test_set_key, "value1", "value2")
-        members = redis_client.smembers(test_set_key)
-        result['smembers_test'] = {
-            'result_type': str(type(members)),
-            'is_iterable': hasattr(members, '__iter__'),
-            'members': [m.decode('utf-8') if isinstance(m, bytes) else m for m in members] if hasattr(members,
-                                                                                                      '__iter__') else str(
-                members)
-        }
-
-    except Exception as e:
-        result['test_error'] = str(e)
-
-    return jsonify(result)
 
 @app.route('/save-image', methods=['POST'])
 @token_required
@@ -3596,6 +3581,50 @@ def debug_task(task_id):
 
 
 #---- END TEMP!----
+
+#---- ADMIN Storage stats lookup ----
+@app.route('/admin/storage/stats', methods=['GET'])
+@token_required
+def storage_stats(wp_user_id):
+    """Obtenir des statistiques de stockage pour les administrateurs."""
+    # Vérifier si l'utilisateur est admin
+    client = get_client_by_wp_user_id(wp_user_id)
+    if not client or client.get("id") != 1:  # Adapter selon votre logique d'admin
+        return jsonify({"error": "Admin access required"}), 403
+
+    # Obtenir les stats Redis
+    redis_keys = len(redis_client.keys('*'))
+    redis_info = redis_client.info('memory')
+    redis_memory = redis_info.get('used_memory_human', 'Unknown')
+
+    # Obtenir les stats du stockage fichier
+    total_files = 0
+    total_size = 0
+
+    for content_type in ['images', 'audio', 'video']:
+        path = Path(file_storage.base_path) / content_type
+        if path.exists():
+            # Compter les fichiers récursivement
+            files = list(path.glob('**/*'))
+            files = [f for f in files if f.is_file()]
+            total_files += len(files)
+
+            # Calculer la taille totale
+            size = sum(f.stat().st_size for f in files)
+            total_size += size
+
+    return jsonify({
+        'redis': {
+            'keys': redis_keys,
+            'memory_usage': redis_memory
+        },
+        'file_storage': {
+            'total_files': total_files,
+            'total_size_bytes': total_size,
+            'total_size_mb': total_size / (1024 * 1024)
+        }
+    })
+
 def init_background_tasks(_app):
     # Import here to avoid circular imports
     from tasks import check_pending_midjourney_tasks
@@ -3606,7 +3635,9 @@ def init_background_tasks(_app):
 
     # Start the background task
     loop = asyncio.get_event_loop()
-    return loop.create_task(check_pending_midjourney_tasks())
+    loop.create_task(check_pending_midjourney_tasks())
+    loop.create_task(migrate_old_redis_content(storage_manager))
+    return loop
 
 init_gallery_manager()
 
