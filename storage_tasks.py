@@ -1,13 +1,17 @@
 # storage_tasks.py
 import asyncio
+import logging
 import time
 from datetime import datetime, timedelta
+from venv import logger
+
 from flask import current_app as app
 
+logger = logging.getLogger("background_worker")
 
 async def migrate_old_redis_content(storage_manager, age_threshold=timedelta(hours=23)):
     """Tâche d'arrière-plan pour migrer le contenu plus vieux qu'un seuil de Redis vers le disque"""
-    app.logger.info("Démarrage de la tâche périodique de migration de contenu")
+    logger.info("Démarrage de la tâche périodique de migration de contenu")
 
     while True:
         try:
@@ -51,11 +55,11 @@ async def migrate_old_redis_content(storage_manager, age_threshold=timedelta(hou
                     # Dormir brièvement pour éviter de surcharger Redis
                     await asyncio.sleep(0.01)
 
-            app.logger.info(f"Migration terminée. {migrated_count} éléments migrés.")
+            logger.info(f"Migration terminée. {migrated_count} éléments migrés.")
 
             # Dormir avant la prochaine vérification
             await asyncio.sleep(3600)  # Vérifier toutes les heures
 
         except Exception as e:
-            app.logger.error(f"Erreur dans la tâche de migration: {str(e)}")
+            logger.error(f"Erreur dans la tâche de migration: {str(e)}")
             await asyncio.sleep(60)  # Attendre une minute avant de réessayer
