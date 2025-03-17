@@ -10,14 +10,17 @@ logger = logging.getLogger("background_worker")
 
 # Lire les paramètres d'environnement pour le mode test
 TEST_MODE = os.getenv("STORAGE_TEST_MODE", "false").lower() == "true"
-TEST_AGE_MINUTES = int(os.getenv("STORAGE_TEST_AGE_MINUTES", "5"))
+TEST_AGE_MINUTES = int(os.getenv("STORAGE_TEST_AGE_MINUTES", "2"))
 TEST_CHECK_SECONDS = int(os.getenv("STORAGE_TEST_CHECK_SECONDS", "30"))
+TEST_TTL_MINUTES = int(os.getenv("STORAGE_TEST_TTL_MINUTES", "10"))
 
 logger.info(f"Mode test activé: {TEST_MODE}")
 if TEST_MODE:
     logger.info(
-        f"Paramètres de test: Âge de migration: {TEST_AGE_MINUTES} minutes, Intervalle de vérification: {TEST_CHECK_SECONDS} secondes")
+        f"Paramètres de test: TTL: {TEST_TTL_MINUTES} minutes, Age de migration: {TEST_AGE_MINUTES} minutes, Intervalle de vérification: {TEST_CHECK_SECONDS} secondes")
 
+# TTL standard de production (24 heures)
+STANDARD_TTL_SECONDS = 86400
 
 async def migrate_old_redis_content(storage_manager, age_threshold=None):
     """
@@ -42,12 +45,24 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
         try:
             # Obtenir la durée originale de stockage
             original_ttl = int(storage_manager.temp_duration.total_seconds())
+            expected_ttl = original_ttl
+
+            #déterminer si c'est un élément ancien (créé avant mode test)
+            is_legacy_item = ttl > expected_ttl + 100 # Marhe de 100 secondes
+
+            if is_legacy_item:
+                # Pour les éléments anciens, utiliser le TTL standard (24h)
+                effective_ttl = STANDARD_TTL_SECONDS
+                elapsed_time = STANDARD_TTL_SECONDS - ttl
+                legacy_notice = "ÉLÉMENT ANCIEN (avant mode test)"
+            else:
+                # Pour les nouveaux éléments, utiliser le TTL configuré
+                effective_ttl = original_ttl
+                elapsed_time = original_ttl - ttl
+                legacy_notice = "Élément récent"
 
             # Calculer le seuil en secondes
             threshold_seconds = age_threshold.total_seconds()
-
-            # Calculer le temps écoulé depuis le stockage
-            elapsed_time = original_ttl - ttl
 
             # Migrer si le temps écoulé est supérieur au seuil
             should_migrate = elapsed_time >= threshold_seconds
