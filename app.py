@@ -41,12 +41,22 @@ template_temp_dir = os.path.abspath('templates_temp')
 STORAGE_BASE_PATH = os.getenv("STORAGE_BASE_PATH", os.path.join(os.getcwd(), 'storage'))
 file_storage = FileStorage(STORAGE_BASE_PATH)
 
+test_mode = os.getenv("STORAGE_TEST_MODE", "false").lower() == "true"
+test_ttl_minutes = int(os.getenv("STORAGE_TEST_TTL_MINUTES", "10"))
+
+if test_mode:
+    # 10 minutes en mode test au lieu de 24 heures
+    temp_duration = timedelta(minutes=test_ttl_minutes)
+    print(f"Mode TEST activé: TTL initial réduit à {test_ttl_minutes} minutes")
+else:
+    # Valeur normale pour le mode production
+    temp_duration = timedelta(seconds=TEMP_STORAGE_DURATION) if isinstance(TEMP_STORAGE_DURATION,int) else TEMP_STORAGE_DURATION
 
 # Créer le gestionnaire de stockage unifié
 storage_manager = StorageManager(
     redis_client=redis_client,
     file_storage=file_storage,
-    temp_duration=timedelta(seconds=TEMP_STORAGE_DURATION) if isinstance(TEMP_STORAGE_DURATION, int) else TEMP_STORAGE_DURATION
+    temp_duration=temp_duration
 )
 
 
