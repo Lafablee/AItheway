@@ -2,7 +2,6 @@
 import asyncio
 import logging
 import os
-import sys
 from datetime import datetime, timedelta
 
 # Obtenir le logger configuré dans background_worker.py
@@ -10,17 +9,14 @@ logger = logging.getLogger("background_worker")
 
 # Lire les paramètres d'environnement pour le mode test
 TEST_MODE = os.getenv("STORAGE_TEST_MODE", "false").lower() == "true"
-TEST_AGE_MINUTES = int(os.getenv("STORAGE_TEST_AGE_MINUTES", "2"))
+TEST_AGE_MINUTES = int(os.getenv("STORAGE_TEST_AGE_MINUTES", "5"))
 TEST_CHECK_SECONDS = int(os.getenv("STORAGE_TEST_CHECK_SECONDS", "30"))
-TEST_TTL_MINUTES = int(os.getenv("STORAGE_TEST_TTL_MINUTES", "10"))
 
 logger.info(f"Mode test activé: {TEST_MODE}")
 if TEST_MODE:
     logger.info(
-        f"Paramètres de test: TTL: {TEST_TTL_MINUTES} minutes, Age de migration: {TEST_AGE_MINUTES} minutes, Intervalle de vérification: {TEST_CHECK_SECONDS} secondes")
+        f"Paramètres de test: Âge de migration: {TEST_AGE_MINUTES} minutes, Intervalle de vérification: {TEST_CHECK_SECONDS} secondes")
 
-# TTL standard de production (24 heures)
-STANDARD_TTL_SECONDS = 86400
 
 async def migrate_old_redis_content(storage_manager, age_threshold=None):
     """
@@ -40,105 +36,37 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
             age_threshold = timedelta(hours=23)
             logger.info(f"Mode PRODUCTION: Migration après 23 heures, vérification toutes les heures")
 
-    # Logique de détermination de l'âge à partir du TTL
-    def should_migrate(key, ttl):
-        try:
-            # Obtenir la durée originale de stockage
-            original_ttl = int(storage_manager.temp_duration.total_seconds())
-            expected_ttl = original_ttl
-
-            #déterminer si c'est un élément ancien (créé avant mode test)
-            is_legacy_item = ttl > expected_ttl + 100 # Marhe de 100 secondes
-
-            if is_legacy_item:
-                # Pour les éléments anciens, utiliser le TTL standard (24h)
-                effective_ttl = STANDARD_TTL_SECONDS
-                elapsed_time = STANDARD_TTL_SECONDS - ttl
-                legacy_notice = "ÉLÉMENT ANCIEN (avant mode test)"
-
-                if TEST_MODE:
-                    threshold_seconds = min(age_threshold.total_seconds(), 180)  # 3 minutes maximum
-                    logger.info(f" → Seuil ajusté pour élément legacy en mode test: {threshold_seconds}s")
-                else:
-                    threshold_seconds = age_threshold.total_seconds()
-            else:
-                # Pour les nouveaux éléments, utiliser le TTL configuré
-                effective_ttl = original_ttl
-                elapsed_time = original_ttl - ttl
-                legacy_notice = "Élément récent"
-
-                # Calculer le seuil en secondes
-                threshold_seconds = age_threshold.total_seconds()
-
-            # Migrer si le temps écoulé est supérieur au seuil
-            should_migrate = elapsed_time >= threshold_seconds
-
-            # Log de diagnostic détaillé
-            if TEST_MODE:
-                logger.info(f"Diagnostic de migration - Clé: {key}")
-                logger.info(f"  → TTL actuel: {ttl}s")
-                logger.info(f"  → TTL original: {original_ttl}s")
-                logger.info(f"  → Temps écoulé: {elapsed_time}s")
-                logger.info(f"  → Seuil de migration: {threshold_seconds}s")
-                logger.info(f"  → Décision de migration: {should_migrate}")
-
-            return should_migrate
-        except Exception as e:
-            logger.error(f"Erreur dans should_migrate pour {key}: {str(e)}")
-            return False
-
     logger.info(f"Démarrage de la tâche périodique de migration de contenu (seuil: {age_threshold})")
 
-    # Boucle de vérification continuelle
     while True:
         try:
-            start_time = datetime.now()
-            logger.info(f"[{start_time.strftime('%H:%M:%S')}] Début de vérification des clés pour migration...")
-
             # Obtenir la liste de toutes les clés dans Redis
-            all_keys = []
-
             # Images
-            image_keys = storage_manager.redis.keys("img:temp:image:*")
-            all_keys.extend(image_keys)
-
-            # Images Midjourney
-            mj_keys = storage_manager.redis.keys("midjourney_image:*")
-            all_keys.extend(mj_keys)
+            keys = storage_manager.redis.keys("img:temp:image:*")
+            keys.extend(storage_manager.redis.keys("midjourney_image:*"))
 
             # Audio
-            audio_keys = storage_manager.redis.keys("audio:*")
-            all_keys.extend(audio_keys)
+            keys.extend(storage_manager.redis.keys("audio:*"))
 
-            # Filtrer les clés de métadonnées
-            filtered_keys = []
-            for key in all_keys:
-                key_str = key.decode('utf-8') if isinstance(key, bytes) else key
-                if not key_str.endswith(":meta"):
-                    filtered_keys.append(key_str)
-
-            logger.info(f"Trouvé {len(filtered_keys)} clés à analyser pour migration potentielle")
-
-            # Variable pour suivre les statistiques de migration
+            logger.info(f"Trouvé {len(keys)} clés à analyser pour migration potentielle")
+            now = datetime.now()
             migrated_count = 0
             migrated_types = {"images": 0, "audio": 0, "video": 0}
 
-            # Si nous sommes en mode test, afficher des infos pour toutes les clés
-            if TEST_MODE and filtered_keys:
-                logger.info("=== Détails des clés trouvées ===")
-                for i, key in enumerate(filtered_keys[:10]):  # Limiter à 10 pour éviter des logs trop longs
-                    ttl = storage_manager.redis.ttl(key)
-                    logger.info(f"Clé #{i + 1}: {key} (TTL: {ttl}s)")
-                if len(filtered_keys) > 10:
-                    logger.info(f"...et {len(filtered_keys) - 10} autres clés")
+            for key in keys:
+                if isinstance(key, bytes):
+                    key = key.decode('utf-8')
 
-            # Parcourir les clés pour migration
-            for key in filtered_keys:
-                # Vérifier le TTL
+                # Ignorer les clés de métadonnées
+                if key.endswith(":meta"):
+                    continue
+
+                # Vérifier le TTL pour estimer l'âge
                 ttl = storage_manager.redis.ttl(key)
 
-                # Déterminer si la clé doit être migrée
-                if should_migrate(key, ttl):
+                # Si le TTL est moins que le seuil, migrer vers le disque
+                original_ttl = storage_manager.temp_duration.total_seconds()
+                if ttl < original_ttl - age_threshold.total_seconds():
                     # Déterminer le type de contenu
                     content_type = 'images'  # Par défaut
 
@@ -164,35 +92,28 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
                     if success:
                         migrated_count += 1
                         migrated_types[content_type] += 1
-                        logger.info(f"Migration réussie pour {key}")
+                        logger.debug(f"Migration réussie pour {key}")
                     else:
                         logger.warning(f"Échec de la migration pour {key}")
 
                     # Dormir brièvement pour éviter de surcharger Redis
                     await asyncio.sleep(0.01)
 
-            # Bilan de la migration
-            end_time = datetime.now()
-            duration = (end_time - start_time).total_seconds()
-
             if migrated_count > 0:
-                logger.info(f"Migration terminée en {duration:.2f}s. {migrated_count} éléments migrés: "
+                logger.info(f"Migration terminée. {migrated_count} éléments migrés: "
                             f"{migrated_types['images']} images, "
                             f"{migrated_types['audio']} audio, "
                             f"{migrated_types['video']} vidéo.")
             else:
-                logger.info(f"Aucun élément à migrer dans cette exécution (durée: {duration:.2f}s).")
+                logger.info("Aucun élément à migrer dans cette exécution.")
 
             # Dormir avant la prochaine vérification - durée basée sur le mode
             check_interval = TEST_CHECK_SECONDS if TEST_MODE else 3600  # 30 secondes en test, 1 heure en prod
-            next_check = datetime.now() + timedelta(seconds=check_interval)
-            logger.info(
-                f"Prochaine vérification prévue à {next_check.strftime('%H:%M:%S')} (dans {check_interval} secondes)")
+            logger.debug(f"Pause de {check_interval} secondes avant la prochaine vérification")
             await asyncio.sleep(check_interval)
 
         except Exception as e:
             logger.error(f"Erreur dans la tâche de migration: {str(e)}", exc_info=True)
             # Pause plus courte en cas d'erreur en mode test
             error_wait = 5 if TEST_MODE else 60
-            logger.info(f"Nouvelle tentative dans {error_wait} secondes...")
             await asyncio.sleep(error_wait)

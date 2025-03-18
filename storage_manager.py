@@ -2,19 +2,11 @@
 import os
 import json
 import hashlib
-import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from flask import current_app as app
 from io import BytesIO
 
-from gallery_manager import logger
-
-logger = logging.getLogger("storage_manager")
-
-# Mode test et valeurs par défaut
-TEST_MODE = os.getenv("STORAGE_TEST_MODE", "false").lower() == "true"
-TEST_TTL_MINUTES = int(os.getenv("STORAGE_TEST_TTL_MINUTES", "10"))
 
 class FileStorage:
     """Gestionnaire de stockage sur système de fichiers"""
@@ -106,69 +98,39 @@ class FileStorage:
 class StorageManager:
     """Gestionnaire de stockage unifié (Redis + système de fichiers)"""
 
-    def __init__(self, redis_client, file_storage, temp_duration=None):
+    def __init__(self, redis_client, file_storage, temp_duration=timedelta(days=1)):
         """Initialiser le gestionnaire avec Redis et FileStorage"""
         self.redis = redis_client
         self.file_storage = file_storage
-
-        # Détermination automatique du TTL en fonction du mode (test ou prod)
-        if temp_duration is None:
-            if TEST_MODE:
-                self.temp_duration = timedelta(minutes=TEST_TTL_MINUTES)
-                print(f"Mode TEST: TTL auto-configuré à {TEST_TTL_MINUTES} minutes")
-            else:
-                self.temp_duration = timedelta(hours=24)
-                print("Mode PROD: TTL standard de 24 heures")
-        else:
-            self.temp_duration = temp_duration
-
-        # Log du TTL configuré
-        print(f"StorageManager initialisé avec TTL: {self.temp_duration}")
-        logger.info(f"StorageManager initialisé avec TTL: {self.temp_duration}")
+        self.temp_duration = temp_duration
 
     def store(self, key, data, metadata=None, content_type='images'):
         """Stocker le contenu dans Redis avec métadonnées optionnelles"""
-
-        # Force du TTL en mode TEST
-        ttl_seconds = int(self.temp_duration.total_seconds())
-
-
-        logger.error(f"Stockage de {key} avec TTL: {ttl_seconds}")
-        logger.info(f"Mode TEST activé: {TEST_MODE}")
-
         # Stocker les données dans Redis
         self.redis.setex(
             key,
-            ttl_seconds,
+            int(self.temp_duration.total_seconds()),
             data
         )
 
-        #Preparation metadata
-        if metadata is None:
-            metadata = {}
-
-        # NOUVEAU: Ajouter des informations sur le stockage dans les métadonnées
-        metadata['storage_timestamp'] = datetime.now().isoformat()
-        metadata['storage_ttl'] = ttl_seconds
-        metadata['storage_test_mode'] = TEST_MODE
-
         # Stocker les métadonnées si fournies
+        if metadata:
+            metadata_key = f"{key}:meta"
+            if isinstance(metadata, dict):
+                # Convertir dict en format Redis
+                formatted_metadata = {}
+                for k, v in metadata.items():
+                    if isinstance(v, str):
+                        formatted_metadata[k] = v.encode('utf-8')
+                    else:
+                        formatted_metadata[k] = v
+                self.redis.hmset(metadata_key, formatted_metadata)
+            else:
+                # Supposer que les métadonnées sont déjà au format Redis
+                self.redis.hmset(metadata_key, metadata)
 
-        metadata_key = f"{key}:meta"
-        if isinstance(metadata, dict):
-            # Convertir dict en format Redis
-            formatted_metadata = {}
-            for k, v in metadata.items():
-                if isinstance(v, str):
-                    formatted_metadata[k] = v.encode('utf-8')
-                else:
-                    formatted_metadata[k] = v
-            self.redis.hmset(metadata_key, formatted_metadata)
-        else:
-            # Supposer que les métadonnées sont déjà au format Redis
-            self.redis.hmset(metadata_key, metadata)
+            self.redis.expire(metadata_key, int(self.temp_duration.total_seconds()))
 
-        self.redis.expire(metadata_key, int(self.temp_duration.total_seconds()))
         return key
 
     def get(self, key, content_type='images'):
@@ -178,7 +140,7 @@ class StorageManager:
 
         # Si pas dans Redis, essayer le stockage fichier
         if data is None:
-            logger.info(f"Contenu {key} non trouvé dans Redis, vérification du stockage fichier")
+            app.logger.info(f"Contenu {key} non trouvé dans Redis, vérification du stockage fichier")
             data = self.file_storage.retrieve_file(key, content_type)
 
         return data
@@ -196,7 +158,7 @@ class StorageManager:
                     for k, v in redis_metadata.items()}
 
         # Si pas dans Redis, essayer le stockage fichier
-        logger.info(f"Métadonnées pour {key} non trouvées dans Redis, vérification du stockage fichier")
+        app.logger.info(f"Métadonnées pour {key} non trouvées dans Redis, vérification du stockage fichier")
         return self.file_storage.retrieve_metadata(key)
 
     def migrate_to_disk(self, key, content_type='images'):
@@ -207,7 +169,7 @@ class StorageManager:
         redis_metadata = self.redis.hgetall(metadata_key)
 
         if data is None:
-            logger.warning(f"Impossible de migrer {key}: non trouvé dans Redis")
+            app.logger.warning(f"Impossible de migrer {key}: non trouvé dans Redis")
             return False
 
         # Convertir le format de métadonnées Redis en dict
@@ -225,7 +187,7 @@ class StorageManager:
         file_path = self.file_storage.store_file(key, data, content_type)
         metadata_path = self.file_storage.store_metadata(key, metadata)
 
-        logger.info(f"Migré {key} vers le disque: {file_path}")
+        app.logger.info(f"Migré {key} vers le disque: {file_path}")
 
         # Supprimer de Redis après migration réussie
         self.redis.delete(key)
