@@ -2,11 +2,15 @@
 import os
 import json
 import hashlib
+import logging
 from datetime import datetime, timedelta
 from pathlib import Path
 from flask import current_app as app
 from io import BytesIO
 
+from gallery_manager import logger
+
+logger = logging.getLogger("storage_manager")
 
 # Mode test et valeurs par défaut
 TEST_MODE = os.getenv("STORAGE_TEST_MODE", "false").lower() == "true"
@@ -121,7 +125,7 @@ class StorageManager:
         # Log du TTL configuré
         print(f"StorageManager initialisé avec TTL: {self.temp_duration}")
         if hasattr(app, 'logger'):
-            app.logger.info(f"StorageManager initialisé avec TTL: {self.temp_duration}")
+            logger.info(f"StorageManager initialisé avec TTL: {self.temp_duration}")
 
     def store(self, key, data, metadata=None, content_type='images'):
         """Stocker le contenu dans Redis avec métadonnées optionnelles"""
@@ -130,7 +134,7 @@ class StorageManager:
         ttl_seconds = int(self.temp_duration.total_seconds())
 
         if hasattr(app, 'logger'):
-            app.logger.error(f"Stockage de {key} avec TTL: {ttl_seconds}")
+            logger.error(f"Stockage de {key} avec TTL: {ttl_seconds}")
 
         # Stocker les données dans Redis
         self.redis.setex(
@@ -166,7 +170,7 @@ class StorageManager:
 
         # Si pas dans Redis, essayer le stockage fichier
         if data is None:
-            app.logger.info(f"Contenu {key} non trouvé dans Redis, vérification du stockage fichier")
+            logger.info(f"Contenu {key} non trouvé dans Redis, vérification du stockage fichier")
             data = self.file_storage.retrieve_file(key, content_type)
 
         return data
@@ -185,7 +189,7 @@ class StorageManager:
 
         # Si pas dans Redis, essayer le stockage fichier
         if hasattr(app, 'logger'):
-            app.logger.info(f"Métadonnées pour {key} non trouvées dans Redis, vérification du stockage fichier")
+            logger.info(f"Métadonnées pour {key} non trouvées dans Redis, vérification du stockage fichier")
         return self.file_storage.retrieve_metadata(key)
 
     def migrate_to_disk(self, key, content_type='images'):
@@ -197,7 +201,7 @@ class StorageManager:
 
         if data is None:
             if hasattr(app, 'logger'):
-                app.logger.warning(f"Impossible de migrer {key}: non trouvé dans Redis")
+                logger.warning(f"Impossible de migrer {key}: non trouvé dans Redis")
             return False
 
         # Convertir le format de métadonnées Redis en dict
@@ -216,7 +220,7 @@ class StorageManager:
         metadata_path = self.file_storage.store_metadata(key, metadata)
 
         if hasattr(app, 'logger'):
-            app.logger.info(f"Migré {key} vers le disque: {file_path}")
+            logger.info(f"Migré {key} vers le disque: {file_path}")
 
         # Supprimer de Redis après migration réussie
         self.redis.delete(key)
