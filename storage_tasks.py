@@ -55,14 +55,20 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
                 effective_ttl = STANDARD_TTL_SECONDS
                 elapsed_time = STANDARD_TTL_SECONDS - ttl
                 legacy_notice = "ÉLÉMENT ANCIEN (avant mode test)"
+
+                if TEST_MODE:
+                    threshold_seconds = min(age_threshold.total_seconds(), 180)  # 3 minutes maximum
+                    logger.info(f" → Seuil ajusté pour élément legacy en mode test: {threshold_seconds}s")
+                else:
+                    threshold_seconds = age_threshold.total_seconds()
             else:
                 # Pour les nouveaux éléments, utiliser le TTL configuré
                 effective_ttl = original_ttl
                 elapsed_time = original_ttl - ttl
                 legacy_notice = "Élément récent"
 
-            # Calculer le seuil en secondes
-            threshold_seconds = age_threshold.total_seconds()
+                # Calculer le seuil en secondes
+                threshold_seconds = age_threshold.total_seconds()
 
             # Migrer si le temps écoulé est supérieur au seuil
             should_migrate = elapsed_time >= threshold_seconds

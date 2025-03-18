@@ -134,6 +134,7 @@ class StorageManager:
 
 
         logger.error(f"Stockage de {key} avec TTL: {ttl_seconds}")
+        logger.info(f"Mode TEST activé: {TEST_MODE}")
 
         # Stocker les données dans Redis
         self.redis.setex(
@@ -142,24 +143,32 @@ class StorageManager:
             data
         )
 
+        #Preparation metadata
+        if metadata is None:
+            metadata = {}
+
+        # NOUVEAU: Ajouter des informations sur le stockage dans les métadonnées
+        metadata['storage_timestamp'] = datetime.now().isoformat()
+        metadata['storage_ttl'] = ttl_seconds
+        metadata['storage_test_mode'] = TEST_MODE
+
         # Stocker les métadonnées si fournies
-        if metadata:
-            metadata_key = f"{key}:meta"
-            if isinstance(metadata, dict):
-                # Convertir dict en format Redis
-                formatted_metadata = {}
-                for k, v in metadata.items():
-                    if isinstance(v, str):
-                        formatted_metadata[k] = v.encode('utf-8')
-                    else:
-                        formatted_metadata[k] = v
-                self.redis.hmset(metadata_key, formatted_metadata)
-            else:
-                # Supposer que les métadonnées sont déjà au format Redis
-                self.redis.hmset(metadata_key, metadata)
 
-            self.redis.expire(metadata_key, int(self.temp_duration.total_seconds()))
+        metadata_key = f"{key}:meta"
+        if isinstance(metadata, dict):
+            # Convertir dict en format Redis
+            formatted_metadata = {}
+            for k, v in metadata.items():
+                if isinstance(v, str):
+                    formatted_metadata[k] = v.encode('utf-8')
+                else:
+                    formatted_metadata[k] = v
+            self.redis.hmset(metadata_key, formatted_metadata)
+        else:
+            # Supposer que les métadonnées sont déjà au format Redis
+            self.redis.hmset(metadata_key, metadata)
 
+        self.redis.expire(metadata_key, int(self.temp_duration.total_seconds()))
         return key
 
     def get(self, key, content_type='images'):
