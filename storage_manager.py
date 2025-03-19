@@ -4,9 +4,10 @@ import json
 import hashlib
 from datetime import datetime, timedelta
 from pathlib import Path
-from flask import current_app as app
+import logging
 from io import BytesIO
 
+logger = logging.getLogger("storage_manager")
 
 class FileStorage:
     """Gestionnaire de stockage sur système de fichiers"""
@@ -140,7 +141,7 @@ class StorageManager:
 
         # Si pas dans Redis, essayer le stockage fichier
         if data is None:
-            app.logger.info(f"Contenu {key} non trouvé dans Redis, vérification du stockage fichier")
+            logger.info(f"Contenu {key} non trouvé dans Redis, vérification du stockage fichier")
             data = self.file_storage.retrieve_file(key, content_type)
 
         return data
@@ -158,7 +159,7 @@ class StorageManager:
                     for k, v in redis_metadata.items()}
 
         # Si pas dans Redis, essayer le stockage fichier
-        app.logger.info(f"Métadonnées pour {key} non trouvées dans Redis, vérification du stockage fichier")
+        logger.info(f"Métadonnées pour {key} non trouvées dans Redis, vérification du stockage fichier")
         return self.file_storage.retrieve_metadata(key)
 
     def migrate_to_disk(self, key, content_type='images'):
@@ -169,7 +170,7 @@ class StorageManager:
         redis_metadata = self.redis.hgetall(metadata_key)
 
         if data is None:
-            app.logger.warning(f"Impossible de migrer {key}: non trouvé dans Redis")
+            logger.warning(f"Impossible de migrer {key}: non trouvé dans Redis")
             return False
 
         # Convertir le format de métadonnées Redis en dict
@@ -187,7 +188,7 @@ class StorageManager:
         file_path = self.file_storage.store_file(key, data, content_type)
         metadata_path = self.file_storage.store_metadata(key, metadata)
 
-        app.logger.info(f"Migré {key} vers le disque: {file_path}")
+        logger.info(f"Migré {key} vers le disque: {file_path}")
 
         # Supprimer de Redis après migration réussie
         self.redis.delete(key)
