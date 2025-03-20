@@ -215,7 +215,7 @@
                     </span>
                     <span class="text">Accueil</span>
                 </a>
-                <a href="{{ url_for('library') }}" class="nav_item {% if request.endpoint == 'library_view' %}active{% endif %}">
+                <a href="{{ url_for('library_view') }}" class="nav_item {% if request.endpoint == 'library_view' %}active{% endif %}">
                     <span class="icon">
                         <img src="{{ url_for('static', filename='assets/svg/library.svg') }}" alt="Library" class="fn__svg">
                     </span>
