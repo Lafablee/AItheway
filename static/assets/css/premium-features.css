@@ -1,0 +1,67 @@
+/* Styles pour les fonctionnalités premium */
+
+.premium-feature {
+    position: relative;
+}
+
+.premium-badge {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: var(--neltar-accent);
+    color: white;
+    font-size: 8px;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 10px;
+    transform: translate(50%, -50%);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+body[data-neltar-skin="light"] .premium-badge {
+    background-color: #6366f1;
+    color: white;
+}
+
+/* Styles pour le menu */
+.fn__nav_bar .premium-feature .premium-badge {
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.fn__nav_bar .premium-feature:hover .premium-badge {
+    opacity: 1;
+}
+
+/* Adaptations pour le panel fermé */
+.panel-opened .neltar_fn_leftpanel .premium-badge {
+    right: 50%;
+    transform: translate(50%, -50%);
+}
+
+/* Style pour les cartes de prix */
+.pricing-card.premium {
+    border: 2px solid var(--neltar-accent);
+    position: relative;
+    overflow: hidden;
+}
+
+.pricing-card.premium::before {
+    content: 'Recommandé';
+    position: absolute;
+    top: 20px;
+    right: -30px;
+    background-color: var(--neltar-accent);
+    color: white;
+    padding: 5px 40px;
+    font-size: 12px;
+    transform: rotate(45deg);
+    font-weight: 600;
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+}
+
+.feature-premium {
+    color: var(--neltar-accent);
+    font-weight: 500;
+}

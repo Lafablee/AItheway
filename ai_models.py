@@ -22,6 +22,7 @@ redis_client = redis.Redis(
     decode_responses=False
 )
 from midjourney_params import MidjourneyParams
+from minimax_video import MiniMaxVideoGenerator
 
 
 class AIModelGenerator(ABC):
@@ -946,6 +947,31 @@ class AudioGenerator(AIModelGenerator):
             return {"success": False, "error": str(e)}
 
 
+class VideoGenerator(AIModelGenerator):
+    def __init__(self, api_key, default_model="T2V-01-Director"):
+        self.api_key = api_key
+        self.model = default_model
+        self.generator = MiniMaxVideoGenerator(api_key, default_model)
+
+    async def generate(self, prompt, additional_params=None):
+        # Méthode asynchrone pour compatibilité avec l'interface
+        return self.generate_sync(prompt, additional_params)
+
+    def generate_sync(self, prompt, additional_params=None):
+        try:
+            app.logger.info(f"Starting video generation with prompt: {prompt}")
+
+            # Pour la génération vidéo, on utilise toujours le mode asynchrone car le processus est long
+            result = self.generator.generate_async(prompt, additional_params=additional_params)
+
+            app.logger.info(f"Video generation initiated: {result}")
+            return result
+
+        except Exception as e:
+            app.logger.error(f"Video generation error: {str(e)}")
+            return {"success": False, "error": str(e)}
+
+
 # Fonction d'initialisation pour créer et configurer le gestionnaire
 def create_ai_manager():
     manager = AIModelManager()
@@ -971,5 +997,11 @@ def create_ai_manager():
                 guild_id=discord_guild_id
             )
         )
+    minimax_api_key = os.getenv("MINIMAX_API_KEY")
+    print(f"Minimax API Key present: {bool(minimax_api_key)}")
+    if minimax_api_key:
+        manager.register_model("minimax-video", VideoGenerator(minimax_api_key))
+
+
     return manager
 

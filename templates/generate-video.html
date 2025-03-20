@@ -1,0 +1,1170 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="neltar_fn_page video_generation_page">
+    <div class="fn__title_holder">
+        <div class="container">
+            <h1 class="title">Studio Vidéo IA</h1>
+        </div>
+    </div>
+
+    <div class="neltar_fn_generate_page">
+        <div class="container">
+            <div class="video_studio_container">
+                <div class="studio_sidebar">
+                    <div class="sidebar_section">
+                        <h3 class="section_title">Votre galerie</h3>
+                        <div class="recent_videos">
+                            <div class="video_history_scroll" id="videoHistory">
+                                <!-- L'historique sera chargé ici dynamiquement -->
+                                <div class="empty_state">
+                                    <div class="empty_icon">
+                                        <img src="{{ url_for('static', filename='assets/svg/video.svg') }}" alt="" class="fn__svg">
+                                    </div>
+                                    <p>Vos créations vidéo apparaîtront ici</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="studio_main">
+                    <div class="studio_card">
+                        <div class="card_header">
+                            <h2 class="title">Créer une vidéo</h2>
+                            <p class="subtitle">Transformez votre texte en vidéo dynamique</p>
+                        </div>
+
+                        <form id="videoForm" class="fn__form studio_form">
+                            <div class="form_section">
+                                <div class="form_input text_input">
+                                    <label for="prompt">Description de la vidéo</label>
+                                    <textarea name="prompt" id="prompt" placeholder="Décrivez en détail la vidéo que vous souhaitez générer..." rows="5"></textarea>
+                                    <div class="character-counter">
+                                        <span id="charCount">0</span> / <span id="charLimit">2000</span> caractères
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form_section">
+                                <div class="model_selector">
+                                    <label for="model">Choisir un modèle</label>
+                                    <div class="model_options">
+                                        <div class="model_option">
+                                            <input type="radio" name="model" id="model_t2v" value="T2V-01-Director" checked>
+                                            <label for="model_t2v" class="model_card">
+                                                <div class="model_icon"><span class="icon_t2v"></span></div>
+                                                <div class="model_details">
+                                                    <span class="model_name">Texte vers Vidéo</span>
+                                                    <span class="model_desc">Génère une vidéo à partir d'une description textuelle</span>
+                                                </div>
+                                            </label>
+                                        </div>
+
+                                        <div class="model_option">
+                                            <input type="radio" name="model" id="model_i2v" value="I2V-01-Director">
+                                            <label for="model_i2v" class="model_card">
+                                                <div class="model_icon"><span class="icon_i2v"></span></div>
+                                                <div class="model_details">
+                                                    <span class="model_name">Image vers Vidéo</span>
+                                                    <span class="model_desc">Anime une image pour créer une vidéo</span>
+                                                </div>
+                                            </label>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form_section">
+                                <div class="camera_movement">
+                                    <label for="camera_movement">Mouvement de caméra (optionnel)</label>
+                                    <select name="camera_movement" id="camera_movement" class="fn__select">
+                                        <option value="none">Aucun mouvement spécifique</option>
+                                        <option value="Truck left">Truck gauche (déplacement latéral)</option>
+                                        <option value="Truck right">Truck droit (déplacement latéral)</option>
+                                        <option value="Pan left">Pan gauche (rotation horizontale)</option>
+                                        <option value="Pan right">Pan droit (rotation horizontale)</option>
+                                        <option value="Push in">Push in (avance)</option>
+                                        <option value="Pull out">Pull out (recule)</option>
+                                        <option value="Pedestal up">Pedestal haut (élévation)</option>
+                                        <option value="Pedestal down">Pedestal bas (abaissement)</option>
+                                        <option value="Tilt up">Tilt haut (rotation verticale)</option>
+                                        <option value="Tilt down">Tilt bas (rotation verticale)</option>
+                                        <option value="Zoom in">Zoom in (rapprochement)</option>
+                                        <option value="Zoom out">Zoom out (éloignement)</option>
+                                        <option value="Shake">Shake (tremblement)</option>
+                                        <option value="Tracking shot">Tracking shot (suivi)</option>
+                                        <option value="Static shot">Plan fixe</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div id="firstFrameSection" class="form_section" style="display: none;">
+                                <div class="first_frame_upload">
+                                    <label for="first_frame_image">Image initiale (Pour Image vers Vidéo)</label>
+                                    <div class="upload_container">
+                                        <input type="file" name="first_frame_image" id="first_frame_image" accept="image/*" class="file_input">
+                                        <div class="upload_placeholder">
+                                            <img src="{{ url_for('static', filename='assets/svg/upload.svg') }}" alt="" class="fn__svg">
+                                            <span>Déposez votre image ici ou cliquez pour naviguer</span>
+                                        </div>
+                                        <div class="image_preview" style="display: none;">
+                                            <img id="imagePreview" src="" alt="Aperçu">
+                                            <button type="button" class="remove_image">
+                                                <img src="{{ url_for('static', filename='assets/svg/close.svg') }}" alt="Supprimer" class="fn__svg">
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form_section">
+                                <div class="advanced_settings">
+                                    <div class="settings_header" id="advancedToggle">
+                                        <h3>Options avancées</h3>
+                                        <div class="toggle_icon">
+                                            <img src="{{ url_for('static', filename='assets/svg/arrow-down.svg') }}" alt="" class="fn__svg">
+                                        </div>
+                                    </div>
+
+                                    <div class="settings_content" id="advancedOptions">
+                                        <div class="form_input toggle_control">
+                                            <label for="prompt_optimizer">Optimisation du prompt</label>
+                                            <div class="toggle_switch">
+                                                <input type="checkbox" id="prompt_optimizer" name="prompt_optimizer" checked>
+                                                <label for="prompt_optimizer" class="toggle_label"></label>
+                                                <span class="toggle_text">Actif</span>
+                                            </div>
+                                            <p class="helper_text">L'IA optimisera automatiquement votre description pour de meilleurs résultats</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="form_footer">
+                                <div class="token_info">
+                                    <div class="fn__token_info mini_info">
+                                        <span class="token_summary">
+                                            <span class="count">100</span>
+                                            <span class="text">Tokens</span>
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <button type="submit" class="neltar_fn_button submit_button">
+                                    <span>Générer la Vidéo</span>
+                                    <div class="button_icon">
+                                        <img src="{{ url_for('static', filename='assets/svg/film.svg') }}" alt="" class="fn__svg">
+                                    </div>
+                                </button>
+                            </div>
+                        </form>
+                    </div>
+
+                    <!-- Loading Section -->
+                    <div id="loadingSection" class="loading_overlay" style="display: none;">
+                        <div class="loading_content">
+                            <div class="loading_pulse"></div>
+                            <div class="fn__preloader">
+                                <span class="icon"></span>
+                                <span class="text" id="loadingText">Initialisation de la génération vidéo...</span>
+                                <div class="status_progress">
+                                    <div class="progress_bar">
+                                        <div class="progress_fill" style="width: 0%;"></div>
+                                    </div>
+                                    <div class="status_text">Traitement : <span id="statusText">En attente</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Result Section -->
+                    <div id="resultSection" class="result_container" style="display: none;">
+                        <div class="studio_card result_card">
+                            <div class="card_header">
+                                <h2 class="title">Votre Vidéo</h2>
+                                <div class="card_actions">
+                                    <button id="closeResult" class="action_button close_button">
+                                        <img src="{{ url_for('static', filename='assets/svg/close.svg') }}" alt="Close" class="fn__svg">
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div class="result_content">
+                                <div class="video_player_container">
+                                    <video id="videoPlayer" controls class="video_player">
+                                        Votre navigateur ne supporte pas l'élément vidéo.
+                                    </video>
+                                </div>
+
+                                <div class="prompt_display">
+                                    <h4>Description</h4>
+                                    <p id="resultPrompt"></p>
+                                </div>
+
+                                <div class="result_actions">
+                                    <button id="downloadVideo" class="neltar_fn_button action_button">
+                                        <span>Télécharger</span>
+                                        <div class="button_icon">
+                                            <img src="{{ url_for('static', filename='assets/svg/download.svg') }}" alt="" class="fn__svg">
+                                        </div>
+                                    </button>
+
+                                    <button id="newVideo" class="neltar_fn_button action_button secondary">
+                                        <span>Nouveau</span>
+                                        <div class="button_icon">
+                                            <img src="{{ url_for('static', filename='assets/svg/plus.svg') }}" alt="" class="fn__svg">
+                                        </div>
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const videoForm = document.getElementById('videoForm');
+    const loadingSection = document.getElementById('loadingSection');
+    const resultSection = document.getElementById('resultSection');
+    const videoPlayer = document.getElementById('videoPlayer');
+    const downloadVideo = document.getElementById('downloadVideo');
+    const closeResult = document.getElementById('closeResult');
+    const newVideo = document.getElementById('newVideo');
+    const loadingText = document.getElementById('loadingText');
+    const statusText = document.getElementById('statusText');
+    const progressFill = document.querySelector('.progress_fill');
+    const resultPrompt = document.getElementById('resultPrompt');
+
+    // Options avancées
+    const advancedToggle = document.getElementById('advancedToggle');
+    const advancedOptions = document.getElementById('advancedOptions');
+
+    // Sélection du modèle
+    const modelT2v = document.getElementById('model_t2v');
+    const modelI2v = document.getElementById('model_i2v');
+    const firstFrameSection = document.getElementById('firstFrameSection');
+
+    // Compteur de caractères
+    const textArea = document.getElementById('prompt');
+    const charCount = document.getElementById('charCount');
+    const MAX_CHARS = 2000;
+
+    // Gestion de l'upload d'image
+    const firstFrameInput = document.getElementById('first_frame_image');
+    const uploadPlaceholder = document.querySelector('.upload_placeholder');
+    const imagePreview = document.querySelector('.image_preview');
+    const previewImg = document.getElementById('imagePreview');
+    const removeImage = document.querySelector('.remove_image');
+
+    // Toggle pour l'optimisation de prompt
+    const promptOptimizer = document.getElementById('prompt_optimizer');
+    const toggleText = document.querySelector('.toggle_text');
+
+    // Options de chargement
+    let taskId = null;
+    let statusCheckInterval = null;
+    let videoKey = null;
+
+    // Compteur de caractères
+    textArea.addEventListener('input', function() {
+        const count = this.value.length;
+        charCount.textContent = count;
+
+        // Mise à jour de la classe selon le nombre de caractères
+        if (count > MAX_CHARS) {
+            charCount.parentElement.classList.add('error');
+            charCount.parentElement.classList.remove('warning');
+        } else if (count > MAX_CHARS * 0.8) {
+            charCount.parentElement.classList.add('warning');
+            charCount.parentElement.classList.remove('error');
+        } else {
+            charCount.parentElement.classList.remove('warning', 'error');
+        }
+    });
+
+    // Sélection du modèle
+    modelT2v.addEventListener('change', function() {
+        if (this.checked) {
+            firstFrameSection.style.display = 'none';
+        }
+    });
+
+    modelI2v.addEventListener('change', function() {
+        if (this.checked) {
+            firstFrameSection.style.display = 'block';
+        }
+    });
+
+    // Gestion de l'upload d'image
+    firstFrameInput.addEventListener('change', function() {
+        if (this.files && this.files[0]) {
+            const file = this.files[0];
+            const reader = new FileReader();
+
+            reader.onload = function(e) {
+                previewImg.src = e.target.result;
+                uploadPlaceholder.style.display = 'none';
+                imagePreview.style.display = 'block';
+            };
+
+            reader.readAsDataURL(file);
+        }
+    });
+
+    // Suppression de l'image
+    removeImage.addEventListener('click', function() {
+        firstFrameInput.value = '';
+        previewImg.src = '';
+        uploadPlaceholder.style.display = 'flex';
+        imagePreview.style.display = 'none';
+    });
+
+    // Toggle Optimisation du prompt
+    promptOptimizer.addEventListener('change', function() {
+        toggleText.textContent = this.checked ? 'Actif' : 'Inactif';
+    });
+
+    // Gestion des options avancées
+    advancedToggle.addEventListener('click', function() {
+        this.classList.toggle('active');
+        if (advancedOptions.style.maxHeight) {
+            advancedOptions.style.maxHeight = null;
+        } else {
+            advancedOptions.style.maxHeight = advancedOptions.scrollHeight + "px";
+        }
+    });
+
+    // Soumission du formulaire
+    videoForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+
+        // Vérifier si le texte est vide
+        if (textArea.value.trim() === '') {
+            alert('Veuillez saisir une description pour générer une vidéo');
+            return;
+        }
+
+        // Vérifier si le texte dépasse la limite
+        if (textArea.value.length > MAX_CHARS) {
+            alert(`La description dépasse la limite de ${MAX_CHARS} caractères`);
+            return;
+        }
+
+        // Vérifier si une image est requise pour I2V
+        if (modelI2v.checked && (!firstFrameInput.files || !firstFrameInput.files[0])) {
+            alert('Veuillez sélectionner une image de départ pour le mode Image vers Vidéo');
+            return;
+        }
+
+        // Afficher le chargement
+        loadingSection.style.display = 'flex';
+        document.body.classList.add('loading-active');
+        resultSection.style.display = 'none';
+        progressFill.style.width = '5%';
+        statusText.textContent = 'Initialisation';
+
+        // Récupérer les données du formulaire
+        const formData = new FormData(this);
+
+        // Ajouter le token à FormData si nécessaire
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        if (token) {
+            formData.append('token', token);
+        }
+
+        // Configurer les options de la requête
+        const fetchOptions = {
+            method: 'POST',
+            body: formData
+        };
+
+        // Ajouter le token dans l'en-tête Authorization si disponible
+        if (token) {
+            fetchOptions.headers = {
+                'Authorization': 'Bearer ' + token
+            };
+        }
+
+        // Envoyer la requête
+        fetch('/generate_video', fetchOptions)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Stocker l'ID de la tâche pour le suivi
+                    taskId = data.task_id;
+                    videoKey = data.video_key;
+
+                    // Mettre à jour le statut
+                    loadingText.textContent = "Génération de votre vidéo en cours...";
+                    statusText.textContent = "Traitement";
+                    progressFill.style.width = '15%';
+
+                    // Lancer la vérification périodique du statut
+                    statusCheckInterval = setInterval(checkVideoStatus, 10000); // Vérifier toutes les 10 secondes
+
+                    // Première vérification immédiate
+                    setTimeout(checkVideoStatus, 2000);
+                } else {
+                    // Afficher une erreur
+                    loadingSection.style.display = 'none';
+                    document.body.classList.remove('loading-active');
+                    alert('Erreur: ' + (data.error || 'Échec de l\'initialisation de la génération vidéo'));
+                }
+            })
+            .catch(error => {
+                loadingSection.style.display = 'none';
+                document.body.classList.remove('loading-active');
+                console.error("Erreur lors de la génération vidéo:", error);
+                alert('Erreur lors de la génération vidéo: ' + error);
+            });
+    });
+
+    // Fonction pour vérifier le statut de la génération vidéo
+    function checkVideoStatus() {
+        if (!taskId) return;
+
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        fetch(`/check_video_status/${taskId}?token=${encodeURIComponent(token)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data) {
+                    const status = data.data.status;
+
+                    // Mettre à jour la barre de progression
+                    updateProgressBar(status);
+
+                    // Si la vidéo est terminée
+                    if (status === "completed") {
+                        // Arrêter la vérification périodique
+                        clearInterval(statusCheckInterval);
+
+                        // Afficher la vidéo
+                        displayVideo(data.data);
+                    }
+                } else {
+                    // Erreur lors de la vérification du statut
+                    statusText.textContent = "Erreur: " + (data.error || "Échec de la vérification du statut");
+                }
+            })
+            .catch(error => {
+                console.error("Erreur lors de la vérification du statut:", error);
+                statusText.textContent = "Erreur de connexion";
+            });
+    }
+
+    // Mettre à jour la barre de progression
+    function updateProgressBar(status) {
+        let progress = 15; // Valeur par défaut
+
+        switch (status) {
+            case "Queueing":
+                progress = 20;
+                statusText.textContent = "En file d'attente";
+                break;
+            case "Preparing":
+                progress = 35;
+                statusText.textContent = "Préparation";
+                break;
+            case "Processing":
+                progress = 60;
+                statusText.textContent = "Génération en cours";
+                break;
+            case "Success":
+            case "completed":
+                progress = 90;
+                statusText.textContent = "Finalisation";
+                break;
+            case "Fail":
+                progress = 100;
+                statusText.textContent = "Échec";
+                break;
+            default:
+                progress = 15;
+                statusText.textContent = status || "En attente";
+        }
+
+        progressFill.style.width = `${progress}%`;
+    }
+
+    // Afficher la vidéo générée
+    function displayVideo(videoData) {
+        // Cacher le chargement
+        loadingSection.style.display = 'none';
+        document.body.classList.remove('loading-active');
+
+        // Afficher la section de résultat
+        resultSection.style.display = 'block';
+
+        // Mettre à jour la source de la vidéo
+        videoPlayer.src = videoData.video_url || `/video/${videoData.video_key}`;
+
+        // Mettre à jour le prompt affiché
+        resultPrompt.textContent = videoData.prompt;
+
+        // Mettre à jour le lien de téléchargement
+        downloadVideo.setAttribute('data-key', videoData.video_key);
+
+        // Tenter de charger la vidéo
+        videoPlayer.load();
+    }
+
+    // Gestion du téléchargement
+    downloadVideo.addEventListener('click', function() {
+        const videoKey = this.getAttribute('data-key');
+        if (videoKey) {
+            window.location.href = `/download-video/${videoKey}`;
+        }
+    });
+
+    // Fermer le résultat
+    closeResult.addEventListener('click', function() {
+        resultSection.style.display = 'none';
+        videoPlayer.pause();
+    });
+
+    // Nouveau vidéo
+    newVideo.addEventListener('click', function() {
+        resultSection.style.display = 'none';
+        videoPlayer.pause();
+        // Effacer le formulaire si nécessaire
+        // videoForm.reset();
+    });
+
+    // Fonction pour charger l'historique des vidéos
+    function loadVideoHistory() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        let url = '/api/video/history?page=1&per_page=10';
+
+        if (token) {
+            url += `&token=${token}`;
+        }
+
+        fetch(url)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success && data.data && data.data.items) {
+                    displayVideoHistory(data.data.items);
+                } else {
+                    console.error('Error loading video history:', data.error);
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching video history:', error);
+            });
+    }
+
+    // Fonction pour afficher l'historique des vidéos
+    function displayVideoHistory(items) {
+        const historyContainer = document.getElementById('videoHistory');
+
+        // Supprimez l'état vide si des éléments sont présents
+        if (items.length > 0) {
+            const emptyState = historyContainer.querySelector('.empty_state');
+            if (emptyState) {
+                emptyState.remove();
+            }
+        }
+
+        // Si pas d'éléments, ne rien faire de plus
+        if (items.length === 0) {
+            return;
+        }
+
+        // Créer un fragment pour améliorer les performances
+        const fragment = document.createDocumentFragment();
+
+        items.forEach(item => {
+            const videoDate = new Date(item.timestamp);
+            const formattedDate = videoDate.toLocaleDateString() + ' ' + videoDate.toLocaleTimeString();
+
+            const historyItem = document.createElement('div');
+            historyItem.className = 'history_item';
+
+            // Ajouter une classe selon le statut
+            if (item.status === 'completed') {
+                historyItem.classList.add('completed');
+            } else if (item.status === 'processing') {
+                historyItem.classList.add('processing');
+            } else if (item.status === 'failed') {
+                historyItem.classList.add('failed');
+            }
+
+            historyItem.addEventListener('click', function() {
+                if (item.status === 'completed') {
+                    // Charger la vidéo
+                    displayVideo({
+                        video_key: item.video_key,
+                        prompt: item.prompt,
+                        model: item.model
+                    });
+                } else if (item.status === 'processing') {
+                    // Afficher un message
+                    alert('Cette vidéo est toujours en cours de génération.');
+                } else {
+                    // Afficher un message d'erreur
+                    alert('Cette génération vidéo a échoué ou est incomplète.');
+                }
+            });
+
+            historyItem.innerHTML = `
+                <div class="item_header">
+                    <h4 class="item_title">${truncateText(item.prompt, 30)}</h4>
+                    <span class="item_meta">${item.model || 'T2V-01'}</span>
+                </div>
+                <div class="item_content">
+                    <div class="item_thumbnail ${item.status}">
+                        ${item.status === 'completed'
+                            ? `<img src="{{ url_for('static', filename='assets/svg/play-circle.svg') }}" alt="Play" class="fn__svg thumbnail_icon">`
+                            : item.status === 'processing'
+                                ? `<img src="{{ url_for('static', filename='assets/svg/loader.svg') }}" alt="Processing" class="fn__svg thumbnail_icon spinning">`
+                                : `<img src="{{ url_for('static', filename='assets/svg/alert-triangle.svg') }}" alt="Failed" class="fn__svg thumbnail_icon">`
+                        }
+                    </div>
+                    <div class="item_date">${formattedDate}</div>
+                </div>
+            `;
+
+            fragment.appendChild(historyItem);
+        });
+
+        // Insérer au début de l'historique
+        historyContainer.insertBefore(fragment, historyContainer.firstChild);
+    }
+
+    // Fonction utilitaire pour tronquer le texte
+    function truncateText(text, maxLength) {
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+    }
+
+    // Chargement initial de l'historique
+    loadVideoHistory();
+});
+</script>
+
+<style>
+/* Styles spécifiques à la génération vidéo */
+.video_generation_page .studio_container {
+    display: flex;
+    gap: 30px;
+}
+
+.video_generation_page .studio_sidebar {
+    width: 300px;
+    flex-shrink: 0;
+}
+
+.video_generation_page .studio_main {
+    flex: 1;
+    position: relative;
+}
+
+/* Historique des vidéos */
+.video_history_scroll {
+    max-height: 600px;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.history_item {
+    padding: 15px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    background-color: var(--neltar-box-bg);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.history_item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.item_header {
+    margin-bottom: 10px;
+}
+
+.item_title {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 500;
+    color: var(--neltar-heading-color);
+}
+
+.item_meta {
+    font-size: 12px;
+    color: var(--neltar-p-light);
+}
+
+.item_content {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.item_thumbnail {
+    width: 80px;
+    height: 45px;
+    background-color: var(--neltar-bg-light);
+    border-radius: 5px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+}
+
+.item_thumbnail.completed {
+    background-color: var(--neltar-success-light);
+}
+
+.item_thumbnail.processing {
+    background-color: var(--neltar-warning-light);
+}
+
+.item_thumbnail.failed {
+    background-color: var(--neltar-error-light);
+}
+
+.thumbnail_icon {
+    width: 24px;
+    height: 24px;
+}
+
+.spinning {
+    animation: spin 1.5s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+.item_date {
+    font-size: 12px;
+    color: var(--neltar-p-light);
+}
+
+/* Empty state */
+.empty_state {
+    text-align: center;
+    padding: 30px 15px;
+    color: var(--neltar-p-light);
+}
+
+.empty_icon {
+    margin-bottom: 15px;
+}
+
+.empty_icon img {
+    width: 48px;
+    height: 48px;
+    opacity: 0.5;
+}
+
+/* Model options */
+.model_options {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    gap: 15px;
+    margin-top: 10px;
+}
+
+.model_option input[type="radio"] {
+    display: none;
+}
+
+.model_card {
+    display: flex;
+    padding: 15px;
+    border-radius: 10px;
+    background-color: var(--neltar-box-bg);
+    border: 1px solid var(--neltar-border-color);
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.model_option input[type="radio"]:checked + .model_card {
+    border-color: var(--neltar-accent);
+    background-color: var(--neltar-accent-light);
+}
+
+.model_icon {
+    margin-right: 15px;
+}
+
+.model_icon span {
+    display: block;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+}
+
+.icon_t2v {
+    background-color: var(--neltar-success);
+}
+
+.icon_i2v {
+    background-color: var(--neltar-warning);
+}
+
+.model_details {
+    flex: 1;
+}
+
+.model_name {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 5px;
+    color: var(--neltar-heading-color);
+}
+
+.model_desc {
+    font-size: 12px;
+    color: var(--neltar-p-light);
+}
+
+/* Camera movement selector */
+.camera_movement {
+    margin-top: 20px;
+}
+
+.fn__select {
+    width: 100%;
+    padding: 12px 15px;
+    border-radius: 8px;
+    border: 1px solid var(--neltar-border-color);
+    background-color: var(--neltar-bg);
+    color: var(--neltar-heading-color);
+    font-size: 14px;
+    appearance: none;
+    background-image: url("data:image/svg+xml;charset=utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24' viewBox='0 0 24 24' fill='none' stroke='currentColor' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 10px center;
+    background-size: 16px;
+}
+
+/* First Frame Upload */
+.upload_container {
+    position: relative;
+    margin-top: 10px;
+}
+
+.file_input {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    opacity: 0;
+    cursor: pointer;
+    z-index: 10;
+}
+
+.upload_placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 30px;
+    border: 2px dashed var(--neltar-border-color);
+    border-radius: 10px;
+    text-align: center;
+    color: var(--neltar-p-light);
+}
+
+.upload_placeholder img {
+    width: 32px;
+    height: 32px;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+.image_preview {
+    position: relative;
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.image_preview img {
+    width: 100%;
+    display: block;
+}
+
+.remove_image {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    background-color: rgba(0, 0, 0, 0.5);
+    border: none;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0;
+}
+
+.remove_image img {
+    width: 16px;
+    height: 16px;
+}
+
+/* Toggle switch */
+.toggle_control {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+}
+
+.toggle_switch {
+    display: flex;
+    align-items: center;
+}
+
+.toggle_switch input[type="checkbox"] {
+    display: none;
+}
+
+.toggle_label {
+    position: relative;
+    display: inline-block;
+    width: 50px;
+    height: 24px;
+    background-color: var(--neltar-box-bg);
+    border-radius: 30px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-right: 10px;
+}
+
+.toggle_label:after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    left: 2px;
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    background-color: var(--neltar-p-light);
+    transition: all 0.3s ease;
+}
+
+.toggle_switch input[type="checkbox"]:checked + .toggle_label {
+    background-color: var(--neltar-accent);
+}
+
+.toggle_switch input[type="checkbox"]:checked + .toggle_label:after {
+    transform: translateX(26px);
+    background-color: white;
+}
+
+.toggle_text {
+    font-size: 14px;
+    color: var(--neltar-p);
+}
+
+.helper_text {
+    width: 100%;
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--neltar-p-light);
+}
+
+/* Loading section */
+.loading_overlay {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: var(--neltar-bg-light);
+    backdrop-filter: blur(5px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    border-radius: 15px;
+}
+
+.loading_content {
+    text-align: center;
+    padding: 30px;
+}
+
+.loading_pulse {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    background-color: var(--neltar-accent);
+    margin: 0 auto 20px;
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+@keyframes pulse {
+    0% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+    50% {
+        transform: scale(1);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(0.8);
+        opacity: 0.5;
+    }
+}
+
+.fn__preloader {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.fn__preloader .icon {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--neltar-border-color);
+    border-top-color: var(--neltar-accent);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+    margin-bottom: 15px;
+}
+
+.fn__preloader .text {
+    font-size: 16px;
+    color: var(--neltar-heading-color);
+    margin-bottom: 20px;
+}
+
+.status_progress {
+    margin-top: 20px;
+    width: 100%;
+    max-width: 400px;
+}
+
+.progress_bar {
+    height: 8px;
+    background-color: var(--neltar-border-color);
+    border-radius: 4px;
+    overflow: hidden;
+    margin-bottom: 10px;
+}
+
+.progress_fill {
+    height: 100%;
+    background-color: var(--neltar-accent);
+    width: 0;
+    transition: width 0.5s ease;
+}
+
+.status_text {
+    font-size: 14px;
+    color: var(--neltar-p);
+}
+
+/* Result section */
+.video_player_container {
+    margin-bottom: 20px;
+}
+
+.video_player {
+    width: 100%;
+    border-radius: 10px;
+    overflow: hidden;
+    background-color: black;
+}
+
+.prompt_display {
+    margin-bottom: 20px;
+    padding: 15px;
+    background-color: var(--neltar-box-bg);
+    border-radius: 10px;
+}
+
+.prompt_display h4 {
+    margin-top: 0;
+    margin-bottom: 10px;
+    font-size: 16px;
+    color: var(--neltar-heading-color);
+}
+
+.prompt_display p {
+    margin: 0;
+    color: var(--neltar-p);
+    font-size: 14px;
+    line-height: 1.6;
+}
+
+.result_actions {
+    display: flex;
+    gap: 15px;
+}
+
+.action_button {
+    flex: 1;
+}
+
+.action_button.secondary {
+    background-color: var(--neltar-box-bg);
+    color: var(--neltar-heading-color);
+}
+
+.action_button.close_button {
+    width: 30px;
+    height: 30px;
+    min-width: 30px;
+    border-radius: 50%;
+    padding: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: var(--neltar-box-bg);
+}
+
+.close_button img {
+    width: 16px;
+    height: 16px;
+}
+
+/* Character counter */
+.character-counter {
+    text-align: right;
+    font-size: 12px;
+    color: var(--neltar-p-light);
+    margin-top: 5px;
+}
+
+.character-counter.warning {
+    color: var(--neltar-warning);
+}
+
+.character-counter.error {
+    color: var(--neltar-error);
+}
+
+/* Responsive adjustments */
+@media (max-width: 992px) {
+    .video_generation_page .studio_container {
+        flex-direction: column;
+    }
+
+    .video_generation_page .studio_sidebar {
+        width: 100%;
+    }
+}
+</style>
+{% endblock %}

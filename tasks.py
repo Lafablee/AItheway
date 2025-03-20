@@ -1,11 +1,13 @@
 # tasks.py
 import asyncio
+import time
 import json
 import re
 from datetime import datetime, timedelta
 import aiohttp
 import os
 import redis
+
 
 from config import redis_client, TEMP_STORAGE_DURATION
 from ai_models import MidjourneyGenerator
@@ -102,6 +104,112 @@ async def check_pending_midjourney_tasks():
         # Sleep for a while before next check
         await asyncio.sleep(300)  # Check every 5 minutes
 
+
+async def check_pending_video_tasks():
+    """Vérifie périodiquement les tâches de génération vidéo en attente."""
+    # Attendre un peu pour s'assurer que l'application est complètement démarrée
+    await asyncio.sleep(10)
+
+    while True:
+        try:
+            app.logger.info("Checking pending video generation tasks")
+
+            # Récupérer toutes les tâches vidéo en cours
+            from video_manager import VideoManager
+            from app import storage_manager, ai_manager
+
+            # Initialiser les gestionnaires
+            video_manager = VideoManager(storage_manager)
+            minimax_video_generator = ai_manager.generators.get(
+                "minimax-video").generator if "minimax-video" in ai_manager.generators else None
+
+            if not minimax_video_generator:
+                app.logger.warning("MiniMax video generator not available")
+                await asyncio.sleep(60)
+                continue
+
+            # Récupérer les tâches en cours via Redis
+            # On cherche les clés des vidéos avec status="processing"
+            redis_client = storage_manager.redis
+            processing_keys = []
+
+            # Méthode 1: Utiliser les métadonnées
+            all_video_keys = redis_client.keys("video:temp:*")
+            for key_bytes in all_video_keys:
+                try:
+                    key = key_bytes.decode('utf-8') if isinstance(key_bytes, bytes) else key_bytes
+                    metadata = storage_manager.get_metadata(key)
+                    if metadata and metadata.get('status') == 'processing':
+                        processing_keys.append((key, metadata))
+                except Exception as e:
+                    app.logger.error(f"Error checking video metadata for {key_bytes}: {e}")
+
+            app.logger.info(f"Found {len(processing_keys)} pending video tasks")
+
+            # Pour chaque tâche en cours
+            for key, metadata in processing_keys:
+                try:
+                    # Récupérer le task_id
+                    task_id = metadata.get('task_id')
+                    if not task_id:
+                        app.logger.warning(f"No task_id in metadata for {key}")
+                        continue
+
+                    # Vérifier l'état auprès de l'API MiniMax
+                    app.logger.info(f"Checking status of video task {task_id}")
+                    status_response = minimax_video_generator.check_generation_status(task_id)
+
+                    if status_response.get('success'):
+                        status = status_response.get('status', '')
+                        file_id = status_response.get('file_id', '')
+
+                        # Si la tâche est terminée
+                        if status == "Success" and file_id:
+                            # Récupérer l'URL de téléchargement
+                            download_url = minimax_video_generator.get_download_url(file_id)
+
+                            # Mettre à jour les métadonnées
+                            video_manager.update_video_status(
+                                task_id,
+                                'completed',
+                                file_id,
+                                download_url
+                            )
+
+                            app.logger.info(f"Video task {task_id} completed, download URL: {download_url}")
+
+                            # Option: télécharger automatiquement la vidéo
+                            # Cette partie est optionnelle car on peut aussi télécharger à la demande
+                            if download_url and metadata.get('download_on_complete', False):
+                                try:
+                                    video_data = video_manager.download_from_url(download_url)
+                                    if video_data:
+                                        video_manager.store_video_file(key, video_data)
+                                        app.logger.info(f"Auto-downloaded video for {task_id}")
+                                except Exception as e:
+                                    app.logger.error(f"Error auto-downloading video: {e}")
+
+                        elif status == "Fail":
+                            # Mettre à jour le statut en cas d'échec
+                            video_manager.update_video_status(task_id, 'failed')
+                            app.logger.warning(f"Video task {task_id} failed")
+
+                        else:
+                            # Mettre à jour le statut
+                            video_manager.update_video_status(task_id, status)
+                            app.logger.info(f"Video task {task_id} status: {status}")
+
+                except Exception as e:
+                    app.logger.error(f"Error processing video task {key}: {e}")
+
+            # Attendre avant la prochaine vérification
+            await asyncio.sleep(60)  # Vérifier toutes les minutes
+
+        except Exception as e:
+            app.logger.error(f"Error in check_pending_video_tasks: {e}")
+            await asyncio.sleep(30)
+
 def start_background_tasks(app):
     loop = asyncio.get_event_loop()
     loop.create_task(check_pending_midjourney_tasks(app))
+    loop.create_task(check_pending_video_tasks(app))

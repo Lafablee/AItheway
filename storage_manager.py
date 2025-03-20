@@ -143,6 +143,10 @@ class StorageManager:
         if data is None:
             logger.info(f"Contenu {key} non trouvé dans Redis, vérification du stockage fichier")
             data = self.file_storage.retrieve_file(key, content_type)
+            if data is not None:
+                logger.info(f"Contenu {key} trouvé dans le stockage fichier serveur")
+            else:
+                logger.warning(f"Contenu {key} introuvable (ni Redis, ni sur le disque)")
 
         return data
 

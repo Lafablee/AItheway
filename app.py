@@ -21,6 +21,8 @@ import json
 
 from ai_models import create_ai_manager
 from audio_manager import AudioManager
+from video_manager import VideoManager
+
 from tasks import start_background_tasks
 import uuid
 import asyncio
@@ -130,8 +132,8 @@ GRACE_PERIOD = 0.04 # # ~1 heures au lieu de 60 jours
 
 # Permissions par type d'abonnement
 PERMISSIONS = {
-    SUBSCRIPTION_TYPES["BASIC_FREE"]: ["view_content", "generate_image", "upload_enhance", "generate_audio"],
-    SUBSCRIPTION_TYPES["BASIC_PAID"]: ["view_content", "generate_image", "upload_enhance", "generate_audio"],
+    SUBSCRIPTION_TYPES["BASIC_FREE"]: ["view_content", "generate_image", "upload_enhance", "generate_audio", "generate_video"],
+    SUBSCRIPTION_TYPES["BASIC_PAID"]: ["view_content", "generate_image", "upload_enhance", "generate_audio", "generate_video"],
 }
 
 class ImageManager:
@@ -662,6 +664,7 @@ class MidjourneyGroupManager:
 image_manager = ImageManager(storage_manager)
 midjourney_group_manager = MidjourneyGroupManager(storage_manager)
 audio_manager = AudioManager(storage_manager)
+video_manager = VideoManager(storage_manager)
 
 
 class MidjourneyImageGroup:
@@ -3033,6 +3036,211 @@ def serve_audio(audio_key):
         as_attachment=False
     )
 
+# --- Video generation route ---
+
+
+@app.route('/generate_video', methods=['GET', 'POST'])
+@token_required
+def generate_video(wp_user_id):
+    """
+    GET: Affiche la page de génération de vidéo
+    POST: Génère une nouvelle vidéo
+    """
+    # Version GET: Affiche le formulaire
+    if request.method == 'GET':
+        tokens_remaining = get_user_tokens(wp_user_id)
+        history = video_manager.get_user_video_history(wp_user_id)
+        return render_template('generate-video.html', history=history, tokens_remaining=tokens_remaining)
+
+    # Version POST: Traite la demande de génération
+    elif request.method == 'POST':
+        # Récupérer les données du formulaire
+        prompt = request.form.get('prompt')
+        model = request.form.get('model', 'T2V-01-Director')
+
+        # Vérifier permissions et tokens
+        client = get_client_by_wp_user_id(wp_user_id)
+        if not client or not check_client_permission(client["id"], "generate_video"):
+            return jsonify({"error": "Permission denied"}), 403
+
+        # Coût: 100 tokens
+        token_cost = 100
+        if not use_tokens(wp_user_id, token_cost):
+            return jsonify({
+                "error": "Insufficient tokens",
+                "tokens_required": token_cost,
+                "tokens_available": get_user_tokens(wp_user_id)
+            }), 200
+
+        # Préparer les paramètres additionnels
+        additional_params = {}
+        # Options disponibles: mouvements de caméra, optimisation...
+        camera_movement = request.form.get('camera_movement')
+        if camera_movement and camera_movement != 'none':
+            prompt = f"{prompt} [{camera_movement}]"
+
+        # Envoyer la demande via l'AI Manager
+        result = ai_manager.generate_image_sync("minimax-video", prompt, additional_params)
+
+        # Traiter la réponse
+        if result['success']:
+            task_id = result['task_id']
+            video_key = video_manager.store_video_metadata(wp_user_id, task_id, prompt, model)
+            return jsonify({
+                'success': True,
+                'status': 'processing',
+                'task_id': task_id,
+                'video_key': video_key
+            })
+        else:
+            refund_tokens(wp_user_id, token_cost)
+            return jsonify({'error': result.get('error')}), 500
+
+
+@app.route('/check_video_status/<task_id>')
+@token_required
+def check_video_status(wp_user_id, task_id=None):
+    """
+    Vérifie l'état d'une tâche de génération de vidéo
+    """
+    if not task_id:
+        return jsonify({"error": "No task_id provided"}), 400
+
+    # Récupérer l'état actuel
+    video_info = video_manager.get_video_by_task_id(task_id)
+
+    # Si complète, retourner les informations
+    if video_info and video_info.get('status') == 'completed':
+        return jsonify({
+            "success": True,
+            "data": {
+                "status": "completed",
+                "video_key": video_info.get('video_key'),
+                "video_url": f"/video/{video_info.get('video_key')}"
+            }
+        })
+
+    # Sinon, vérifier auprès de l'API MiniMax
+    generator = ai_manager.generators.get("minimax-video")
+    status_response = generator.generator.check_generation_status(task_id)
+
+    # Traiter la réponse
+    if status_response.get('success'):
+        status = status_response.get('status', '')
+        file_id = status_response.get('file_id', '')
+
+        # Si terminée, récupérer l'URL et mettre à jour
+        if status == "Success" and file_id:
+            download_url = generator.generator.get_download_url(file_id)
+            video_manager.update_video_status(task_id, 'completed', file_id, download_url)
+            return jsonify({
+                "success": True,
+                "data": {
+                    "status": "completed",
+                    "video_key": video_info.get('video_key'),
+                    "video_url": f"/video/{video_info.get('video_key')}"
+                }
+            })
+
+        # Sinon, mettre à jour le statut
+        video_manager.update_video_status(task_id, status)
+        return jsonify({
+            "success": True,
+            "data": {"status": status}
+        })
+
+    return jsonify({"success": False, "error": "Failed to check status"}), 500
+
+
+@app.route('/video/<video_key>')
+def serve_video(video_key):
+    """
+    Sert la vidéo pour lecture dans le navigateur
+    """
+    try:
+        # Récupérer la vidéo
+        video_data = video_manager.get_video(video_key)
+
+        # Si pas stockée localement, la télécharger
+        if not video_data:
+            metadata = storage_manager.get_metadata(video_key)
+            if not metadata or not metadata.get('download_url'):
+                return "Video not found", 404
+
+            download_url = metadata.get('download_url')
+            video_data = video_manager.download_from_url(download_url)
+
+            # Stocker pour usage futur
+            if video_data:
+                video_manager.store_video_file(video_key, video_data)
+                metadata['file_stored'] = True
+                storage_manager.store_metadata(video_key, metadata)
+
+        # Servir la vidéo
+        return send_file(
+            BytesIO(video_data),
+            mimetype='video/mp4'
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error serving video: {str(e)}")
+        return "Error serving video", 500
+
+
+@app.route('/download-video/<video_key>')
+def download_video(video_key):
+    """
+    Télécharge la vidéo (même logique que serve_video mais en tant que téléchargement)
+    """
+    try:
+        # Même logique que serve_video mais avec as_attachment=True
+        video_data = video_manager.get_video(video_key)
+
+        if not video_data:
+            # Récupération depuis l'URL distante si nécessaire
+            # Code similaire à serve_video
+            pass
+
+        # Créer un nom de fichier personnalisé
+        metadata = storage_manager.get_metadata(video_key)
+        prompt = metadata.get('prompt', '').replace(' ', '_')[:30] if metadata else 'video'
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+        return send_file(
+            BytesIO(video_data),
+            mimetype='video/mp4',
+            as_attachment=True,
+            download_name=f"aitheway_video_{prompt}_{timestamp}.mp4"
+        )
+
+    except Exception as e:
+        app.logger.error(f"Error downloading video: {str(e)}")
+        return "Error downloading video", 500
+
+
+@app.route('/api/video/history', methods=['GET'])
+@token_required
+def get_video_history(wp_user_id):
+    """
+    Retourne l'historique des vidéos générées par l'utilisateur
+    """
+    page = request.args.get('page', 1, type=int)
+    per_page = min(50, request.args.get('per_page', 10, type=int))
+
+    history = video_manager.get_user_video_history(wp_user_id, page, per_page)
+
+    return jsonify({
+        'success': True,
+        'data': {
+            'items': history,
+            'pagination': {
+                'current_page': page,
+                'per_page': per_page,
+                'total_items': len(history),
+                'has_more': len(history) >= per_page
+            }
+        }
+    })
 
 @app.route('/save-image', methods=['POST'])
 @token_required

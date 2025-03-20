@@ -45,6 +45,7 @@
 
 <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/image-generation-fixes.css') }}">
 <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/right-sidebar-tags.css') }}">
+    <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/premium-features.css') }}">
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="{{ url_for('static', filename='js/script.js') }}"></script>
@@ -244,6 +245,12 @@
                              <a href="{{ url_for('generate_audio') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_audio') %}active{% endif %}" data-position="right" title="Génération Audio">
                                  <span class="icon"><img src="{{ url_for('static', filename='assets/svg/volume.svg') }}" alt="" class="fn__svg"></span>
                                  <span class="text">Générer Audio</span>
+                             </a>
+                         </li>
+                         <li>
+                             <a href="{{ url_for('generate_video') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_video') %}active{% endif %}" data-position="right" title="Génération Vidéo">
+                                 <span class="icon"><img src="{{ url_for('static', filename='assets/svg/film.svg') }}" alt="" class="fn__svg"></span>
+                                 <span class="text">Video Generation</span>
                              </a>
                          </li>
                         <li>
