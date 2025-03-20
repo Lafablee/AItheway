@@ -1,0 +1,1269 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="neltar_fn_page library_page">
+    <div class="fn__title_holder">
+        <div class="container">
+            <h1 class="title">Bibliothèque Créative</h1>
+        </div>
+    </div>
+
+    <div class="neltar_fn_library">
+        <div class="container">
+            <!-- Library Controls -->
+            <div class="library_controls">
+                <div class="view_controls">
+                    <div class="view_mode_selector">
+                        <button class="mode_button active" data-mode="gallery">
+                            <img src="{{ url_for('static', filename='assets/svg/grid.svg') }}" alt="Gallery View" class="fn__svg">
+                            <span>Galerie</span>
+                        </button>
+                        <button class="mode_button" data-mode="list">
+                            <img src="{{ url_for('static', filename='assets/svg/list.svg') }}" alt="List View" class="fn__svg">
+                            <span>Liste</span>
+                        </button>
+                        <button class="mode_button" data-mode="timeline">
+                            <img src="{{ url_for('static', filename='assets/svg/clock.svg') }}" alt="Timeline View" class="fn__svg">
+                            <span>Chronologie</span>
+                        </button>
+                    </div>
+                    <div class="scroll_direction">
+                        <button class="direction_button active" data-direction="ltr">
+                            <img src="{{ url_for('static', filename='assets/svg/arrow-right.svg') }}" alt="Left to Right" class="fn__svg">
+                        </button>
+                        <button class="direction_button" data-direction="rtl">
+                            <img src="{{ url_for('static', filename='assets/svg/arrow-left.svg') }}" alt="Right to Left" class="fn__svg">
+                        </button>
+                    </div>
+                </div>
+
+                <div class="filter_controls">
+                    <div class="filter_dropdown">
+                        <select id="contentTypeFilter" class="fn__select">
+                            <option value="all">Tous les contenus</option>
+                            <option value="image">Images</option>
+                            <option value="video">Vidéos</option>
+                            <option value="audio">Audio</option>
+                        </select>
+                    </div>
+                    <div class="filter_dropdown">
+                        <select id="dateFilter" class="fn__select">
+                            <option value="recent">Plus récent</option>
+                            <option value="oldest">Plus ancien</option>
+                            <option value="today">Aujourd'hui</option>
+                            <option value="week">Cette semaine</option>
+                            <option value="month">Ce mois</option>
+                        </select>
+                    </div>
+                    <div class="search_box">
+                        <input type="text" id="searchInput" placeholder="Rechercher..." class="fn__input">
+                        <button class="search_button">
+                            <img src="{{ url_for('static', filename='assets/svg/search.svg') }}" alt="Search" class="fn__svg">
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Library Content -->
+            <div class="library_content">
+                <!-- Gallery View -->
+                <div class="view_container gallery_view active" id="galleryView">
+                    <div class="gallery_masonry" id="galleryMasonry">
+                        <!-- Items will be loaded here dynamically -->
+                        <div class="loading_state">
+                            <div class="loading_pulse"></div>
+                            <p>Chargement de votre bibliothèque...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- List View -->
+                <div class="view_container list_view" id="listView">
+                    <div class="list_container">
+                        <table class="library_table">
+                            <thead>
+                                <tr>
+                                    <th>Aperçu</th>
+                                    <th>Type</th>
+                                    <th>Description</th>
+                                    <th>Date</th>
+                                    <th>Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="listViewBody">
+                                <!-- Items will be loaded here dynamically -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                <!-- Timeline View -->
+                <div class="view_container timeline_view" id="timelineView">
+                    <div class="timeline_container" id="timelineContainer">
+                        <!-- Timeline content will be loaded here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="library_pagination" id="libraryPagination">
+                <button class="page_button prev" id="prevPage" disabled>
+                    <img src="{{ url_for('static', filename='assets/svg/chevron-left.svg') }}" alt="Previous" class="fn__svg">
+                </button>
+                <div class="page_numbers" id="pageNumbers">
+                    <!-- Page numbers will be dynamically generated -->
+                </div>
+                <button class="page_button next" id="nextPage">
+                    <img src="{{ url_for('static', filename='assets/svg/chevron-right.svg') }}" alt="Next" class="fn__svg">
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Detail View Modal -->
+    <div class="detail_modal" id="detailModal">
+        <div class="modal_overlay"></div>
+        <div class="modal_container">
+            <div class="modal_header">
+                <h3 class="modal_title" id="modalTitle">Détail de création</h3>
+                <div class="modal_controls">
+                    <button class="control_button share_button" id="shareButton">
+                        <img src="{{ url_for('static', filename='assets/svg/share.svg') }}" alt="Share" class="fn__svg">
+                    </button>
+                    <button class="control_button regenerate_button" id="regenerateButton">
+                        <img src="{{ url_for('static', filename='assets/svg/refresh-cw.svg') }}" alt="Regenerate" class="fn__svg">
+                    </button>
+                    <button class="control_button download_button" id="downloadButton">
+                        <img src="{{ url_for('static', filename='assets/svg/download.svg') }}" alt="Download" class="fn__svg">
+                    </button>
+                    <button class="control_button close_button" id="closeModal">
+                        <img src="{{ url_for('static', filename='assets/svg/x.svg') }}" alt="Close" class="fn__svg">
+                    </button>
+                </div>
+            </div>
+            <div class="modal_content">
+                <div class="content_display" id="contentDisplay">
+                    <!-- Content will be loaded here (image, video player, or audio player) -->
+                </div>
+                <div class="content_info">
+                    <div class="info_section">
+                        <h4>Description</h4>
+                        <p id="contentDescription"></p>
+                    </div>
+                    <div class="info_section">
+                        <h4>Détails</h4>
+                        <div class="detail_grid" id="contentDetails">
+                            <!-- Details will be loaded here -->
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Share modal -->
+    <div class="share_modal" id="shareModal">
+        <div class="modal_overlay"></div>
+        <div class="modal_container small_modal">
+            <div class="modal_header">
+                <h3 class="modal_title">Partager</h3>
+                <button class="control_button close_button" id="closeShareModal">
+                    <img src="{{ url_for('static', filename='assets/svg/x.svg') }}" alt="Close" class="fn__svg">
+                </button>
+            </div>
+            <div class="modal_content">
+                <div class="share_options">
+                    <div class="option_group">
+                        <h4>Réseaux sociaux</h4>
+                        <div class="social_buttons">
+                            <button class="social_button" data-platform="twitter">
+                                <img src="{{ url_for('static', filename='assets/svg/twitter.svg') }}" alt="Twitter" class="fn__svg">
+                                <span>Twitter</span>
+                            </button>
+                            <button class="social_button" data-platform="facebook">
+                                <img src="{{ url_for('static', filename='assets/svg/facebook.svg') }}" alt="Facebook" class="fn__svg">
+                                <span>Facebook</span>
+                            </button>
+                            <button class="social_button" data-platform="linkedin">
+                                <img src="{{ url_for('static', filename='assets/svg/linkedin.svg') }}" alt="LinkedIn" class="fn__svg">
+                                <span>LinkedIn</span>
+                            </button>
+                            <button class="social_button" data-platform="pinterest">
+                                <img src="{{ url_for('static', filename='assets/svg/image.svg') }}" alt="Pinterest" class="fn__svg">
+                                <span>Pinterest</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="option_group">
+                        <h4>Partager un lien</h4>
+                        <div class="copy_link">
+                            <input type="text" readonly id="shareLink" class="fn__input">
+                            <button class="copy_button" id="copyLinkButton">
+                                <img src="{{ url_for('static', filename='assets/svg/copy.svg') }}" alt="Copy" class="fn__svg">
+                                <span>Copier</span>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="option_group">
+                        <div class="gallery_option">
+                            <label for="shareToGallery" class="gallery_label">
+                                <input type="checkbox" id="shareToGallery">
+                                <span class="checkbox_text">Ajouter à la galerie communautaire</span>
+                            </label>
+                            <button class="neltar_fn_button secondary_button" id="submitToGallery">
+                                <span>Publier dans la galerie</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // DOM Elements
+    const galleryView = document.getElementById('galleryView');
+    const listView = document.getElementById('listView');
+    const timelineView = document.getElementById('timelineView');
+    const galleryMasonry = document.getElementById('galleryMasonry');
+    const listViewBody = document.getElementById('listViewBody');
+    const timelineContainer = document.getElementById('timelineContainer');
+    
+    const viewModeButtons = document.querySelectorAll('.mode_button');
+    const directionButtons = document.querySelectorAll('.direction_button');
+    const contentTypeFilter = document.getElementById('contentTypeFilter');
+    const dateFilter = document.getElementById('dateFilter');
+    const searchInput = document.getElementById('searchInput');
+    
+    const detailModal = document.getElementById('detailModal');
+    const closeModal = document.getElementById('closeModal');
+    const contentDisplay = document.getElementById('contentDisplay');
+    const contentDescription = document.getElementById('contentDescription');
+    const contentDetails = document.getElementById('contentDetails');
+    
+    const shareButton = document.getElementById('shareButton');
+    const regenerateButton = document.getElementById('regenerateButton');
+    const downloadButton = document.getElementById('downloadButton');
+    
+    const shareModal = document.getElementById('shareModal');
+    const closeShareModal = document.getElementById('closeShareModal');
+    const shareLink = document.getElementById('shareLink');
+    const copyLinkButton = document.getElementById('copyLinkButton');
+    const shareToGallery = document.getElementById('shareToGallery');
+    const submitToGallery = document.getElementById('submitToGallery');
+    
+    // Library state
+    let currentPage = 1;
+    let totalPages = 1;
+    let itemsPerPage = 20;
+    let currentViewMode = 'gallery';
+    let scrollDirection = 'ltr';
+    let activeFilters = {
+        type: 'all',
+        date: 'recent',
+        search: ''
+    };
+    let libraryItems = [];
+    let activeItemData = null;
+    
+    // Pagination elements
+    const prevPageButton = document.getElementById('prevPage');
+    const nextPageButton = document.getElementById('nextPage');
+    const pageNumbers = document.getElementById('pageNumbers');
+    
+    // Initialize the library
+    initLibrary();
+    
+    // View mode switching
+    viewModeButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const mode = this.getAttribute('data-mode');
+            switchViewMode(mode);
+        });
+    });
+    
+    // Scroll direction switching
+    directionButtons.forEach(button => {
+        button.addEventListener('click', function() {
+            const direction = this.getAttribute('data-direction');
+            switchScrollDirection(direction);
+        });
+    });
+    
+    // Filters change event listeners
+    contentTypeFilter.addEventListener('change', function() {
+        activeFilters.type = this.value;
+        currentPage = 1;
+        fetchLibraryItems();
+    });
+    
+    dateFilter.addEventListener('change', function() {
+        activeFilters.date = this.value;
+        currentPage = 1;
+        fetchLibraryItems();
+    });
+    
+    // Search functionality
+    searchInput.addEventListener('input', debounce(function() {
+        activeFilters.search = this.value;
+        currentPage = 1;
+        fetchLibraryItems();
+    }, 500));
+    
+    // Modal event listeners
+    closeModal.addEventListener('click', function() {
+        closeDetailModal();
+    });
+    
+    detailModal.querySelector('.modal_overlay').addEventListener('click', function() {
+        closeDetailModal();
+    });
+    
+    // Share modal event listeners
+    shareButton.addEventListener('click', function() {
+        openShareModal();
+    });
+    
+    closeShareModal.addEventListener('click', function() {
+        closeShareModalFunction();
+    });
+    
+    shareModal.querySelector('.modal_overlay').addEventListener('click', function() {
+        closeShareModalFunction();
+    });
+    
+    copyLinkButton.addEventListener('click', function() {
+        copyShareLink();
+    });
+    
+    submitToGallery.addEventListener('click', function() {
+        submitToGalleryFunction();
+    });
+    
+    // Pagination event listeners
+    prevPageButton.addEventListener('click', function() {
+        if (currentPage > 1) {
+            currentPage--;
+            fetchLibraryItems();
+        }
+    });
+    
+    nextPageButton.addEventListener('click', function() {
+        if (currentPage < totalPages) {
+            currentPage++;
+            fetchLibraryItems();
+        }
+    });
+    
+    // Button event listeners
+    regenerateButton.addEventListener('click', function() {
+        regenerateContent();
+    });
+    
+    downloadButton.addEventListener('click', function() {
+        downloadContent();
+    });
+    
+    // Initialize the library
+    function initLibrary() {
+        fetchLibraryItems();
+        
+        // Set up Masonry layout for gallery view
+        setTimeout(function() {
+            initMasonryLayout();
+        }, 500);
+    }
+    
+    // Fetch library items from the server
+    function fetchLibraryItems() {
+        // Show loading state
+        showLoadingState();
+        
+        // Get the token from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        // Construct API URL with filters
+        let apiUrl = `/api/library?page=${currentPage}&per_page=${itemsPerPage}`;
+        apiUrl += `&type=${activeFilters.type}&date=${activeFilters.date}`;
+        
+        if (activeFilters.search) {
+            apiUrl += `&search=${encodeURIComponent(activeFilters.search)}`;
+        }
+        
+        if (token) {
+            apiUrl += `&token=${encodeURIComponent(token)}`;
+        }
+        
+        // Fetch data from API
+        fetch(apiUrl)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    libraryItems = data.data.items;
+                    totalPages = Math.ceil(data.data.pagination.total_items / itemsPerPage);
+                    
+                    // Update UI
+                    hideLoadingState();
+                    renderLibraryItems();
+                    updatePagination();
+                } else {
+                    // Show error message
+                    showErrorState(data.error || 'Failed to load library items');
+                }
+            })
+            .catch(error => {
+                console.error('Error fetching library items:', error);
+                showErrorState('Network error. Please try again later.');
+            });
+    }
+    
+    // Render library items based on current view mode
+    function renderLibraryItems() {
+        switch (currentViewMode) {
+            case 'gallery':
+                renderGalleryView();
+                break;
+            case 'list':
+                renderListView();
+                break;
+            case 'timeline':
+                renderTimelineView();
+                break;
+        }
+    }
+    
+    // Render gallery view
+    function renderGalleryView() {
+        // Clear previous content
+        galleryMasonry.innerHTML = '';
+        
+        if (libraryItems.length === 0) {
+            galleryMasonry.innerHTML = '<div class="empty_state"><p>Aucun élément trouvé</p></div>';
+            return;
+        }
+        
+        // Create and append items
+        libraryItems.forEach(item => {
+            const itemElement = createGalleryItem(item);
+            galleryMasonry.appendChild(itemElement);
+        });
+        
+        // Initialize or reinitialize masonry layout
+        initMasonryLayout();
+    }
+    
+    // Create a gallery item element
+    function createGalleryItem(item) {
+        const itemDiv = document.createElement('div');
+        itemDiv.className = `gallery_item ${item.type}`;
+        itemDiv.setAttribute('data-id', item.id);
+        
+        // Generate thumbnail HTML based on content type
+        let thumbnailHTML = '';
+        
+        if (item.type === 'image') {
+            thumbnailHTML = `<img src="${item.thumbnail_url || item.url}" alt="${item.description || 'Image'}" class="item_thumbnail">`;
+        } else if (item.type === 'video') {
+            thumbnailHTML = `
+                <div class="video_thumbnail">
+                    <img src="${item.thumbnail_url}" alt="${item.description || 'Vidéo'}" class="item_thumbnail">
+                    <div class="play_overlay">
+                        <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg play_icon">
+                    </div>
+                </div>
+            `;
+        } else if (item.type === 'audio') {
+            thumbnailHTML = `
+                <div class="audio_thumbnail">
+                    <div class="audio_waveform"></div>
+                    <div class="play_overlay">
+                        <img src="{{ url_for('static', filename='assets/svg/headphones.svg') }}" alt="Play Audio" class="fn__svg play_icon">
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Add type icon and date
+        const date = new Date(item.timestamp);
+        const formattedDate = date.toLocaleDateString();
+        
+        itemDiv.innerHTML = `
+            <div class="item_inner">
+                ${thumbnailHTML}
+                <div class="item_overlay">
+                    <div class="item_info">
+                        <div class="item_type">
+                            <img src="{{ url_for('static', filename='assets/svg/${item.type}.svg') }}" alt="${item.type}" class="fn__svg type_icon">
+                        </div>
+                        <div class="item_date">${formattedDate}</div>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add click event to open detail modal
+        itemDiv.addEventListener('click', function() {
+            openDetailModal(item);
+        });
+        
+        return itemDiv;
+    }
+    
+    // Render list view
+    function renderListView() {
+        // Clear previous content
+        listViewBody.innerHTML = '';
+        
+        if (libraryItems.length === 0) {
+            listViewBody.innerHTML = '<tr><td colspan="5" class="empty_message">Aucun élément trouvé</td></tr>';
+            return;
+        }
+        
+        // Create and append rows
+        libraryItems.forEach(item => {
+            const row = createListItem(item);
+            listViewBody.appendChild(row);
+        });
+    }
+    
+    // Create a list item row
+    function createListItem(item) {
+        const row = document.createElement('tr');
+        row.className = 'list_item';
+        row.setAttribute('data-id', item.id);
+        
+        // Generate thumbnail cell based on content type
+        let thumbnailHTML = '';
+        
+        if (item.type === 'image') {
+            thumbnailHTML = `<img src="${item.thumbnail_url || item.url}" alt="${item.description || 'Image'}" class="list_thumbnail">`;
+        } else if (item.type === 'video') {
+            thumbnailHTML = `
+                <div class="video_list_thumbnail">
+                    <img src="${item.thumbnail_url}" alt="${item.description || 'Vidéo'}" class="list_thumbnail">
+                    <div class="play_overlay small">
+                        <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg play_icon small">
+                    </div>
+                </div>
+            `;
+        } else if (item.type === 'audio') {
+            thumbnailHTML = `
+                <div class="audio_list_thumbnail">
+                    <div class="audio_waveform small"></div>
+                    <div class="play_overlay small">
+                        <img src="{{ url_for('static', filename='assets/svg/headphones.svg') }}" alt="Play Audio" class="fn__svg play_icon small">
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Format date
+        const date = new Date(item.timestamp);
+        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        // Create type label
+        const typeLabels = {
+            'image': 'Image',
+            'video': 'Vidéo',
+            'audio': 'Audio'
+        };
+        
+        // Truncate description
+        const description = item.description ? truncateText(item.description, 100) : 'Sans description';
+        
+        row.innerHTML = `
+            <td class="preview_cell">${thumbnailHTML}</td>
+            <td class="type_cell"><span class="type_badge ${item.type}">${typeLabels[item.type]}</span></td>
+            <td class="description_cell">${description}</td>
+            <td class="date_cell">${formattedDate}</td>
+            <td class="actions_cell">
+                <div class="action_buttons">
+                    <button class="action_button view_button" data-action="view">
+                        <img src="{{ url_for('static', filename='assets/svg/eye.svg') }}" alt="View" class="fn__svg action_icon">
+                    </button>
+                    <button class="action_button download_button" data-action="download">
+                        <img src="{{ url_for('static', filename='assets/svg/download.svg') }}" alt="Download" class="fn__svg action_icon">
+                    </button>
+                    <button class="action_button share_button" data-action="share">
+                        <img src="{{ url_for('static', filename='assets/svg/share.svg') }}" alt="Share" class="fn__svg action_icon">
+                    </button>
+                </div>
+            </td>
+        `;
+        
+        // Add click event for view button
+        row.querySelector('.view_button').addEventListener('click', function(e) {
+            e.stopPropagation();
+            openDetailModal(item);
+        });
+        
+        // Add click event for download button
+        row.querySelector('.download_button').addEventListener('click', function(e) {
+            e.stopPropagation();
+            downloadItem(item);
+        });
+        
+        // Add click event for share button
+        row.querySelector('.share_button').addEventListener('click', function(e) {
+            e.stopPropagation();
+            openShareModal(item);
+        });
+        
+        // Add click event to open detail modal on row click
+        row.addEventListener('click', function() {
+            openDetailModal(item);
+        });
+        
+        return row;
+    }
+    
+    // Render timeline view
+    function renderTimelineView() {
+        // Clear previous content
+        timelineContainer.innerHTML = '';
+        
+        if (libraryItems.length === 0) {
+            timelineContainer.innerHTML = '<div class="empty_state"><p>Aucun élément trouvé</p></div>';
+            return;
+        }
+        
+        // Group items by date
+        const groupedItems = groupItemsByDate(libraryItems);
+        
+        // Create timeline
+        const timeline = document.createElement('div');
+        timeline.className = 'timeline';
+        
+        // Create timeline entries for each date group
+        Object.keys(groupedItems).forEach(dateKey => {
+            const dateGroup = document.createElement('div');
+            dateGroup.className = 'timeline_group';
+            
+            // Add date header
+            const dateHeader = document.createElement('div');
+            dateHeader.className = 'timeline_date';
+            dateHeader.textContent = dateKey;
+            dateGroup.appendChild(dateHeader);
+            
+            // Add items for this date
+            const itemsContainer = document.createElement('div');
+            itemsContainer.className = 'timeline_items';
+            
+            groupedItems[dateKey].forEach(item => {
+                const timelineItem = createTimelineItem(item);
+                itemsContainer.appendChild(timelineItem);
+            });
+            
+            dateGroup.appendChild(itemsContainer);
+            timeline.appendChild(dateGroup);
+        });
+        
+        timelineContainer.appendChild(timeline);
+    }
+    
+    // Create a timeline item
+    function createTimelineItem(item) {
+        const timelineItem = document.createElement('div');
+        timelineItem.className = `timeline_item ${item.type}`;
+        timelineItem.setAttribute('data-id', item.id);
+        
+        // Generate thumbnail based on content type
+        let thumbnailHTML = '';
+        
+        if (item.type === 'image') {
+            thumbnailHTML = `<img src="${item.thumbnail_url || item.url}" alt="${item.description || 'Image'}" class="timeline_thumbnail">`;
+        } else if (item.type === 'video') {
+            thumbnailHTML = `
+                <div class="video_timeline_thumbnail">
+                    <img src="${item.thumbnail_url}" alt="${item.description || 'Vidéo'}" class="timeline_thumbnail">
+                    <div class="play_overlay small">
+                        <img src="{{ url_for('static', filename='assets/svg/play.svg') }}" alt="Play" class="fn__svg play_icon small">
+                    </div>
+                </div>
+            `;
+        } else if (item.type === 'audio') {
+            thumbnailHTML = `
+                <div class="audio_timeline_thumbnail">
+                    <div class="audio_waveform small"></div>
+                    <div class="play_overlay small">
+                        <img src="{{ url_for('static', filename='assets/svg/headphones.svg') }}" alt="Play Audio" class="fn__svg play_icon small">
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Format time
+        const date = new Date(item.timestamp);
+        const formattedTime = date.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+        
+        // Truncate description
+        const description = item.description ? truncateText(item.description, 60) : 'Sans description';
+        
+        timelineItem.innerHTML = `
+            <div class="timeline_content">
+                <div class="timeline_thumbnail_container">
+                    ${thumbnailHTML}
+                </div>
+                <div class="timeline_info">
+                    <div class="timeline_time">${formattedTime}</div>
+                    <div class="timeline_description">${description}</div>
+                    <div class="timeline_type">
+                        <img src="{{ url_for('static', filename='assets/svg/${item.type}.svg') }}" alt="${item.type}" class="fn__svg type_icon">
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        // Add click event to open detail modal
+        timelineItem.addEventListener('click', function() {
+            openDetailModal(item);
+        });
+        
+        return timelineItem;
+    }
+    
+    // Group items by date for timeline view
+    function groupItemsByDate(items) {
+        const groups = {};
+        
+        items.forEach(item => {
+            const date = new Date(item.timestamp);
+            const dateKey = date.toLocaleDateString();
+            
+            if (!groups[dateKey]) {
+                groups[dateKey] = [];
+            }
+            
+            groups[dateKey].push(item);
+        });
+        
+        return groups;
+    }
+    
+    // Initialize masonry layout for gallery view
+    function initMasonryLayout() {
+        // This is a simplified version - in a real app, you might use a library like Masonry.js
+        const items = galleryMasonry.querySelectorAll('.gallery_item');
+        
+        if (items.length === 0) return;
+        
+        // Define item sizes (small, medium, large)
+        const sizes = ['small', 'medium', 'large'];
+        
+        // Apply random sizes to items
+        items.forEach((item, index) => {
+            // Remove any existing size classes
+            item.classList.remove('small', 'medium', 'large');
+            
+            // Assign size based on various factors
+            let size;
+            if (index % 7 === 0) {
+                size = 'large'; // Make every 7th item large
+            } else if (index % 3 === 0) {
+                size = 'medium'; // Make every 3rd item medium
+            } else {
+                size = 'small'; // Others are small
+            }
+            
+            item.classList.add(size);
+        });
+        
+        // Apply scroll direction
+        galleryMasonry.style.direction = scrollDirection === 'rtl' ? 'rtl' : 'ltr';
+    }
+    
+    // Switch view mode
+    function switchViewMode(mode) {
+        // Update current mode
+        currentViewMode = mode;
+        
+        // Update button states
+        viewModeButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('data-mode') === mode) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Hide all views
+        document.querySelectorAll('.view_container').forEach(container => {
+            container.classList.remove('active');
+        });
+        
+        // Show selected view
+        document.getElementById(`${mode}View`).classList.add('active');
+        
+        // Render items for the selected view
+        renderLibraryItems();
+    }
+    
+    // Switch scroll direction
+    function switchScrollDirection(direction) {
+        // Update current direction
+        scrollDirection = direction;
+        
+        // Update button states
+        directionButtons.forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.getAttribute('data-direction') === direction) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Apply to gallery view
+        galleryMasonry.style.direction = direction === 'rtl' ? 'rtl' : 'ltr';
+    }
+    
+    // Update pagination UI
+    function updatePagination() {
+        // Update buttons state
+        prevPageButton.disabled = currentPage <= 1;
+        nextPageButton.disabled = currentPage >= totalPages;
+        
+        // Update page numbers
+        pageNumbers.innerHTML = '';
+        
+        // Determine which page numbers to show
+        let startPage = Math.max(1, currentPage - 2);
+        let endPage = Math.min(totalPages, startPage + 4);
+        
+        if (endPage - startPage < 4) {
+            startPage = Math.max(1, endPage - 4);
+        }
+        
+        // Add first page if not included
+        if (startPage > 1) {
+            addPageNumber(1);
+            if (startPage > 2) {
+                addEllipsis();
+            }
+        }
+        
+        // Add page numbers
+        for (let i = startPage; i <= endPage; i++) {
+            addPageNumber(i);
+        }
+        
+        // Add last page if not included
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) {
+                addEllipsis();
+            }
+            addPageNumber(totalPages);
+        }
+    }
+    
+    // Add a page number button
+    function addPageNumber(pageNum) {
+        const pageButton = document.createElement('button');
+        pageButton.className = 'page_number';
+        pageButton.textContent = pageNum;
+        
+        if (pageNum === currentPage) {
+            pageButton.classList.add('active');
+        }
+        
+        pageButton.addEventListener('click', function() {
+            currentPage = pageNum;
+            fetchLibraryItems();
+        });
+        
+        pageNumbers.appendChild(pageButton);
+    }
+    
+    // Add ellipsis to pagination
+    function addEllipsis() {
+        const ellipsis = document.createElement('span');
+        ellipsis.className = 'page_ellipsis';
+        ellipsis.textContent = '...';
+        pageNumbers.appendChild(ellipsis);
+    }
+    
+    // Open detail modal
+    function openDetailModal(item) {
+        // Store active item
+        activeItemData = item;
+        
+        // Update modal title
+        document.getElementById('modalTitle').textContent = getContentTypeLabel(item.type);
+        
+        // Update content display
+        contentDisplay.innerHTML = '';
+        
+        if (item.type === 'image') {
+            contentDisplay.innerHTML = `<img src="${item.url}" alt="${item.description || 'Image'}" class="detail_image">`;
+        } else if (item.type === 'video') {
+            contentDisplay.innerHTML = `
+                <video controls class="detail_video">
+                    <source src="${item.url}" type="video/mp4">
+                    Votre navigateur ne supporte pas la lecture vidéo.
+                </video>
+            `;
+        } else if (item.type === 'audio') {
+            contentDisplay.innerHTML = `
+                <audio controls class="detail_audio">
+                    <source src="${item.url}" type="audio/mpeg">
+                    Votre navigateur ne supporte pas la lecture audio.
+                </audio>
+                <div class="audio_visualization">
+                    <div class="waveform_large" id="detailWaveform"></div>
+                </div>
+            `;
+        }
+        
+        // Update description
+        contentDescription.textContent = item.description || 'Aucune description disponible';
+        
+        // Update details
+        contentDetails.innerHTML = '';
+        
+        // Add common details
+        const date = new Date(item.timestamp);
+        const formattedDate = date.toLocaleDateString() + ' ' + date.toLocaleTimeString();
+        
+        addDetailItem('Date de création', formattedDate);
+        addDetailItem('Type', getContentTypeLabel(item.type));
+        addDetailItem('Modèle', item.model || 'Non spécifié');
+        
+        // Add type-specific details
+        if (item.type === 'image') {
+            if (item.dimensions) {
+                addDetailItem('Dimensions', `${item.dimensions.width} × ${item.dimensions.height}`);
+            }
+            if (item.prompt) {
+                addDetailItem('Prompt', item.prompt);
+            }
+        } else if (item.type === 'video') {
+            if (item.duration) {
+                addDetailItem('Durée', formatDuration(item.duration));
+            }
+            if (item.prompt) {
+                addDetailItem('Prompt', item.prompt);
+            }
+        } else if (item.type === 'audio') {
+            if (item.duration) {
+                addDetailItem('Durée', formatDuration(item.duration));
+            }
+            if (item.text) {
+                addDetailItem('Texte', item.text);
+            }
+            if (item.voice) {
+                addDetailItem('Voix', item.voice);
+            }
+        }
+        
+        // Show the modal
+        detailModal.classList.add('active');
+        document.body.classList.add('modal-open');
+        
+        // Initialize audio visualization if needed
+        if (item.type === 'audio' && item.url) {
+            setTimeout(() => {
+                initAudioVisualization(item.url);
+            }, 500);
+        }
+    }
+    
+    // Add a detail item to the details section
+    function addDetailItem(label, value) {
+        const detailItem = document.createElement('div');
+        detailItem.className = 'detail_item';
+        
+        detailItem.innerHTML = `
+            <div class="detail_label">${label}</div>
+            <div class="detail_value">${value}</div>
+        `;
+        
+        contentDetails.appendChild(detailItem);
+    }
+    
+    // Close detail modal
+    function closeDetailModal() {
+        detailModal.classList.remove('active');
+        document.body.classList.remove('modal-open');
+        
+        // Pause any playing media
+        const video = contentDisplay.querySelector('video');
+        if (video) {
+            video.pause();
+        }
+        
+        const audio = contentDisplay.querySelector('audio');
+        if (audio) {
+            audio.pause();
+        }
+        
+        // Clear active item
+        activeItemData = null;
+    }
+    
+    // Open share modal
+    function openShareModal() {
+        if (!activeItemData) return;
+        
+        // Set share link
+        const origin = window.location.origin;
+        const shareUrl = `${origin}/share/${activeItemData.type}/${activeItemData.id}`;
+        shareLink.value = shareUrl;
+        
+        // Reset copy button
+        copyLinkButton.querySelector('span').textContent = 'Copier';
+        
+        // Show the modal
+        shareModal.classList.add('active');
+    }
+    
+    // Close share modal
+    function closeShareModalFunction() {
+        shareModal.classList.remove('active');
+    }
+    
+    // Copy share link to clipboard
+    function copyShareLink() {
+        shareLink.select();
+        document.execCommand('copy');
+        
+        // Update button text
+        copyLinkButton.querySelector('span').textContent = 'Copié !';
+        
+        // Reset after 2 seconds
+        setTimeout(() => {
+            copyLinkButton.querySelector('span').textContent = 'Copier';
+        }, 2000);
+    }
+    
+    // Submit to gallery function
+    function submitToGalleryFunction() {
+        if (!activeItemData) return;
+        
+        // Get the token from URL parameters
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        // Prepare request data
+        const requestData = {
+            item_id: activeItemData.id,
+            item_type: activeItemData.type
+        };
+        
+        // Setup fetch options
+        const fetchOptions = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        };
+        
+        // Add token to headers if available
+        if (token) {
+            fetchOptions.headers['Authorization'] = `Bearer ${token}`;
+        }
+        
+        // Submit to gallery
+        fetch('/api/gallery/add', fetchOptions)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    // Show success message
+                    alert('Votre création a été ajoutée à la galerie avec succès !');
+                    closeShareModalFunction();
+                } else {
+                    // Show error message
+                    alert(data.error || 'Échec de l\'ajout à la galerie');
+                }
+            })
+            .catch(error => {
+                console.error('Error submitting to gallery:', error);
+                alert('Erreur réseau. Veuillez réessayer plus tard.');
+            });
+    }
+    
+    // Download content
+    function downloadContent() {
+        if (!activeItemData) return;
+        
+        // Construct download URL
+        let downloadUrl = '';
+        
+        if (activeItemData.type === 'image') {
+            downloadUrl = `/download-image/${activeItemData.id}`;
+        } else if (activeItemData.type === 'video') {
+            downloadUrl = `/download-video/${activeItemData.id}`;
+        } else if (activeItemData.type === 'audio') {
+            downloadUrl = `/download-audio/${activeItemData.id}`;
+        }
+        
+        // Add token if available
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        if (token) {
+            downloadUrl += `?token=${encodeURIComponent(token)}`;
+        }
+        
+        // Trigger download
+        window.location.href = downloadUrl;
+    }
+    
+    // Download a specific item
+    function downloadItem(item) {
+        // Construct download URL
+        let downloadUrl = '';
+        
+        if (item.type === 'image') {
+            downloadUrl = `/download-image/${item.id}`;
+        } else if (item.type === 'video') {
+            downloadUrl = `/download-video/${item.id}`;
+        } else if (item.type === 'audio') {
+            downloadUrl = `/download-audio/${item.id}`;
+        }
+        
+        // Add token if available
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        if (token) {
+            downloadUrl += `?token=${encodeURIComponent(token)}`;
+        }
+        
+        // Trigger download
+        window.location.href = downloadUrl;
+    }
+    
+    // Regenerate content
+    function regenerateContent() {
+        if (!activeItemData) return;
+        
+        // Determine redirect URL based on content type
+        let redirectUrl = '';
+        
+        if (activeItemData.type === 'image') {
+            redirectUrl = '/generate_image';
+        } else if (activeItemData.type === 'video') {
+            redirectUrl = '/generate_video';
+        } else if (activeItemData.type === 'audio') {
+            redirectUrl = '/generate_audio';
+        }
+        
+        // Add token if available
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+        
+        if (token) {
+            redirectUrl += `?token=${encodeURIComponent(token)}`;
+        }
+        
+        // Add regeneration parameter if needed
+        redirectUrl += `${token ? '&' : '?'}regenerate=${activeItemData.id}`;
+        
+        // Redirect to generation page
+        window.location.href = redirectUrl;
+    }
+    
+    // Initialize audio visualization
+    function initAudioVisualization(audioUrl) {
+        // This is a placeholder - in a real app, you would use a library like Wavesurfer.js
+        const waveformElement = document.getElementById('detailWaveform');
+        if (!waveformElement) return;
+        
+        // Create a simple placeholder waveform
+        waveformElement.innerHTML = '';
+        
+        // Create 50 bars with random heights
+        for (let i = 0; i < 50; i++) {
+            const bar = document.createElement('div');
+            bar.className = 'waveform_bar';
+            bar.style.height = `${Math.random() * 80 + 20}%`;
+            waveformElement.appendChild(bar);
+        }
+    }
+    
+    // Show loading state
+    function showLoadingState() {
+        // Clear content
+        galleryMasonry.innerHTML = '';
+        listViewBody.innerHTML = '';
+        timelineContainer.innerHTML = '';
+        
+        // Add loading indicators
+        const loadingHTML = `
+            <div class="loading_state">
+                <div class="loading_pulse"></div>
+                <p>Chargement de votre bibliothèque...</p>
+            </div>
+        `;
+        
+        galleryMasonry.innerHTML = loadingHTML;
+        listViewBody.innerHTML = `<tr><td colspan="5" class="loading_message">${loadingHTML}</td></tr>`;
+        timelineContainer.innerHTML = loadingHTML;
+    }
+    
+    // Hide loading state
+    function hideLoadingState() {
+        // Just clear the containers - content will be added by render functions
+        galleryMasonry.innerHTML = '';
+        listViewBody.innerHTML = '';
+        timelineContainer.innerHTML = '';
+    }
+    
+    // Show error state
+    function showErrorState(errorMessage) {
+        // Clear content
+        galleryMasonry.innerHTML = '';
+        listViewBody.innerHTML = '';
+        timelineContainer.innerHTML = '';
+        
+        // Add error messages
+        const errorHTML = `
+            <div class="error_state">
+                <img src="{{ url_for('static', filename='assets/svg/alert-triangle.svg') }}" alt="Error" class="fn__svg error_icon">
+                <p>${errorMessage}</p>
+            </div>
+        `;
+        
+        galleryMasonry.innerHTML = errorHTML;
+        listViewBody.innerHTML = `<tr><td colspan="5" class="error_message">${errorHTML}</td></tr>`;
+        timelineContainer.innerHTML = errorHTML;
+    }
+    
+    // Helper function: Get content type label
+    function getContentTypeLabel(type) {
+        const labels = {
+            'image': 'Image',
+            'video': 'Vidéo',
+            'audio': 'Audio'
+        };
+        
+        return labels[type] || type;
+    }
+    
+    // Helper function: Format duration
+    function formatDuration(seconds) {
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = Math.floor(seconds % 60);
+        
+        return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+    }
+    
+    // Helper function: Truncate text
+    function truncateText(text, maxLength) {
+        if (!text) return '';
+        if (text.length <= maxLength) return text;
+        return text.substring(0, maxLength) + '...';
+    }
+    
+    // Helper function: Debounce
+    function debounce(func, wait) {
+        let timeout;
+        return function(...args) {
+            clearTimeout(timeout);
+            timeout = setTimeout(() => func.apply(this, args), wait);
+        };
+    }
+});
+</script>
+{% endblock %}

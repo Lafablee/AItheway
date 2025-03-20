@@ -3735,6 +3735,351 @@ def download_enhanced_image():
 
     return jsonify({'error': 'Enhanced image not found'}), 404
 
+# Library asset
+
+@app.route('/library', methods=['GET'])
+@token_required
+def library_view(wp_user_id):
+    """
+    Unified library view that shows all user's generated content
+    (images, videos, audio) in one place
+    """
+    try:
+        client = get_client_by_wp_user_id(wp_user_id)
+        app.logger.info(f"Client lookup result: {client}")
+
+        # Initial checks
+        if not client:
+            app.logger.error("Client not found!")
+            return jsonify({"error": "Client not found"}), 404
+
+        if not check_client_permission(client["id"], "view_content"):
+            app.logger.debug(f"User {wp_user_id} permission denied for viewing library.")
+            return jsonify({"error": "Permission denied"}), 403
+
+        # Get tokens information
+        tokens_remaining = get_user_tokens(wp_user_id)
+
+        # Render the library template
+        return render_template(
+            'library.html',
+            tokens_remaining=tokens_remaining
+        )
+    except Exception as e:
+        app.logger.error(f"Unexpected error in library view: {str(e)}")
+        return jsonify({"error": "Internal server error"}), 500
+
+
+@app.route('/api/library', methods=['GET'])
+@token_required
+def get_library_items(wp_user_id):
+    """
+    API endpoint to fetch all library items for a user with filtering and pagination
+    """
+    try:
+        # Get request parameters
+        page = request.args.get('page', 1, type=int)
+        per_page = min(50, request.args.get('per_page', 20, type=int))
+        content_type = request.args.get('type', 'all')
+        date_filter = request.args.get('date', 'recent')
+        search_query = request.args.get('search', '')
+
+        # Calculate pagination indices
+        start_idx = (page - 1) * per_page
+        end_idx = start_idx + per_page
+
+        # Fetch all content types
+        all_items = []
+
+        # 1. Fetch images if requested
+        if content_type in ['all', 'image']:
+            try:
+                images = image_manager.get_user_history(wp_user_id, "generated")
+
+                for img in images:
+                    # Handle regular images
+                    if 'model' in img and img['model'] != 'midjourney':
+                        item = {
+                            'id': img.get('key', ''),
+                            'type': 'image',
+                            'url': f"/image/{img.get('key', '')}",
+                            'thumbnail_url': f"/image/{img.get('key', '')}",
+                            'description': img.get('prompt', ''),
+                            'timestamp': img.get('timestamp', ''),
+                            'model': img.get('model', ''),
+                            'dimensions': img.get('parameters', {}).get('size', '1024x1024').split('x') if img.get(
+                                'parameters') else None
+                        }
+
+                        # Add dimensions as an object if available
+                        if item['dimensions'] and len(item['dimensions']) == 2:
+                            try:
+                                item['dimensions'] = {
+                                    'width': int(item['dimensions'][0]),
+                                    'height': int(item['dimensions'][1])
+                                }
+                            except (ValueError, IndexError):
+                                item['dimensions'] = None
+
+                        all_items.append(item)
+
+                    # Handle Midjourney image groups
+                    elif 'model' in img and img['model'] == 'midjourney' and 'images' in img:
+                        for midjourney_img in img.get('images', []):
+                            item = {
+                                'id': midjourney_img.get('key', ''),
+                                'type': 'image',
+                                'url': f"/image/{midjourney_img.get('key', '')}",
+                                'thumbnail_url': f"/image/{midjourney_img.get('key', '')}",
+                                'description': img.get('prompt', ''),
+                                'timestamp': img.get('timestamp', ''),
+                                'model': 'midjourney',
+                                'task_id': img.get('task_id', '')
+                            }
+                            all_items.append(item)
+            except Exception as e:
+                app.logger.error(f"Error fetching images: {str(e)}")
+
+        # 2. Fetch videos if requested
+        if content_type in ['all', 'video']:
+            try:
+                videos = video_manager.get_user_video_history(wp_user_id)
+
+                for video in videos:
+                    if video.get('status') == 'completed':
+                        item = {
+                            'id': video.get('video_key', ''),
+                            'type': 'video',
+                            'url': f"/video/{video.get('video_key', '')}",
+                            'thumbnail_url': f"/static/assets/thumbnails/video_thumbnail.jpg",  # Default thumbnail
+                            'description': video.get('prompt', ''),
+                            'timestamp': video.get('timestamp', ''),
+                            'model': video.get('model', 'default'),
+                            'duration': video.get('duration', 0)
+                        }
+                        all_items.append(item)
+            except Exception as e:
+                app.logger.error(f"Error fetching videos: {str(e)}")
+
+        # 3. Fetch audio if requested
+        if content_type in ['all', 'audio']:
+            try:
+                audio_files = audio_manager.get_user_history(wp_user_id)
+
+                for audio in audio_files:
+                    item = {
+                        'id': audio.get('audio_key', ''),
+                        'type': 'audio',
+                        'url': f"/audio/{audio.get('audio_key', '')}",
+                        'thumbnail_url': None,  # Audio doesn't have thumbnails
+                        'description': truncate_text(audio.get('text', ''), 100),
+                        'timestamp': audio.get('timestamp', ''),
+                        'model': 'tts',
+                        'voice': audio.get('voice', 'default'),
+                        'duration': audio.get('duration', 0),
+                        'text': audio.get('text', '')
+                    }
+                    all_items.append(item)
+            except Exception as e:
+                app.logger.error(f"Error fetching audio: {str(e)}")
+
+        # Apply search filter if provided
+        if search_query:
+            search_query = search_query.lower()
+            all_items = [
+                item for item in all_items
+                if search_query in (item.get('description') or '').lower() or
+                   search_query in (item.get('model') or '').lower() or
+                   search_query in (item.get('type') or '').lower()
+            ]
+
+        # Apply date filter
+        if date_filter:
+            all_items = sort_by_date(all_items, date_filter)
+
+        # Get total count before pagination
+        total_items = len(all_items)
+
+        # Apply pagination
+        paginated_items = all_items[start_idx:end_idx] if all_items else []
+
+        # Return response
+        return jsonify({
+            'success': True,
+            'data': {
+                'items': paginated_items,
+                'pagination': {
+                    'current_page': page,
+                    'per_page': per_page,
+                    'total_items': total_items,
+                    'total_pages': (total_items + per_page - 1) // per_page
+                }
+            }
+        })
+
+    except Exception as e:
+        app.logger.error(f"Error in library API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': 'Failed to fetch library items'
+        }), 500
+
+
+# Helper function to sort items by date
+def sort_by_date(items, date_filter):
+    """Sort items based on date filter"""
+    from datetime import datetime, timedelta
+
+    # First, ensure all timestamps are datetime objects
+    for item in items:
+        if isinstance(item.get('timestamp'), str):
+            try:
+                item['timestamp'] = datetime.fromisoformat(item['timestamp'].replace('Z', '+00:00'))
+            except (ValueError, AttributeError):
+                # If conversion fails, try a common format
+                try:
+                    item['timestamp'] = datetime.strptime(item['timestamp'], '%Y-%m-%dT%H:%M:%S.%f')
+                except (ValueError, AttributeError):
+                    # If all fails, set to epoch start
+                    item['timestamp'] = datetime(1970, 1, 1)
+
+    # Apply filtering based on date
+    now = datetime.now()
+
+    if date_filter == 'today':
+        today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        items = [item for item in items if item.get('timestamp') >= today_start]
+    elif date_filter == 'week':
+        week_start = now - timedelta(days=now.weekday())
+        week_start = week_start.replace(hour=0, minute=0, second=0, microsecond=0)
+        items = [item for item in items if item.get('timestamp') >= week_start]
+    elif date_filter == 'month':
+        month_start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        items = [item for item in items if item.get('timestamp') >= month_start]
+
+    # Sort by timestamp
+    if date_filter == 'oldest':
+        return sorted(items, key=lambda x: x.get('timestamp', datetime(1970, 1, 1)))
+    else:  # recent is default
+        return sorted(items, key=lambda x: x.get('timestamp', datetime(1970, 1, 1)), reverse=True)
+
+
+# Helper function to truncate text
+def truncate_text(text, max_length):
+    """Truncate text to a specified length"""
+    if not text:
+        return ''
+    if len(text) <= max_length:
+        return text
+    return text[:max_length] + '...'
+
+
+# Add routes for downloading content
+
+@app.route('/download-image/<image_key>')
+@token_required
+def download_specific_image(wp_user_id, image_key):
+    """Download a specific image by key"""
+    try:
+        # Fetch the image
+        image_data = image_manager.get_image(image_key)
+        if not image_data:
+            return "Image not found", 404
+
+        # Get metadata for a better filename
+        metadata = image_manager.get_image_metadata(image_key)
+        prompt = ''
+        if metadata:
+            prompt_bytes = metadata.get(b'prompt', b'')
+            if prompt_bytes:
+                prompt = prompt_bytes.decode('utf-8', errors='ignore')[:30].replace(' ', '_')
+
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"aitheway_image_{prompt}_{timestamp}.png"
+
+        return send_file(
+            BytesIO(image_data),
+            mimetype='image/png',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        app.logger.error(f"Error downloading image: {str(e)}")
+        return "Error processing download", 500
+
+
+@app.route('/download-video/<video_key>')
+@token_required
+def download_specific_video(wp_user_id, video_key):
+    """Download a specific video by key"""
+    try:
+        # Fetch the video
+        video_data = video_manager.get_video(video_key)
+        if not video_data:
+            # Try to fetch from URL if not stored locally
+            metadata = storage_manager.get_metadata(video_key)
+            if not metadata or not metadata.get('download_url'):
+                return "Video not found", 404
+
+            download_url = metadata.get('download_url')
+            video_data = video_manager.download_from_url(download_url)
+
+            if not video_data:
+                return "Failed to download video", 500
+
+        # Get metadata for a better filename
+        metadata = storage_manager.get_metadata(video_key)
+        prompt = ''
+        if metadata:
+            prompt = metadata.get('prompt', '')[:30].replace(' ', '_')
+
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"aitheway_video_{prompt}_{timestamp}.mp4"
+
+        return send_file(
+            BytesIO(video_data),
+            mimetype='video/mp4',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        app.logger.error(f"Error downloading video: {str(e)}")
+        return "Error processing download", 500
+
+
+@app.route('/download-audio/<audio_key>')
+@token_required
+def download_specific_audio(wp_user_id, audio_key):
+    """Download a specific audio file by key"""
+    try:
+        # Fetch the audio
+        audio_data = audio_manager.get_audio(audio_key)
+        if not audio_data:
+            return "Audio not found", 404
+
+        # Get metadata for a better filename
+        metadata = audio_manager.get_audio_metadata(audio_key)
+        text = ''
+        voice = 'default'
+
+        if metadata:
+            if b'text' in metadata:
+                text = metadata[b'text'].decode('utf-8', errors='ignore')[:30].replace(' ', '_')
+            if b'voice' in metadata:
+                voice = metadata[b'voice'].decode('utf-8', errors='ignore')
+
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        filename = f"aitheway_audio_{voice}_{text}_{timestamp}.mp3"
+
+        return send_file(
+            BytesIO(audio_data),
+            mimetype='audio/mpeg',
+            as_attachment=True,
+            download_name=filename
+        )
+    except Exception as e:
+        app.logger.error(f"Error downloading audio: {str(e)}")
+        return "Error processing download", 500
 
 # ---- TEMP ----
 

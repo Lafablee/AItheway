@@ -1,0 +1,342 @@
+/* Styles pour le panneau de navigation gauche restructuré */
+
+.neltar_fn_leftpanel {
+    width: 280px;
+    height: 100vh;
+    position: fixed;
+    left: 0;
+    top: 0;
+    background-color: var(--neltar-bg);
+    border-right: 1px solid var(--neltar-border-color);
+    display: flex;
+    flex-direction: column;
+    z-index: 100;
+    transition: all 0.3s ease;
+}
+
+/* Logo */
+.neltar_fn_leftpanel .logo {
+    padding: 20px;
+    text-align: center;
+    border-bottom: 1px solid var(--neltar-border-color);
+}
+
+.neltar_fn_leftpanel .logo img {
+    max-height: 40px;
+    width: auto;
+}
+
+.neltar_fn_leftpanel .mobile_logo {
+    display: none;
+}
+
+/* Navigation principale */
+.neltar_fn_leftpanel .navigation {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 0;
+}
+
+.nav_list {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.nav_group {
+    margin-bottom: 10px;
+}
+
+/* Style des éléments de navigation */
+.nav_item {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    color: var(--neltar-p);
+    text-decoration: none;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    margin: 3px 10px;
+}
+
+.nav_item:hover {
+    background-color: var(--neltar-bg-light);
+    color: var(--neltar-heading-color);
+}
+
+.nav_item.active {
+    background-color: var(--neltar-accent-light);
+    color: var(--neltar-accent);
+    font-weight: 500;
+}
+
+.nav_item .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-right: 12px;
+}
+
+.nav_item .icon img {
+    width: 18px;
+    height: 18px;
+}
+
+.nav_item.active .icon img {
+    filter: brightness(0) saturate(100%) invert(30%) sepia(56%) saturate(2786%) hue-rotate(228deg) brightness(91%) contrast(101%);
+}
+
+/* Séparateurs pour les sections */
+.nav_divider {
+    padding: 15px 20px 5px;
+    font-size: 12px;
+    font-weight: 500;
+    color: var(--neltar-p-light);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    position: relative;
+}
+
+.nav_divider:after {
+    content: '';
+    position: absolute;
+    left: 20px;
+    right: 20px;
+    bottom: 0;
+    height: 1px;
+    background-color: var(--neltar-border-color);
+}
+
+.nav_divider span {
+    position: relative;
+    z-index: 1;
+    background-color: var(--neltar-bg);
+    padding-right: 10px;
+}
+
+/* Menu déroulant (si nécessaire) */
+.dropdown_menu {
+    position: relative;
+}
+
+.dropdown_toggle {
+    display: flex;
+    align-items: center;
+    padding: 12px 20px;
+    width: 100%;
+    background: none;
+    border: none;
+    color: var(--neltar-p);
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-radius: 8px;
+    margin: 3px 10px;
+}
+
+.dropdown_toggle:hover {
+    background-color: var(--neltar-bg-light);
+    color: var(--neltar-heading-color);
+}
+
+.dropdown_toggle .icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    margin-right: 12px;
+}
+
+.dropdown_toggle .text {
+    flex: 1;
+}
+
+.dropdown_toggle .arrow {
+    transition: transform 0.3s ease;
+}
+
+.dropdown_menu.open .dropdown_toggle .arrow {
+    transform: rotate(180deg);
+}
+
+.dropdown_content {
+    padding: 5px 0;
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+}
+
+.dropdown_menu.open .dropdown_content {
+    max-height: 500px;
+}
+
+.dropdown_content .nav_item {
+    padding-left: 56px;
+}
+
+.dropdown_content .nav_item .icon {
+    width: 20px;
+    height: 20px;
+}
+
+/* Informations utilisateur et tokens */
+.user_info {
+    padding: 15px;
+    border-top: 1px solid var(--neltar-border-color);
+}
+
+.token_info {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--neltar-box-bg);
+    padding: 12px 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+}
+
+.token_count {
+    display: flex;
+    flex-direction: column;
+}
+
+.token_count .number {
+    font-weight: 600;
+    color: var(--neltar-heading-color);
+    font-size: 16px;
+}
+
+.token_count .label {
+    font-size: 12px;
+    color: var(--neltar-p-light);
+}
+
+.get_tokens {
+    font-size: 12px;
+    color: var(--neltar-accent);
+    text-decoration: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    background-color: var(--neltar-accent-light);
+    transition: all 0.2s ease;
+}
+
+.get_tokens:hover {
+    background-color: var(--neltar-accent);
+    color: white;
+}
+
+/* Responsive */
+@media (max-width: 992px) {
+    .neltar_fn_leftpanel {
+        width: 60px;
+        transform: translateX(0);
+    }
+
+    .neltar_fn_leftpanel.active {
+        width: 280px;
+    }
+
+    .neltar_fn_leftpanel .desktop_logo {
+        display: none;
+    }
+
+    .neltar_fn_leftpanel .mobile_logo {
+        display: block;
+    }
+
+    .nav_item .text,
+    .dropdown_toggle .text,
+    .nav_divider span,
+    .token_count .label,
+    .get_tokens {
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s ease, visibility 0.3s ease;
+    }
+
+    .neltar_fn_leftpanel.active .nav_item .text,
+    .neltar_fn_leftpanel.active .dropdown_toggle .text,
+    .neltar_fn_leftpanel.active .nav_divider span,
+    .neltar_fn_leftpanel.active .token_count .label,
+    .neltar_fn_leftpanel.active .get_tokens {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .nav_item,
+    .dropdown_toggle {
+        padding: 12px 0;
+        justify-content: center;
+    }
+
+    .neltar_fn_leftpanel.active .nav_item,
+    .neltar_fn_leftpanel.active .dropdown_toggle {
+        padding: 12px 20px;
+        justify-content: flex-start;
+    }
+
+    .nav_item .icon,
+    .dropdown_toggle .icon {
+        margin-right: 0;
+    }
+
+    .neltar_fn_leftpanel.active .nav_item .icon,
+    .neltar_fn_leftpanel.active .dropdown_toggle .icon {
+        margin-right: 12px;
+    }
+
+    .dropdown_content .nav_item {
+        padding-left: 0;
+    }
+
+    .neltar_fn_leftpanel.active .dropdown_content .nav_item {
+        padding-left: 56px;
+    }
+}
+
+@media (max-width: 576px) {
+    .neltar_fn_leftpanel {
+        transform: translateX(-100%);
+        width: 280px;
+    }
+
+    .neltar_fn_leftpanel.active {
+        transform: translateX(0);
+    }
+
+    .neltar_fn_leftpanel .desktop_logo {
+        display: block;
+    }
+
+    .neltar_fn_leftpanel .mobile_logo {
+        display: none;
+    }
+
+    .nav_item .text,
+    .dropdown_toggle .text,
+    .nav_divider span,
+    .token_count .label,
+    .get_tokens {
+        opacity: 1;
+        visibility: visible;
+    }
+
+    .nav_item,
+    .dropdown_toggle {
+        padding: 12px 20px;
+        justify-content: flex-start;
+    }
+
+    .nav_item .icon,
+    .dropdown_toggle .icon {
+        margin-right: 12px;
+    }
+
+    .dropdown_content .nav_item {
+        padding-left: 56px;
+    }
+}

@@ -45,7 +45,9 @@
 
 <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/image-generation-fixes.css') }}">
 <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/right-sidebar-tags.css') }}">
-    <link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/premium-features.css') }}">
+<link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/premium-features.css') }}">
+<link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/library.css') }}">
+<link type="text/css" rel="stylesheet" href="{{ url_for('static', filename='assets/css/left-nav-bar.css') }}">
 
 <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 <script src="{{ url_for('static', filename='js/script.js') }}"></script>
@@ -195,77 +197,107 @@
 		</header>
 
 		<div class="neltar_fn_leftpanel">
+            <div class="logo">
+        <a href="{{ url_for('index') }}">
+            <img src="{{ url_for('static', filename='assets/img/logo/logo_desktop.svg') }}" alt="Logo" class="desktop_logo">
+            <img src="{{ url_for('static', filename='assets/img/logo-mobile.png') }}" alt="Logo" class="mobile_logo">
+        </a>
+    </div>
 
- 			<div class="mobile_extra_closer"></div>
+    <!-- Navigation principale -->
+    <div class="navigation">
+        <ul class="nav_list main_nav">
+            <!-- Section Accueil et Bibliothèque -->
+            <li class="nav_group primary_group">
+                <a href="{{ url_for('index') }}" class="nav_item {% if request.endpoint == 'index' %}active{% endif %}">
+                    <span class="icon">
+                        <img src="{{ url_for('static', filename='assets/svg/home.svg') }}" alt="Home" class="fn__svg">
+                    </span>
+                    <span class="text">Accueil</span>
+                </a>
+                <a href="{{ url_for('library') }}" class="nav_item {% if request.endpoint == 'library_view' %}active{% endif %}">
+                    <span class="icon">
+                        <img src="{{ url_for('static', filename='assets/svg/library.svg') }}" alt="Library" class="fn__svg">
+                    </span>
+                    <span class="text">Bibliothèque</span>
+                </a>
+            </li>
 
- 			<div class="leftpanel_logo">
- 				<a href="index.html" class="fn_logo">
+            <!-- Séparateur -->
+            <li class="nav_divider">
+                <span>Outils de création</span>
+            </li>
 
-                     <h1><strong>AItheway</strong></h1>
- 					<!-- <span class="full_logo">
- 						<img src="{{ url_for('static', filename='assets/img/logo-desktop-full.png') }}" alt="" class="desktop_logo">
- 						<img src="{{ url_for('static', filename='assets/img/logo-retina-full.png') }}" alt="" class="retina_logo">
- 					</span>
- 					<span class="short_logo">
- 						<img src="{{ url_for('static', filename='assets/img/logo-desktop-mini.png') }}" alt="" class="desktop_logo">
- 						<img src="{{ url_for('static', filename='assets/img/logo-retina-mini.png') }}" alt="" class="retina_logo">
- 					</span> -->
- 				</a>
- 				<a href="#" class="fn__closer fn__icon_button desktop_closer">
- 					<img src="{{ url_for('static', filename='assets/svg/arrow.svg') }}" alt="" class="fn__svg">
- 				</a>
- 				<a href="#" class="fn__closer fn__icon_button mobile_closer">
- 					<img src="{{ url_for('static', filename='assets/svg/arrow.svg') }}" alt="" class="fn__svg">
- 				</a>
- 			</div>
+            <!-- Section Outils (avec dropdown optionnel) -->
+            <li class="nav_group tools_group">
+                <!-- Option 1: Liste simple -->
+                <a href="{{ url_for('generate_image') }}" class="nav_item {% if request.endpoint == 'generate_image' %}active{% endif %}">
+                    <span class="icon">
+                        <img src="{{ url_for('static', filename='assets/svg/image.svg') }}" alt="Generate Image" class="fn__svg">
+                    </span>
+                    <span class="text">Générer une image</span>
+                </a>
+                <a href="{{ url_for('upload_enhance') }}" class="nav_item {% if request.endpoint == 'upload_enhance' %}active{% endif %}">
+                    <span class="icon">
+                        <img src="{{ url_for('static', filename='assets/svg/upscale.svg') }}" alt="Enhance Image" class="fn__svg">
+                    </span>
+                    <span class="text">Améliorer une image</span>
+                </a>
+                <a href="{{ url_for('generate_audio') }}" class="nav_item {% if request.endpoint == 'generate_audio' %}active{% endif %}">
+                    <span class="icon">
+                        <img src="{{ url_for('static', filename='assets/svg/volume.svg') }}" alt="Generate Audio" class="fn__svg">
+                    </span>
+                    <span class="text">Générer de l'audio</span>
+                </a>
+                <a href="{{ url_for('generate_video') }}" class="nav_item {% if request.endpoint == 'generate_video' %}active{% endif %}">
+                    <span class="icon">
+                        <img src="{{ url_for('static', filename='assets/svg/film.svg') }}" alt="Generate Video" class="fn__svg">
+                    </span>
+                    <span class="text">Générer une vidéo</span>
+                </a>
+                </li>
 
- 			<div class="leftpanel_content">
+            <!-- Séparateur -->
+            <li class="nav_divider">
+                <span>Communauté</span>
+            </li>
 
- 				<div class="nav_group">
- 					<ul class="group__list">
- 						<li>
- 							<a href="{{ url_for('index') }}" class="fn__tooltip menu__item {% if request.path == url_for('index') %}active{% endif %}" data-position="right" title="Home">
- 								<span class="icon"><img src="{{ url_for('static', filename='assets/svg/home.svg') }}" alt="" class="fn__svg"></span>
- 								<span class="text">Home</span>
- 							</a>
- 						</li>
- 						<li>
- 							<a href="{{ url_for('generate_image') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_image') %}active{% endif %}" data-position="right" title="Community Feed">
- 								<span class="icon"><img src="{{ url_for('static', filename='assets/svg/image.svg') }}" alt="" class="fn__svg"></span>
- 								<span class="text">Générer une Image</span>
- 							</a>
- 						</li>
- 						<li>
- 							<a href="{{ url_for('upload_enhance') }}" class="fn__tooltip menu__item {% if request.path == url_for('upload_enhance') %}active{% endif %}" data-position="right" title="Personal Feed">
- 								<span class="icon"><img src="{{ url_for('static', filename='assets/svg/cube.svg') }}" alt="" class="fn__svg"></span>
- 								<span class="text">Améliorer la Qualité</span>
- 							</a>
- 						</li>
-                         <li>
-                             <a href="{{ url_for('generate_audio') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_audio') %}active{% endif %}" data-position="right" title="Génération Audio">
-                                 <span class="icon"><img src="{{ url_for('static', filename='assets/svg/volume.svg') }}" alt="" class="fn__svg"></span>
-                                 <span class="text">Générer Audio</span>
-                             </a>
-                         </li>
-                         <li>
-                             <a href="{{ url_for('generate_video') }}" class="fn__tooltip menu__item {% if request.path == url_for('generate_video') %}active{% endif %}" data-position="right" title="Génération Vidéo">
-                                 <span class="icon"><img src="{{ url_for('static', filename='assets/svg/film.svg') }}" alt="" class="fn__svg"></span>
-                                 <span class="text">Video Generation</span>
-                             </a>
-                         </li>
-                        <li>
-                            <a href="{{ url_for('get_gallery') }}" class="fn__tooltip menu__item gallery-link {% if request.path == url_for('get_gallery') %}active{% endif %}" data-position="right" title="Community creation">
-                                <span class="icon"><img src="{{ url_for('static', filename='assets/svg/community.svg') }}" alt="" class="fn__svg"></span>
-                                <span class="text">See Community creation</span>
-                            </a>
-                        </li>
+            <!-- Section Communauté -->
+            <li class="nav_group community_group">
+                <a href="{{ url_for('get_gallery') }}" class="nav_item {% if request.endpoint == 'get_gallery' %}active{% endif %}">
+                    <span class="icon">
+                        <img src="{{ url_for('static', filename='assets/svg/gallery.svg') }}" alt="Gallery" class="fn__svg">
+                    </span>
+                    <span class="text">Galerie communautaire</span>
+                </a>
+                <!-- Autres fonctionnalités communautaires à venir -->
+                <!--
+                <a href="{{ url_for('community_challenges') }}" class="nav_item {% if request.endpoint == 'community_challenges' %}active{% endif %}">
+                    <span class="icon">
+                        <img src="{{ url_for('static', filename='assets/svg/challenge.svg') }}" alt="Challenges" class="fn__svg">
+                    </span>
+                    <span class="text">Défis créatifs</span>
+                </a>
+                -->
+            </li>
+        </ul>
+    </div>
 
- 					</ul>
- 				</div>
+    <!-- Informations utilisateur et tokens -->
+    <div class="user_info">
+        <div class="token_info">
+            <div class="token_count">
+                <span class="number">{{ tokens_remaining|default(0) }}</span>
+                <span class="label">Tokens</span>
+            </div>
+            <a href="#" class="get_tokens">Obtenir plus</a>
+        </div>
+        <div class="user_profile">
+            <!-- Informations utilisateur -->
+        </div>
+    </div>
+</div>
 
-
-
- 			</div>
 
  		</div>
 
@@ -484,10 +516,9 @@
 
 <script type="text/javascript" src="{{ url_for('static', filename='assets/js/plugins.js') }}"></script>
 <script type="text/javascript" src="{{ url_for('static', filename='assets/js/init.js') }}"></script>
+<script src="{{ url_for('static', filename='js/left-nav-bar.js') }}"></script>
 
 <script src="{{ url_for('static', filename='js/script.js') }}"></script>
-
-<script src="{{ url_for('static', filename='js/sidebar-interactions.js') }}"></script>
 
 
 </body>
