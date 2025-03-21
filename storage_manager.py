@@ -188,6 +188,19 @@ class StorageManager:
         metadata['storage_migration_date'] = datetime.now().isoformat()
         metadata['original_redis_key'] = key
 
+        # Extraire l'ID utilisateur de la clé (pour une récupération plus facile)
+        # Format attendu: "audio:user_id:timestamp" ou "img:temp:image:user_id:timestamp"
+        parts = key.split(':')
+        if len(parts) >= 2:
+            try:
+                # Essayer de trouver l'ID utilisateur dans la clé
+                if content_type == 'audio' and len(parts) >= 3:
+                    metadata['user_id'] = parts[1]  # audio:user_id:timestamp
+                elif content_type == 'images' and len(parts) >= 5:
+                    metadata['user_id'] = parts[3]  # img:temp:image:user_id:timestamp
+            except Exception as e:
+                logger.warning(f"Impossible d'extraire l'ID utilisateur de la clé {key}: {str(e)}")
+
         # Stocker dans le système de fichiers
         file_path = self.file_storage.store_file(key, data, content_type)
         metadata_path = self.file_storage.store_metadata(key, metadata)

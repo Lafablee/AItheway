@@ -63,40 +63,76 @@ class AudioManager:
 
         # Préparer la liste des entrées d'historique
         history = []
+        pattern = f"{self.prefix}:{user_id}:*"
+        redis_keys = self.storage.redis.keys(pattern)
+        app.logger.error(f"Found {len(redis_keys)} audio keys")
 
-        for key in audio_keys:
-            try:
-                # Convertir la clé en string si nécessaire
-                key_str = key.decode('utf-8') if isinstance(key, bytes) else key
-
-                # Récupérer les métadonnées via le StorageManager
-                metadata = self.storage.get_metadata(key_str)
-
-                # Vérifier si l'audio existe toujours
-                if not self.storage.get(key_str, 'audio'):
-                    app.logger.error(f"Audio {key_str} no longer exists, skipping")
-                    continue
-
-                # Préparer l'entrée d'historique
-                entry = {
-                    'key': key_str,
-                    'url': f"/audio/{key_str}",
-                    'timestamp': metadata.get('timestamp', '') if metadata else '',
-                    'voice': metadata.get('voice', 'default') if metadata else 'default',
-                    'text': metadata.get('text', '') if metadata else '',
-                    'type': 'audio'
-                }
-
-                # Ajouter à l'historique
-                history.append(entry)
-
-            except Exception as e:
-                app.logger.error(f"Error processing audio key {key}: {str(e)}")
+        for key in redis_keys:
+            key_str = key.decode('utf-8') if isinstance(key, bytes) else key
+            # Ignorer les clés de métadonnées
+            if key_str.endswith(':meta'):
                 continue
+
+            # Vérifier si l'audio existe encore
+            if not self.storage.get(key_str, 'audio'):
+                continue
+
+            # Récupérer les métadonnées
+            metadata = self.storage.get_metadata(key_str)
+            entry = self._create_history_entry(key_str, metadata)
+            history.append(entry)
+
+            # 2. Récupérer depuis le disque
+        metadata_dir = os.path.join(self.storage.file_storage.base_path, 'metadata')
+        disk_count = 0
+
+        # Parcourir récursivement les fichiers de métadonnées
+        for root, dirs, files in os.walk(metadata_dir):
+            for file in files:
+                try:
+                    # Lire les métadonnées
+                    with open(os.path.join(root, file), 'r') as f:
+                        metadata = json.load(f)
+
+                    # Vérifier si ces métadonnées correspondent à un audio de cet utilisateur
+                    original_key = metadata.get('original_redis_key', '')
+                    if (original_key.startswith(f"{self.prefix}:{user_id}:") and
+                            metadata.get('type') == 'audio'):
+
+                        # Vérifier que le fichier audio existe bien
+                        key_hash = os.path.basename(file)
+                        audio_path = os.path.join(
+                            self.storage.file_storage.base_path,
+                            'audio',
+                            key_hash[:2],
+                            key_hash[2:4],
+                            key_hash
+                        )
+
+                        if os.path.exists(audio_path):
+                            # Créer l'entrée d'historique
+                            entry = self._create_history_entry(original_key, metadata)
+                            history.append(entry)
+                            disk_count += 1
+
+                except Exception as e:
+                    app.logger.error(f"Error processing audio key {key}: {str(e)}")
+        app.logger.error(f"Found {disk_count}  additional audio files on disk for user {user_id}")
 
         # Trier par date (plus récent en premier) et limiter le nombre d'entrées
         sorted_history = sorted(history, key=lambda x: x.get('timestamp', ''), reverse=True)[:limit]
         return sorted_history
+
+    def _create_history_entry(self, key, metadata):
+        """Crée une entrée d'historique à partir des métadonnées"""
+        return {
+            'key': key,
+            'url': f"/audio/{key}",
+            'timestamp': metadata.get('timestamp', '') if metadata else '',
+            'voice': metadata.get('voice', 'default') if metadata else 'default',
+            'text': metadata.get('text', '') if metadata else '',
+            'type': 'audio'
+        }
 
     def get_audio(self, key):
         """Récupère un fichier audio depuis n'importe quel stockage"""

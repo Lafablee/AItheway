@@ -1,4 +1,5 @@
 import os
+import traceback
 from http.client import responses
 
 import openai
@@ -195,10 +196,11 @@ class ImageManager:
             keys = self.storage.redis.keys(pattern)
             all_keys.extend(keys)
 
-        app.logger.error(f"Found all keys: {all_keys}")
+        app.logger.error(f"Found {len(all_keys)} image keys in Redis")
 
         # Filtrer pour ne garder que les clés d'images (pas les métadonnées)
-        image_keys = [k for k in all_keys if not k.endswith(b':meta')]
+        image_keys = [k for k in all_keys if not (isinstance(k, bytes) and k.endswith(b':meta')) and
+                                        not (isinstance(k, str) and k.endswith(':meta'))]
         app.logger.error(f"Filtered image keys: {image_keys}")
 
         # Traitement spécial pour les images générées par Midjourney
@@ -392,11 +394,169 @@ class ImageManager:
                 app.logger.error(f"Error processing image key {key}: {e}")
                 continue
 
+        # Récupération depuis le disque
+        metadata_dir = os.path.join(self.storage.file_storage.base_path, 'metadata')
+        disk_count = 0
+
+        # Parcourir récursivement les fichiers de métadonnées
+        for root, dirs, files in os.walk(metadata_dir):
+            for file in files:
+                try:
+                    filepath = os.path.join(root, file)
+
+                    with open(filepath, 'r') as f:
+                        metadata = json.load(f)
+
+                    # Vérifier si ces métadonnées correspondent à une image de cet utilisateur
+                    original_key = metadata.get('original_redis_key', '')
+
+                    # Déterminer si cette image correspond au type d'historique demandé
+                    matches_type = False
+
+                    if history_type == "enhanced" and metadata.get('type') == 'enhanced':
+                        matches_type = True
+                    elif history_type == "generated" and metadata.get('type') == 'generated':
+                        matches_type = True
+
+                    # Vérifier si l'image appartient à l'utilisateur
+                    belongs_to_user = False
+                    if metadata.get('user_id') == str(user_id) or metadata.get('user_id') == user_id:
+                        belongs_to_user = True
+                    elif original_key.startswith(f"img:temp:image:{user_id}:"):
+                        belongs_to_user = True
+
+                    if matches_type and belongs_to_user:
+                        # Pour les images Midjourney, gérer les groupes
+                        if metadata.get('model') == 'midjourney':
+                            task_id = metadata.get('task_id')
+                            if task_id and task_id not in processed_groups:
+                                # Chercher toutes les images de ce groupe
+                                midjourney_group = self._find_midjourney_group_on_disk(task_id, metadata_dir)
+                                if midjourney_group:
+                                    processed_groups.add(task_id)
+                                    images.append(midjourney_group)
+                        else:
+                            # Pour les images standard
+                            key_hash = os.path.basename(file)
+
+                            # Vérifier que le fichier image existe bien
+                            image_path = os.path.join(
+                                self.storage.file_storage.base_path,
+                                'images',
+                                key_hash[:2],
+                                key_hash[2:4],
+                                key_hash
+                            )
+
+                            if os.path.exists(image_path):
+                                image_data = self._create_image_history_entry(original_key, metadata)
+                                images.append(image_data)
+                                disk_count += 1
+
+                except Exception as e:
+                    app.logger.error(f"Error processing metadata file {file}: {str(e)}")
+
+        app.logger.error(f"Found {disk_count} additional image files on disk for user {user_id}")
+
         # Trier les images par timestamp (plus récent en premier)
         sorted_images = sorted(images, key=lambda x: x['timestamp'], reverse=True)
         app.logger.error(f"Returning {len(sorted_images)} sorted images")
 
         return sorted_images
+
+    def _find_midjourney_group_on_disk(self, task_id, metadata_dir):
+        """Trouve toutes les images d'un groupe Midjourney stockées sur disque"""
+
+        group_images = []
+        prompt = ""
+        timestamp = ""
+
+        # Parcourir les métadonnées pour trouver toutes les images du groupe
+        for root, dirs, files in os.walk(metadata_dir):
+            for file in files:
+                try:
+                    filepath = os.path.join(root, file)
+
+                    with open(filepath, 'r') as f:
+                        metadata = json.load(f)
+
+                    # Vérifier si c'est une image Midjourney de ce groupe
+                    if (metadata.get('model') == 'midjourney' and
+                            metadata.get('task_id') == task_id):
+
+                        # Récupérer les infos communes au groupe
+                        if not prompt and metadata.get('prompt'):
+                            prompt = metadata.get('prompt')
+                        if not timestamp and metadata.get('timestamp'):
+                            timestamp = metadata.get('timestamp')
+
+                        # Récupérer la clé et vérifier que le fichier existe
+                        key_hash = os.path.basename(file)
+                        original_key = metadata.get('original_redis_key', '')
+                        variation_number = metadata.get('variation_number', 0)
+
+                        image_path = os.path.join(
+                            self.storage.file_storage.base_path,
+                            'images',
+                            key_hash[:2],
+                            key_hash[2:4],
+                            key_hash
+                        )
+
+                        if os.path.exists(image_path):
+                            group_images.append({
+                                'url': f"/image/{original_key}",
+                                'key': original_key,
+                                'number': variation_number
+                            })
+
+                except Exception as e:
+                    app.logger.error(f"Error processing Midjourney metadata file {file}: {str(e)}")
+
+        # Si on a trouvé des images, créer l'entrée de groupe
+        if group_images:
+            return {
+                'model': 'midjourney',
+                'task_id': task_id,
+                'prompt': prompt,
+                'timestamp': timestamp,
+                'images': group_images,
+                'status': 'completed'
+            }
+
+        return None
+
+    def _create_image_history_entry(self, key, metadata):
+        """Crée une entrée d'historique pour une image standard"""
+        if metadata.get('type') == 'generated':
+            # Pour les images générées
+            return {
+                'key': key,
+                'url': f"/image/{key}",
+                'prompt': metadata.get('prompt', ''),
+                'timestamp': metadata.get('timestamp', ''),
+                'parameters': json.loads(metadata.get('parameters', '{}')) if isinstance(metadata.get('parameters'),
+                                                                                         str) else metadata.get(
+                    'parameters', {}),
+                'model': metadata.get('model', 'unknown')
+            }
+        elif metadata.get('type') == 'enhanced':
+            # Pour les images améliorées
+            return {
+                'enhanced_key': key,
+                'original_key': metadata.get('original_key'),
+                'timestamp': metadata.get('timestamp', ''),
+                'enhanced_url': f"/image/{key}",
+                'original_url': f"/image/{metadata.get('original_key')}" if metadata.get('original_key') else None
+            }
+        else:
+            # Format par défaut
+            return {
+                'key': key,
+                'url': f"/image/{key}",
+                'timestamp': metadata.get('timestamp', ''),
+                'type': metadata.get('type', 'unknown')
+            }
 
     def save_image(self, user_id, image_data):
         """Sauvegarde une image de manière permanente"""
@@ -3019,7 +3179,9 @@ def delete_gallery_item(wp_user_id, gallery_item_id):
 def serve_image(image_key):
     image_data = storage_manager.get(image_key, 'images')
     if not image_data:
+        app.logger.error(f"Image not found: {image_key}")
         return "Image not found", 404
+    app.logger.error(f"Serving image: {image_key}")
     return send_file(
         BytesIO(image_data),
         mimetype='image/png'
@@ -3029,7 +3191,9 @@ def serve_image(image_key):
 def serve_audio(audio_key):
     audio_data = storage_manager.get(audio_key, 'audio')
     if not audio_data:
+        app.logger.error(f"Audio not found: {audio_key}")
         return "Audio not found", 404
+    app.logger.error(f"Serving audio: {audio_key}")
     return send_file(
         BytesIO(audio_data),
         mimetype='audio/mpeg',
@@ -3085,7 +3249,7 @@ def generate_video(wp_user_id):
         # Traiter la réponse
         if result['success']:
             task_id = result['task_id']
-            video_key = video_manager.store_video_metadata(wp_user_id, task_id, prompt, model)
+            video_key = video_manager.store_video_metadata(wp_user_id, task_id, prompt, model, additional_params)
             return jsonify({
                 'success': True,
                 'status': 'processing',
@@ -3103,53 +3267,104 @@ def check_video_status(wp_user_id, task_id=None):
     """
     Vérifie l'état d'une tâche de génération de vidéo
     """
+    app.logger.error("=== Starting Video Status Check ===")
+    app.logger.error(f"User ID: {wp_user_id}")
+    app.logger.error(f"Task ID: {task_id}")
+
     if not task_id:
-        return jsonify({"error": "No task_id provided"}), 400
+        return jsonify({"success": False,
+            "status": "error",
+            "error": "No task_id provided"
+        }), 400
 
-    # Récupérer l'état actuel
-    video_info = video_manager.get_video_by_task_id(task_id)
+    try:
+        # Récupérer l'état actuel
+        video_info = video_manager.get_video_by_task_id(task_id)
 
-    # Si complète, retourner les informations
-    if video_info and video_info.get('status') == 'completed':
-        return jsonify({
-            "success": True,
-            "data": {
-                "status": "completed",
-                "video_key": video_info.get('video_key'),
-                "video_url": f"/video/{video_info.get('video_key')}"
-            }
-        })
+        # Si aucune information locale n'est trouvée, essayons quand même de vérifier auprès de MiniMax
+        if not video_info:
+            app.logger.error(f"No local information found for task_id: {task_id}, checking directly with MiniMax API")
 
-    # Sinon, vérifier auprès de l'API MiniMax
-    generator = ai_manager.generators.get("minimax-video")
-    status_response = generator.generator.check_generation_status(task_id)
+            # Vérifier auprès de MiniMax directement
+            generator = ai_manager.generators.get("minimax-video")
+            if not generator:
+                return jsonify({
+                    "success": False,
+                    "error": "Video generator not available"
+                }), 500
 
-    # Traiter la réponse
-    if status_response.get('success'):
-        status = status_response.get('status', '')
-        file_id = status_response.get('file_id', '')
+            status_response = generator.generator.check_generation_status(task_id)
 
-        # Si terminée, récupérer l'URL et mettre à jour
-        if status == "Success" and file_id:
-            download_url = generator.generator.get_download_url(file_id)
-            video_manager.update_video_status(task_id, 'completed', file_id, download_url)
+            if status_response.get('success'):
+                return jsonify({
+                    "success": True,
+                    "data": {
+                        "task_id": task_id,
+                        "status": status_response.get('status', 'unknown'),
+                        "direct_check": True  # Indique que c'est une vérification directe
+                    }
+                })
+            else:
+                return jsonify({
+                    "success": False,
+                    "error": "Failed to check task status"
+                }), 404
+
+        # Si complète, retourner les informations
+        if video_info.get('status') == 'completed' and video_info.get('file_stored'):
             return jsonify({
                 "success": True,
                 "data": {
+                    "task_id": task_id,
                     "status": "completed",
                     "video_key": video_info.get('video_key'),
-                    "video_url": f"/video/{video_info.get('video_key')}"
+                    "video_url": f"/video/{video_info.get('video_key')}",
+                    "prompt": video_info.get('prompt', '')
                 }
             })
 
-        # Sinon, mettre à jour le statut
-        video_manager.update_video_status(task_id, status)
-        return jsonify({
-            "success": True,
-            "data": {"status": status}
-        })
+        # Sinon, vérifier auprès de l'API MiniMax
+        generator = ai_manager.generators.get("minimax-video")
+        status_response = generator.generator.check_generation_status(task_id)
 
-    return jsonify({"success": False, "error": "Failed to check status"}), 500
+        generator = ai_manager.generators.get("minimax-video")
+        if not generator:
+            return jsonify({
+                'success': False,
+                'error': "Video generator not available"
+            }), 500
+        status_response = generator.generator.check_generation_status(task_id)
+
+
+        # Traiter la réponse
+        if status_response.get('success'):
+            status = status_response.get('status', '')
+            file_id = status_response.get('file_id', '')
+
+            # Si terminée, récupérer l'URL et mettre à jour
+            if status == "Success" and file_id:
+                download_url = generator.generator.get_download_url(file_id)
+                video_manager.update_video_status(task_id, 'completed', file_id, download_url)
+                return jsonify({
+                    "success": True,
+                    "data": {
+                        "status": "completed",
+                        "video_key": video_info.get('video_key'),
+                        "video_url": f"/video/{video_info.get('video_key')}"
+                    }
+                })
+
+            # Sinon, mettre à jour le statut
+            video_manager.update_video_status(task_id, status)
+            return jsonify({
+                "success": True,
+                "data": {"status": status}
+            })
+    except Exception as e:
+        app.logger.error(f"Error checking video status: {e}")
+        app.logger.error(traceback.format_exc())
+
+        return jsonify({"success": False, "error": str(e)}), 500
 
 
 @app.route('/video/<video_key>')

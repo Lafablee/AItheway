@@ -136,17 +136,22 @@ class VideoManager:
         Récupère les informations d'une vidéo à partir de son task_id.
         """
         try:
+            app.logger.error(f"Atempting to get video by task_id {task_id}")
             # Récupère la clé vidéo à partir du task_id
             task_mapping_key = f"video:task:{task_id}"
-            video_key = self.storage.redis.get(task_mapping_key)
 
-            if not video_key:
+
+            if not self.storage.redis.exists(task_mapping_key):
                 app.logger.error(f"No video key found for task_id {task_id}")
                 return None
+
+            video_key = self.storage.redis.get(task_mapping_key)
 
             # Convertit en chaîne si c'est un bytes
             if isinstance(video_key, bytes):
                 video_key = video_key.decode('utf-8')
+
+            app.logger.info(f"Found video key: {video_key} for task_id:  {task_id}")
 
             # Récupère les métadonnées
             metadata = self.storage.get_metadata(video_key)
