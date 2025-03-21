@@ -1,5 +1,7 @@
 import os
 import json
+import traceback
+
 import requests
 import time
 from datetime import datetime, timedelta
@@ -51,29 +53,34 @@ class VideoManager:
                         additional_params = {}
                 metadata['parameters'] = json.dumps(additional_params)
 
-            # Stocke les métadonnées
-            self.storage.store_metadata(video_key, metadata)
+                # Convertir les métadonnées en format Redis
+                redis_metadata = {
+                    k: v.encode('utf-8') if isinstance(v, str) else v
+                    for k, v in metadata.items()
+                }
 
-            # Ajoute à l'index utilisateur
-            user_index_key = f"user:{user_id}:videos"
-            self.storage.redis.lpush(user_index_key, video_key)
-            self.storage.redis.expire(user_index_key, 30 * 24 * 60 * 60)  # 30 jours
+                # Stocker via le gestionnaire de stockage
+                # Comme nous n'avons pas encore de données vidéo, on passe None
+                self.storage.store(video_key, None, redis_metadata, 'videos')
 
-            # Ajoute un mapping entre task_id et video_key pour pouvoir retrouver facilement
-            task_mapping_key = f"video:task:{task_id}"
-            app.logger.error(f"Setting mapping: {task_mapping_key} -> {video_key}")
-            self.storage.redis.set(task_mapping_key, video_key)
+                # Ajouter le mapping task_id -> video_key
+                task_mapping_key = f"video:task:{task_id}"
+                app.logger.error(f"Setting mapping: {task_mapping_key} -> {video_key}")
+                self.storage.redis.set(task_mapping_key, video_key)
 
-            stored_value = self.storage.redis.get(task_mapping_key)
-            app.logger.error(f"Vérification - Stored value: {stored_value}")
+                # Ajouter à l'index utilisateur
+                user_index_key = f"user:{user_id}:videos"
+                self.storage.redis.lpush(user_index_key, video_key)
+                self.storage.redis.expire(user_index_key, 30 * 24 * 60 * 60)  # 30 jours
 
-            self.storage.redis.expire(task_mapping_key, 7 * 24 * 60 * 60)  # 7 jours
+                # Expirer le mapping après 7 jours
+                self.storage.redis.expire(task_mapping_key, 7 * 24 * 60 * 60)
 
-            app.logger.info(f"Stored video metadata for task {task_id} with key {video_key}")
-            return video_key
+                return video_key
 
         except Exception as e:
             app.logger.error(f"Error storing video metadata: {str(e)}")
+            app.logger.error(traceback.format_exc())
             return None
 
     def update_video_status(self, task_id, status, file_id=None, download_url=None):
