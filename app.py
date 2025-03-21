@@ -3210,6 +3210,9 @@ def generate_video(wp_user_id):
     GET: Affiche la page de génération de vidéo
     POST: Génère une nouvelle vidéo
     """
+    app.logger.error(f"=== Generate Video Request ===")
+    app.logger.error(f"Form data: {request.form}")
+
     # Version GET: Affiche le formulaire
     if request.method == 'GET':
         tokens_remaining = get_user_tokens(wp_user_id)
@@ -3224,6 +3227,8 @@ def generate_video(wp_user_id):
 
         # Vérifier permissions et tokens
         client = get_client_by_wp_user_id(wp_user_id)
+        app.logger.error(f"Client: {client}")
+
         if not client or not check_client_permission(client["id"], "generate_video"):
             return jsonify({"error": "Permission denied"}), 403
 
@@ -3247,9 +3252,17 @@ def generate_video(wp_user_id):
         result = ai_manager.generate_image_sync("minimax-video", prompt, additional_params)
 
         # Traiter la réponse
-        if result['success']:
-            task_id = result['task_id']
+        if result.get('success'):
+            task_id = result.get('task_id')
+
+            if not task_id:
+                app.logger.error(f"No task_id in Minimax response")
+                return jsonify({'error': 'No task_id in MiniMax response'}), 500
+
+            app.logger.error(f"Got task_id from MiniMax: {task_id}")
+
             video_key = video_manager.store_video_metadata(wp_user_id, task_id, prompt, model, additional_params)
+            app.logger.error(f"Stored video metadata with key: {video_key}")
             return jsonify({
                 'success': True,
                 'status': 'processing',

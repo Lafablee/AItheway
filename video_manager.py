@@ -29,6 +29,7 @@ class VideoManager:
         try:
             # Génère une clé unique pour cette vidéo
             video_key = self._generate_key(user_id)
+            app.logger.error(f"Generated video_key: {video_key} for task_id: {task_id}")
 
             # Prépare les métadonnées
             metadata = {
@@ -60,7 +61,12 @@ class VideoManager:
 
             # Ajoute un mapping entre task_id et video_key pour pouvoir retrouver facilement
             task_mapping_key = f"video:task:{task_id}"
+            app.logger.error(f"Setting mapping: {task_mapping_key} -> {video_key}")
             self.storage.redis.set(task_mapping_key, video_key)
+
+            stored_value = self.storage.redis.get(task_mapping_key)
+            app.logger.error(f"Vérification - Stored value: {stored_value}")
+
             self.storage.redis.expire(task_mapping_key, 7 * 24 * 60 * 60)  # 7 jours
 
             app.logger.info(f"Stored video metadata for task {task_id} with key {video_key}")
