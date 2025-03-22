@@ -127,41 +127,99 @@ class StorageManager:
                     b''  # Bytes vides comme placeholder
                 )
 
-                # Stockage des métadonnées
-                if metadata:
-                    # Conversion des métadonnées pour compatibilité Redis
-                    redis_safe_metadata = {}
-                    for k, v in metadata.items():
-                        if isinstance(v, str):
-                            redis_safe_metadata[k] = v.encode('utf-8')
-                        elif isinstance(v, bool):
-                            # Conversion des booléens en chaînes
-                            redis_safe_metadata[k] = str(v).lower().encode('utf-8')
-                        elif v is None:
-                            # Conversion de None en chaîne vide
-                            redis_safe_metadata[k] = b''
-                        else:
-                            # Pour les autres types (int, float, bytes)
-                            redis_safe_metadata[k] = v
+            # Stockage des métadonnées - CORRIGE INDENTATION (n'est plus sous le bloc else)
+            if metadata:
+                # Conversion des métadonnées pour compatibilité Redis
+                redis_safe_metadata = {}
+                for k, v in metadata.items():
+                    if isinstance(v, str):
+                        redis_safe_metadata[k] = v.encode('utf-8')
+                    elif isinstance(v, bool):
+                        # Conversion des booléens en chaînes
+                        redis_safe_metadata[k] = str(v).lower().encode('utf-8')
+                    elif v is None:
+                        # Conversion de None en chaîne vide
+                        redis_safe_metadata[k] = b''
+                    else:
+                        # Pour les autres types (int, float, bytes)
+                        redis_safe_metadata[k] = v
 
-                    # Stocker les métadonnées avec hmset
-                    metadata_key = f"{key}:meta"
-                    self.redis.hmset(metadata_key, redis_safe_metadata)
-                    self.redis.expire(metadata_key, int(self.temp_duration.total_seconds()))
+                # Stocker les métadonnées avec hmset
+                metadata_key = f"{key}:meta"
+                self.redis.hmset(metadata_key, redis_safe_metadata)
+                self.redis.expire(metadata_key, int(self.temp_duration.total_seconds()))
 
-                    # Pour faciliter le suivi du type de contenu
-                    content_type_key = f"content:{content_type}:{key}"
-                    self.redis.setex(
-                        content_type_key,
-                        int(self.temp_duration.total_seconds()),
-                        key.encode('utf-8')
-                    )
+                # Pour faciliter le suivi du type de contenu
+                content_type_key = f"content:{content_type}:{key}"
+                self.redis.setex(
+                    content_type_key,
+                    int(self.temp_duration.total_seconds()),
+                    key.encode('utf-8')
+                )
 
-                return key
+            return key
 
         except Exception as e:
             logger.error(f"Error in storage.store: {str(e)}")
             logger.error(traceback.format_exc())
+            return None
+
+    def store_metadata(self, key, metadata):
+        """
+        Stocke uniquement les métadonnées pour une clé existante.
+
+        Args:
+            key (str): Clé identifiant les données
+            metadata (dict): Métadonnées à stocker
+
+        Returns:
+            bool: True si réussi, False sinon
+        """
+        try:
+            if not metadata:
+                return True  # Rien à stocker
+
+            # Création de la clé de métadonnées
+            metadata_key = f"{key}:meta"
+
+            # Conversion des métadonnées pour compatibilité Redis
+            redis_safe_metadata = {}
+            for k, v in metadata.items():
+                if isinstance(v, str):
+                    redis_safe_metadata[k] = v.encode('utf-8')
+                elif isinstance(v, bool):
+                    # Conversion des booléens en chaînes
+                    redis_safe_metadata[k] = str(v).lower().encode('utf-8')
+                elif v is None:
+                    # Conversion de None en chaîne vide
+                    redis_safe_metadata[k] = b''
+                else:
+                    # Pour les autres types (int, float, bytes)
+                    redis_safe_metadata[k] = v
+
+            # Stocker les métadonnées
+            self.redis.hmset(metadata_key, redis_safe_metadata)
+            self.redis.expire(metadata_key, int(self.temp_duration.total_seconds()))
+
+            # Enregistrer aussi sur disque si souhaité
+            if hasattr(self, 'file_storage') and self.file_storage:
+                try:
+                    # Convertir en format standard pour le stockage fichier
+                    disk_metadata = {
+                        k.decode('utf-8') if isinstance(k, bytes) else k:
+                            v.decode('utf-8') if isinstance(v, bytes) else v
+                        for k, v in redis_safe_metadata.items()
+                    }
+                    self.file_storage.store_metadata(key, disk_metadata)
+                except Exception as e:
+                    logger.warning(f"Échec de sauvegarde des métadonnées sur disque: {str(e)}")
+
+            return True
+
+        except Exception as e:
+            logger.error(f"Error in storage.store_metadata: {str(e)}")
+            logger.error(traceback.format_exc())
+            return False
 
     def get(self, key, content_type='images'):
         """Récupérer le contenu depuis Redis ou le système de fichiers"""
