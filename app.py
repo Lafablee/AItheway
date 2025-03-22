@@ -3242,7 +3242,9 @@ def generate_video(wp_user_id):
             }), 200
 
         # Préparer les paramètres additionnels
-        additional_params = {}
+        additional_params = {
+            "prompt_optimizer": False,
+        }
         # Options disponibles: mouvements de caméra, optimisation...
         camera_movement = request.form.get('camera_movement')
         if camera_movement and camera_movement != 'none':
