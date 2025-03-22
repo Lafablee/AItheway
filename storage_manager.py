@@ -2,10 +2,12 @@
 import os
 import json
 import hashlib
+import traceback
 from datetime import datetime, timedelta
 from pathlib import Path
 import logging
 from io import BytesIO
+from sys import exception
 
 logger = logging.getLogger("storage_manager")
 
@@ -108,31 +110,58 @@ class StorageManager:
     def store(self, key, data, metadata=None, content_type='images'):
         """Stocker le contenu dans Redis avec métadonnées optionnelles"""
         # Stocker les données dans Redis
-        self.redis.setex(
-            key,
-            int(self.temp_duration.total_seconds()),
-            data
-        )
-
-        # Stocker les métadonnées si fournies
-        if metadata:
-            metadata_key = f"{key}:meta"
-            if isinstance(metadata, dict):
-                # Convertir dict en format Redis
-                formatted_metadata = {}
-                for k, v in metadata.items():
-                    if isinstance(v, str):
-                        formatted_metadata[k] = v.encode('utf-8')
-                    else:
-                        formatted_metadata[k] = v
-                self.redis.hmset(metadata_key, formatted_metadata)
+        try:
+            if data is not None:
+                self.redis.setex(
+                    # si on a des donnés on les stock normalement
+                    key,
+                    int(self.temp_duration.total_seconds()),
+                    data
+                )
             else:
-                # Supposer que les métadonnées sont déjà au format Redis
-                self.redis.hmset(metadata_key, metadata)
+                # Si data est None, stocker une chaîne vide comme placeholder
+                # Ceci est crucial car Redis ne peut pas stocker None directement
+                self.redis.setex(
+                    key,
+                    int(self.temp_duration.total_seconds()),
+                    b''  # Bytes vides comme placeholder
+                )
 
-            self.redis.expire(metadata_key, int(self.temp_duration.total_seconds()))
+                # Stockage des métadonnées
+                if metadata:
+                    # Conversion des métadonnées pour compatibilité Redis
+                    redis_safe_metadata = {}
+                    for k, v in metadata.items():
+                        if isinstance(v, str):
+                            redis_safe_metadata[k] = v.encode('utf-8')
+                        elif isinstance(v, bool):
+                            # Conversion des booléens en chaînes
+                            redis_safe_metadata[k] = str(v).lower().encode('utf-8')
+                        elif v is None:
+                            # Conversion de None en chaîne vide
+                            redis_safe_metadata[k] = b''
+                        else:
+                            # Pour les autres types (int, float, bytes)
+                            redis_safe_metadata[k] = v
 
-        return key
+                    # Stocker les métadonnées avec hmset
+                    metadata_key = f"{key}:meta"
+                    self.redis.hmset(metadata_key, redis_safe_metadata)
+                    self.redis.expire(metadata_key, int(self.temp_duration.total_seconds()))
+
+                    # Pour faciliter le suivi du type de contenu
+                    content_type_key = f"content:{content_type}:{key}"
+                    self.redis.setex(
+                        content_type_key,
+                        int(self.temp_duration.total_seconds()),
+                        key.encode('utf-8')
+                    )
+
+                return key
+
+        except Exception as e:
+            logger.error(f"Error in storage.store: {str(e)}")
+            logger.error(traceback.format_exc())
 
     def get(self, key, content_type='images'):
         """Récupérer le contenu depuis Redis ou le système de fichiers"""
@@ -147,6 +176,8 @@ class StorageManager:
                 logger.info(f"Contenu {key} trouvé dans le stockage fichier serveur")
             else:
                 logger.warning(f"Contenu {key} introuvable (ni Redis, ni sur le disque)")
+        elif data == b'':
+            data = None
 
         return data
 
