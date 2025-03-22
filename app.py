@@ -1928,7 +1928,9 @@ def validate_image_format(img_format):
 @token_required
 def index(wp_user_id):
     tokens_remaining = get_user_tokens(wp_user_id)
-    return render_template('index.html', tokens_remaining=tokens_remaining)
+    client = get_client_by_wp_user_id(wp_user_id)
+
+    return render_template('index.html', tokens_remaining=tokens_remaining, client=client)
 
 @app.route('/refresh-token')
 def refresh_token():
