@@ -3216,11 +3216,14 @@ def generate_video(wp_user_id):
     app.logger.error(f"=== Generate Video Request ===")
     app.logger.error(f"Form data: {request.form}")
 
+    client = get_client_by_wp_user_id(wp_user_id)
+    app.logger.error(f"Client: {client}")
+
     # Version GET: Affiche le formulaire
     if request.method == 'GET':
         tokens_remaining = get_user_tokens(wp_user_id)
         history = video_manager.get_user_video_history(wp_user_id)
-        return render_template('generate-video.html', history=history, tokens_remaining=tokens_remaining)
+        return render_template('generate-video.html', history=history, tokens_remaining=tokens_remaining, client=client)
 
     # Version POST: Traite la demande de génération
     elif request.method == 'POST':
@@ -3229,9 +3232,6 @@ def generate_video(wp_user_id):
         model = request.form.get('model', 'T2V-01-Director')
 
         # Vérifier permissions et tokens
-        client = get_client_by_wp_user_id(wp_user_id)
-        app.logger.error(f"Client: {client}")
-
         if not client or not check_client_permission(client["id"], "generate_video"):
             return jsonify({"error": "Permission denied"}), 403
 
