@@ -3261,8 +3261,14 @@ def generate_video(wp_user_id):
 
             app.logger.error(f"Got task_id from MiniMax: {task_id}")
 
+            app.logger.error(f"About to store video metadata -user_id: {wp_user_id}, task_id: {task_id}, additional_params: {additional_params}")
+
             video_key = video_manager.store_video_metadata(wp_user_id, task_id, prompt, model, additional_params)
+
             app.logger.error(f"Stored video metadata with key: {video_key}")
+
+            test_key = video_manager.get_video_by_task_id(task_id)
+            app.logger.error(f"Verification - retrieved video key: {test_key}")
             return jsonify({
                 'success': True,
                 'status': 'processing',
