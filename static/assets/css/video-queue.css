@@ -1,0 +1,176 @@
+/* Styles pour l'interface de file d'attente vidéo */
+.video-generation-wrapper {
+  background-color: #f8f9fa;
+  border-radius: 8px;
+  box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+  padding: 20px;
+  margin: 20px 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+.status-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20px;
+}
+
+.status-header h3 {
+  margin: 0;
+  color: #333;
+  font-size: 1.25rem;
+}
+
+.subscription-badge {
+  font-size: 0.8rem;
+  padding: 5px 10px;
+  border-radius: 20px;
+  background-color: #f1f1f1;
+}
+
+.subscription-badge:contains("premium") {
+  background-color: #ffd700;
+  color: #333;
+}
+
+.progress-container {
+  margin-bottom: 20px;
+}
+
+.progress-bar {
+  height: 8px;
+  background-color: #e9ecef;
+  border-radius: 4px;
+  overflow: hidden;
+  margin-bottom: 8px;
+}
+
+.progress-fill {
+  height: 100%;
+  background-color: #4285f4;
+  transition: width 0.5s ease-in-out;
+}
+
+.progress-fill.error {
+  background-color: #dc3545;
+}
+
+.progress-text {
+  font-size: 0.9rem;
+  color: #6c757d;
+  text-align: center;
+}
+
+.status-details {
+  background-color: #fff;
+  border-radius: 6px;
+  padding: 15px;
+  margin-bottom: 20px;
+}
+
+.queue-position-container {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.queue-value {
+  font-weight: bold;
+  color: #4285f4;
+}
+
+.status-message-container {
+  display: flex;
+  align-items: center;
+  margin-bottom: 15px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid #eee;
+}
+
+.status-spinner {
+  width: 20px;
+  height: 20px;
+  border: 3px solid #f3f3f3;
+  border-top: 3px solid #4285f4;
+  border-radius: 50%;
+  margin-right: 10px;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.status-message {
+  flex-grow: 1;
+  font-size: 0.9rem;
+}
+
+.minimax-status, .elapsed-time {
+  font-size: 0.85rem;
+  margin-bottom: 5px;
+  color: #6c757d;
+}
+
+.status-value, .time-value {
+  font-weight: 500;
+  color: #333;
+}
+
+.error-container {
+  background-color: #f8d7da;
+  color: #721c24;
+  padding: 10px;
+  border-radius: 6px;
+  margin-bottom: 15px;
+  font-size: 0.9rem;
+}
+
+.video-result-container {
+  margin-top: 20px;
+}
+
+.result-video {
+  width: 100%;
+  border-radius: 6px;
+  margin-bottom: 15px;
+}
+
+.video-actions {
+  display: flex;
+  justify-content: center;
+}
+
+.download-button {
+  background-color: #4285f4;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  padding: 8px 16px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: background-color 0.2s;
+}
+
+.download-button:hover {
+  background-color: #3367d6;
+}
+
+/* Styles spécifiques pour les utilisateurs premium */
+.video-generation-wrapper[data-premium="true"] .subscription-badge {
+  background-color: #ffd700;
+  color: #333;
+}
+
+/* Animation pour l'apparition de la vidéo */
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.video-result-container {
+  animation: fadeIn 0.5s ease-in-out;
+}

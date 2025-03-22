@@ -159,6 +159,12 @@
                                 </button>
                             </div>
                         </form>
+                        <div id="video-generation-status"
+                             data-task-id="{{ task_id }}"
+                             data-premium="{{ 'true' if client.get('subscription_level') in ['28974'] else 'false' }}"
+                             style="display: none;">
+                          <!-- Le contenu sera généré dynamiquement par JavaScript -->
+                        </div>
                     </div>
 
                     <!-- Loading Section -->
@@ -265,10 +271,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const promptOptimizer = document.getElementById('prompt_optimizer');
     const toggleText = document.querySelector('.toggle_text');
 
+    const statusContainer = document.getElementById('video-generation-status');
+
     // Options de chargement
     let taskId = null;
     let statusCheckInterval = null;
     let videoKey = null;
+
+    {% if task_id %}
+      statusContainer.style.display = 'block';
+
+      // Initialiser le système de file d'attente
+      const queueSystem = new VideoQueueSimulator({
+        containerId: 'video-generation-status',
+        taskId: '{{ task_id }}',
+        isPremium: {{ 'true' if client.get("subscription_level") in ["28974"] else 'false' }},
+        statusEndpoint: '/check_video_status/'
+      });
+
+      // Masquer le formulaire pendant la génération
+      if (form) {
+        form.style.display = 'none';
+      }
+    {% endif %}
 
     // Compteur de caractères
     textArea.addEventListener('input', function() {
@@ -361,6 +386,14 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
+        // Ecouter les soumissions de formualire pour afficher le statut
+        if (videoForm) {
+            videoForm.addEventListener('submit', function () {
+                // Cette logique s'executera avant que la page ne soit rechargée
+                localStorage.setItem('video_form_submitted', 'true');
+            });
+        }
+
         // Afficher le chargement
         loadingSection.style.display = 'flex';
         document.body.classList.add('loading-active');
@@ -370,6 +403,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         // Récupérer les données du formulaire
         const formData = new FormData(this);
+
+        // Désactiver le bouton de soumission pour éviter les doubles soumissions
+        const submitButton = videoForm.querySelector('button[type="submit"]');
+        if (submitButton) submitButton.disabled = true;
 
         // Ajouter le token à FormData si nécessaire
         const urlParams = new URLSearchParams(window.location.search);
@@ -396,6 +433,25 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
+                    // Masquer le formulaire
+                    videoForm.style.display = 'none';
+                    // Afficher le conteneur de statut
+                    statusContainer.style.display = 'block';
+
+                    // Configurer les attributs du conteneur
+                    statusContainer.setAttribute('data-task-id', data.task_id);
+                    // Déterminer si l'utilisateur est premium (à adapter selon votre logique)
+                    const isPremium = {{ 'true' if client.get('subscription_level') in ['28974'] else 'false' }};
+                    statusContainer.setAttribute('data-premium', isPremium);
+
+                    // Initialiser le système de file d'attente
+                    const queueSystem = new VideoQueueSimulator({
+                      containerId: 'video-generation-status',
+                      taskId: data.task_id,
+                      isPremium: isPremium,
+                      statusEndpoint: '/check_video_status/'
+                    });
+
                     // Stocker l'ID de la tâche pour le suivi
                     taskId = data.task_id;
                     videoKey = data.video_key;
@@ -415,6 +471,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     loadingSection.style.display = 'none';
                     document.body.classList.remove('loading-active');
                     alert('Erreur: ' + (data.error || 'Échec de l\'initialisation de la génération vidéo'));
+                    if (submitButton) submitButton.disabled = false;
                 }
             })
             .catch(error => {
@@ -422,6 +479,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 document.body.classList.remove('loading-active');
                 console.error("Erreur lors de la génération vidéo:", error);
                 alert('Erreur lors de la génération vidéo: ' + error);
+                if (submitButton) submitButton.disabled = false;
             });
     });
 

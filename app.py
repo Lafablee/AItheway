@@ -1925,6 +1925,7 @@ def validate_image_format(img_format):
 
 
 @app.route('/')
+@token_required
 def index(wp_user_id):
     tokens_remaining = get_user_tokens(wp_user_id)
     return render_template('index.html', tokens_remaining=tokens_remaining)
