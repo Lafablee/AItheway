@@ -54,10 +54,19 @@ class VideoManager:
                 metadata['parameters'] = json.dumps(additional_params)
 
             # Convertir les métadonnées en format Redis
-            redis_metadata = {
-                k: v.encode('utf-8') if isinstance(v, str) else v
-                for k, v in metadata.items()
-            }
+            redis_metadata = {}
+            for k, v in metadata.items():
+                if isinstance(v, str):
+                    redis_metadata[k] = v.encode("utf-8")
+                elif isinstance(v, bool):
+                    #Convertir les booléens en chaînes en "true" ou "false"
+                    redis_metadata[k] = str(v).lower().encode("utf-8")
+                elif v is None:
+                    # Gérer els valerus None
+                    redis_metadata[k] = b''
+                else:
+                    #pour les autres types (int, float, bytes)
+                    redis_metadata[k] = v
 
             # Stocker via le gestionnaire de stockage
             # Comme nous n'avons pas encore de données vidéo, on passe None
