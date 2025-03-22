@@ -3278,7 +3278,8 @@ def generate_video(wp_user_id):
                 'success': True,
                 'status': 'processing',
                 'task_id': task_id,
-                'video_key': video_key
+                'video_key': video_key,
+                'is_premium': client.get('subscription_level') in ['28974']
             })
         else:
             refund_tokens(wp_user_id, token_cost)

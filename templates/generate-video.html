@@ -441,7 +441,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     // Configurer les attributs du conteneur
                     statusContainer.setAttribute('data-task-id', data.task_id);
                     // Déterminer si l'utilisateur est premium (à adapter selon votre logique)
-                    const isPremium = {{ 'true' if client.get('subscription_level') in ['28974'] else 'false' }};
+                    const isPremium = {{ 'true' if client and client.get('subscription_level') in ['28974'] else 'false' }};
                     statusContainer.setAttribute('data-premium', isPremium);
 
                     // Initialiser le système de file d'attente
