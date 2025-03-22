@@ -83,6 +83,8 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 app.config['UPLOAD_FOLDER'] = UPLOAD_FOLDER
 app.config['ALLOWED_EXTENSIONS'] = {'png', 'jpg', 'jpeg', 'gif'}
 app.config['MAX_CONTENT_LENGTH'] = 20 * 1024 * 1024  # 20 MB limit
+FFMPEG_TIMEOUT = 30  # secondes
+MAX_VIDEO_SIZE_FOR_THUMBNAIL = 500 * 1024 * 1024  # 500 MB
 
 deep_ai_api_key = os.getenv('DEEPAI_API_KEY')
 
@@ -3192,6 +3194,17 @@ def serve_image(image_key):
 
 @app.route('/audio/<audio_key>')
 def serve_audio(audio_key):
+    app.logger.error(f"Tentative d'accès à l'audio: {audio_key}")
+
+    # Vérifions d'abord si la clé existe dans le storage_manager
+    exists = storage_manager.exists(audio_key, 'audio')
+    app.logger.error(f"L'audio {audio_key} existe: {exists}")
+
+    # Si la clé existe, récupérons les métadonnées pour le débogage
+    if exists:
+        metadata = storage_manager.get_metadata(audio_key)
+        app.logger.error(f"Métadonnées pour {audio_key}: {metadata}")
+
     audio_data = storage_manager.get(audio_key, 'audio')
     if not audio_data:
         app.logger.error(f"Audio not found: {audio_key}")
@@ -3482,6 +3495,119 @@ def get_video_history(wp_user_id):
         }
     })
 
+
+@app.route('/video-thumbnail/<video_key>')
+def serve_video_thumbnail(video_key):
+    """Génère et sert une vignette GIF animée pour une vidéo"""
+
+    # Vérifier si une vignette GIF existe déjà
+    thumbnail_key = f"{video_key}:thumbnail:gif"
+    thumbnail_data = storage_manager.get(thumbnail_key, 'images')
+
+    if thumbnail_data:
+        # Servir la vignette GIF existante
+        app.logger.info(f"Serving existing GIF thumbnail for {video_key}")
+        return send_file(
+            BytesIO(thumbnail_data),
+            mimetype='image/gif'
+        )
+
+    # Récupérer la vidéo
+    video_data = storage_manager.get(video_key, 'videos')
+
+    if len(video_data) > MAX_VIDEO_SIZE_FOR_THUMBNAIL:
+        app.logger.warning(f"Video too large for thumbnail: {len(video_data)} bytes")
+        return redirect(url_for('static', filename='assets/img/large-video.png'))
+
+    if not video_data:
+        # Si vidéo non trouvée, servir une image par défaut
+        app.logger.error(f"Video not found for thumbnail: {video_key}")
+        default_path = os.path.join(app.static_folder, 'assets', 'img', 'video-placeholder.png')
+        if os.path.exists(default_path):
+            with open(default_path, 'rb') as f:
+                return send_file(
+                    BytesIO(f.read()),
+                    mimetype='image/png'
+                )
+        return "Video not found", 404
+
+    try:
+        # Créer des dossiers temporaires si nécessaires
+        temp_dir = "/tmp/video_thumbnails"
+        os.makedirs(temp_dir, exist_ok=True)
+
+        # Générer des noms de fichiers uniques
+        import uuid
+        unique_id = str(uuid.uuid4())
+        temp_video_path = f"{temp_dir}/{unique_id}.mp4"
+        temp_gif_path = f"{temp_dir}/{unique_id}.gif"
+
+        # Écrire temporairement la vidéo
+        with open(temp_video_path, 'wb') as f:
+            f.write(video_data)
+
+        # Obtenir des informations sur la vidéo
+        import subprocess
+        import json
+
+        # Obtenir la durée de la vidéo
+        probe_cmd = [
+            'ffprobe',
+            '-v', 'error',
+            '-show_entries', 'format=duration',
+            '-of', 'json',
+            temp_video_path
+        ]
+
+        probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        duration_info = json.loads(probe_result.stdout)
+        video_duration = float(duration_info['format']['duration'])
+
+        # Calculer les paramètres pour le GIF
+        gif_duration = min(4.0, video_duration)  # Maximum 4 secondes
+        fps = 5  # 5 frames par seconde pour le GIF
+
+        # Générer le GIF avec FFmpeg
+        gif_cmd = [
+            'ffmpeg',
+            '-i', temp_video_path,
+            '-t', str(gif_duration),  # Durée du GIF
+            '-vf', f'fps={fps},scale=320:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
+            # Optimisation pour GIF
+            '-loop', '0',  # Boucle infinie
+            '-y',  # Écraser fichier existant
+            temp_gif_path
+        ]
+
+        subprocess.run(gif_cmd, check=True, timeout=FFMPEG_TIMEOUT)
+
+        # Lire le GIF généré
+        with open(temp_gif_path, 'rb') as f:
+            thumbnail_data = f.read()
+
+        # Stocker pour les futures demandes
+        metadata = {
+            'type': 'thumbnail',
+            'format': 'gif',
+            'video_key': video_key,
+            'created_at': datetime.now().isoformat()
+        }
+        storage_manager.store(thumbnail_key, thumbnail_data, metadata, 'images')
+
+        # Nettoyer
+        os.remove(temp_video_path)
+        os.remove(temp_gif_path)
+
+        # Servir
+        return send_file(
+            BytesIO(thumbnail_data),
+            mimetype='image/gif'
+        )
+
+    except Exception as e:
+        app.logger.error(f"Erreur lors de la génération du GIF: {str(e)}")
+        # En cas d'erreur, rediriger vers une image par défaut
+        return redirect(url_for('static', filename='assets/img/video-placeholder.png'))
 @app.route('/save-image', methods=['POST'])
 @token_required
 def save_image(wp_user_id):
@@ -4091,7 +4217,7 @@ def get_library_items(wp_user_id):
                             'id': video.get('video_key', ''),
                             'type': 'video',
                             'url': f"/video/{video.get('video_key', '')}",
-                            'thumbnail_url': f"/static/assets/thumbnails/video_thumbnail.jpg",  # Default thumbnail
+                            'thumbnail_url': f"/video-thumbnail/{video.get('video_key', '')}",  # Anim thumbnail
                             'description': video.get('prompt', ''),
                             'timestamp': video.get('timestamp', ''),
                             'model': video.get('model', 'default'),
