@@ -4233,19 +4233,24 @@ def get_library_items(wp_user_id):
                 audio_files = audio_manager.get_user_history(wp_user_id)
 
                 for audio in audio_files:
-                    item = {
-                        'id': audio.get('audio_key', ''),
-                        'type': 'audio',
-                        'url': f"/audio/{audio.get('audio_key', '')}",
-                        'thumbnail_url': None,  # Audio doesn't have thumbnails
-                        'description': truncate_text(audio.get('text', ''), 100),
-                        'timestamp': audio.get('timestamp', ''),
-                        'model': 'tts',
-                        'voice': audio.get('voice', 'default'),
-                        'duration': audio.get('duration', 0),
-                        'text': audio.get('text', '')
-                    }
-                    all_items.append(item)
+                    audio_key = audio.get('audio_key', '')
+                    app.logger.error(f"Clé audio trouvée: '{audio_key}', type: {type(audio_key)}")
+                    if audio_key:
+                        item = {
+                            'id': audio.get('audio_key', ''),
+                            'type': 'audio',
+                            'url': f"/audio/{audio.get('audio_key', '')}",
+                            'thumbnail_url': None,  # Audio doesn't have thumbnails
+                            'description': truncate_text(audio.get('text', ''), 100),
+                            'timestamp': audio.get('timestamp', ''),
+                            'model': 'tts',
+                            'voice': audio.get('voice', 'default'),
+                            'duration': audio.get('duration', 0),
+                            'text': audio.get('text', '')
+                        }
+                        all_items.append(item)
+                    else:
+                        app.logger.error(f"Audio ignoré car clé manquante")
             except Exception as e:
                 app.logger.error(f"Error fetching audio: {str(e)}")
 
