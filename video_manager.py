@@ -1,6 +1,7 @@
 import os
 import json
 import traceback
+import threading
 
 import requests
 import time
@@ -11,12 +12,14 @@ from flask import current_app as app
 
 class VideoManager:
     """
-    Gestionnaire de vidéos généré par MiniMax.
+    Gestionnaire de vidéos générées par MiniMax avec téléchargement proactif.
     """
 
     def __init__(self, storage_manager):
         self.storage = storage_manager
         self.prefix = "video"
+        # Nouveau: Threads de téléchargement actifs
+        self.active_downloads = {}
 
     def _generate_key(self, user_id, type="temp"):
         """Génère une clé unique avec préfixe"""
@@ -59,13 +62,13 @@ class VideoManager:
                 if isinstance(v, str):
                     redis_metadata[k] = v.encode("utf-8")
                 elif isinstance(v, bool):
-                    #Convertir les booléens en chaînes en "true" ou "false"
+                    # Convertir les booléens en chaînes en "true" ou "false"
                     redis_metadata[k] = str(v).lower().encode("utf-8")
                 elif v is None:
-                    # Gérer els valerus None
+                    # Gérer els valeurs None
                     redis_metadata[k] = b''
                 else:
-                    #pour les autres types (int, float, bytes)
+                    # pour les autres types (int, float, bytes)
                     redis_metadata[k] = v
 
             # Stocker via le gestionnaire de stockage
@@ -95,6 +98,7 @@ class VideoManager:
     def update_video_status(self, task_id, status, file_id=None, download_url=None):
         """
         Met à jour le statut d'une vidéo à partir de son task_id.
+        Télécharge automatiquement la vidéo lorsqu'elle est complétée.
         """
         try:
             # Récupère la clé vidéo à partir du task_id
@@ -126,11 +130,99 @@ class VideoManager:
             self.storage.store_metadata(video_key, metadata)
 
             app.logger.info(f"Updated video status for task {task_id} to {status}")
+
+            # NOUVEAU: Si la vidéo est complétée et qu'une URL est disponible, télécharger immédiatement
+            if status == "completed" or status == "Success":
+                if download_url:
+                    # Lancement d'un thread séparé pour le téléchargement
+                    self._start_download_thread(video_key, download_url, task_id)
+                else:
+                    app.logger.warning(f"Video {task_id} is complete but no download URL provided")
+
             return True
 
         except Exception as e:
             app.logger.error(f"Error updating video status: {str(e)}")
             return False
+
+    def _start_download_thread(self, video_key, download_url, task_id):
+        """
+        Lance un thread séparé pour télécharger la vidéo sans bloquer.
+        """
+        # Si un téléchargement est déjà en cours pour cette vidéo, ne pas en lancer un autre
+        if video_key in self.active_downloads and self.active_downloads[video_key].is_alive():
+            app.logger.info(f"Download already in progress for video {video_key}")
+            return
+
+        app.logger.info(f"Starting background download for video {video_key} (task {task_id})")
+
+        # Mettre à jour les métadonnées pour indiquer que le téléchargement est en cours
+        metadata = self.storage.get_metadata(video_key)
+        if metadata:
+            metadata['download_status'] = 'downloading'
+            self.storage.store_metadata(video_key, metadata)
+
+        # Créer et démarrer le thread de téléchargement
+        download_thread = threading.Thread(
+            target=self._download_video_thread,
+            args=(video_key, download_url, task_id),
+            daemon=True
+        )
+        self.active_downloads[video_key] = download_thread
+        download_thread.start()
+
+    def _download_video_thread(self, video_key, download_url, task_id):
+        """
+        Fonction exécutée dans un thread séparé pour télécharger une vidéo.
+        """
+        try:
+            app.logger.info(f"Downloading video {video_key} from {download_url}")
+
+            # Télécharger la vidéo
+            video_data = self.download_from_url(download_url)
+
+            if not video_data:
+                app.logger.error(f"Failed to download video {video_key}")
+                # Mettre à jour les métadonnées pour indiquer l'échec
+                metadata = self.storage.get_metadata(video_key)
+                if metadata:
+                    metadata['download_status'] = 'failed'
+                    self.storage.store_metadata(video_key, metadata)
+                return
+
+            # Stocker la vidéo
+            success = self.store_video_file(video_key, video_data)
+
+            # Mettre à jour les métadonnées
+            metadata = self.storage.get_metadata(video_key)
+            if metadata:
+                if success:
+                    metadata['download_status'] = 'complete'
+                    metadata['file_stored'] = True
+                    metadata['file_size'] = len(video_data)
+                    metadata['download_date'] = datetime.now().isoformat()
+                else:
+                    metadata['download_status'] = 'failed'
+
+                self.storage.store_metadata(video_key, metadata)
+
+            app.logger.info(f"Download completed for video {video_key}, success: {success}")
+
+        except Exception as e:
+            app.logger.error(f"Error in download thread for video {video_key}: {str(e)}")
+            # Mettre à jour les métadonnées en cas d'erreur
+            try:
+                metadata = self.storage.get_metadata(video_key)
+                if metadata:
+                    metadata['download_status'] = 'failed'
+                    metadata['download_error'] = str(e)
+                    self.storage.store_metadata(video_key, metadata)
+            except Exception:
+                pass
+        finally:
+            # Supprimer cette entrée des téléchargements actifs
+            if video_key in self.active_downloads:
+                del self.active_downloads[video_key]
 
     def store_video_file(self, video_key, video_data):
         """
@@ -144,6 +236,8 @@ class VideoManager:
             metadata = self.storage.get_metadata(video_key)
             if metadata:
                 metadata['file_stored'] = True
+                metadata['file_size'] = len(video_data)
+                metadata['storage_date'] = datetime.now().isoformat()
                 self.storage.store_metadata(video_key, metadata)
 
             app.logger.info(f"Stored video file for key {video_key}")
@@ -161,7 +255,6 @@ class VideoManager:
             app.logger.error(f"Atempting to get video by task_id {task_id}")
             # Récupère la clé vidéo à partir du task_id
             task_mapping_key = f"video:task:{task_id}"
-
 
             if not self.storage.redis.exists(task_mapping_key):
                 app.logger.error(f"No video key found for task_id {task_id}")
@@ -193,14 +286,31 @@ class VideoManager:
     def get_video(self, video_key):
         """
         Récupère le fichier vidéo.
+        Si la vidéo n'est pas trouvée localement mais qu'une URL est disponible, tente de la télécharger.
         """
         try:
             # Récupère le fichier vidéo
             video_data = self.storage.get(video_key, content_type='videos')
 
+            # Si la vidéo n'est pas trouvée localement, essayer de la télécharger
             if not video_data:
-                app.logger.error(f"No video data found for key {video_key}")
-                return None
+                app.logger.warning(f"Video data not found locally for {video_key}, attempting download")
+                metadata = self.storage.get_metadata(video_key)
+
+                if metadata and 'download_url' in metadata:
+                    download_url = metadata['download_url']
+                    app.logger.info(f"Downloading video from URL: {download_url}")
+
+                    video_data = self.download_from_url(download_url)
+
+                    if video_data:
+                        # Stocker pour les prochains accès
+                        self.store_video_file(video_key, video_data)
+                        app.logger.info(f"Video downloaded and stored successfully for {video_key}")
+                    else:
+                        app.logger.error(f"Failed to download video for {video_key}")
+                else:
+                    app.logger.error(f"No download URL found for video {video_key}")
 
             return video_data
 
@@ -278,6 +388,7 @@ class VideoManager:
     def get_user_video_history(self, user_id, page=1, per_page=10):
         """
         Récupère l'historique des vidéos d'un utilisateur.
+        Inclut des informations sur le statut de téléchargement.
         """
         try:
             # Récupère les clés des vidéos de l'utilisateur
@@ -304,6 +415,14 @@ class VideoManager:
                     # Ajoute l'URL de la vidéo
                     metadata['video_url'] = f"/video/{key}"
 
+                    # Vérifie si le fichier vidéo est disponible localement
+                    has_local_file = self.storage.get(key, content_type='videos') is not None
+                    metadata['has_local_file'] = has_local_file
+
+                    # Si le statut n'existe pas, le définir en fonction de la disponibilité
+                    if 'download_status' not in metadata:
+                        metadata['download_status'] = 'complete' if has_local_file else 'pending'
+
                     videos.append(metadata)
 
             # Trie par date (les plus récentes d'abord)
@@ -315,31 +434,44 @@ class VideoManager:
             app.logger.error(f"Error getting user video history: {str(e)}")
             return []
 
-    def retry_download(self, task_id):
+    def retry_download(self, video_key):
         """
-        Retente le téléchargement d'une vidéo à partir de son URL distante.
+        Force une nouvelle tentative de téléchargement d'une vidéo spécifique.
         """
         try:
-            # Récupère les informations de la vidéo
-            video_info = self.get_video_by_task_id(task_id)
+            metadata = self.storage.get_metadata(video_key)
 
-            if not video_info:
+            if not metadata:
+                app.logger.error(f"No metadata found for video {video_key}")
                 return False
 
-            # Vérifie si l'URL de téléchargement est disponible
-            if not video_info.get('download_url'):
-                app.logger.error(f"No download URL available for task_id {task_id}")
+            if 'download_url' not in metadata:
+                app.logger.error(f"No download URL available for video {video_key}")
                 return False
 
-            # Télécharge la vidéo
-            video_data = self.download_from_url(video_info['download_url'])
+            download_url = metadata['download_url']
+            task_id = metadata.get('task_id', 'unknown')
 
-            if not video_data:
-                return False
+            # Mettre à jour le statut
+            metadata['download_status'] = 'retrying'
+            self.storage.store_metadata(video_key, metadata)
 
-            # Stocke la vidéo
-            return self.store_video_file(video_info['video_key'], video_data)
+            # Lancer le téléchargement en arrière-plan
+            self._start_download_thread(video_key, download_url, task_id)
+
+            return True
 
         except Exception as e:
-            app.logger.error(f"Error retrying download: {str(e)}")
+            app.logger.error(f"Error retrying download for video {video_key}: {str(e)}")
             return False
+
+# --- à implémenter plus tard ---
+
+    def generate_thumbnail(self, video_key):
+        """
+        Génère une vignette pour une vidéo.
+        À implémenter avec FFmpeg si nécessaire.
+        """
+        # Cette fonction peut être implémentée pour générer des vignettes
+        # à partir des vidéos disponibles localement
+        pass

@@ -56,6 +56,10 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
             migrated_count = 0
             migrated_types = {"images": 0, "audio": 0, "video": 0}
 
+            #compteur d'erreurs pour le monitoring
+            download_errors = 0
+            storage_errors = 0
+
             for key in keys:
                 if isinstance(key, bytes):
                     key = key.decode('utf-8')
@@ -92,6 +96,45 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
                     logger.info(f"Migration de {key} (type: {content_type}) vers le stockage disque")
                     success = storage_manager.migrate_to_disk(key, content_type)
 
+                    # NOUVEAU: Traitement spécial pour les vidéos
+                    if content_type == 'video':
+                        # Vérifier si la vidéo est déjà stockée localement
+                        video_data = storage_manager.get(key, content_type='videos')
+
+                        if not video_data and metadata and 'download_url' in metadata:
+                            # La vidéo n'est pas stockée localement mais une URL est disponible
+                            download_url = metadata['download_url']
+                            logger.info(f"Tentative de téléchargement de la vidéo {key} depuis {download_url}")
+
+                            try:
+                                # Importer le gestionnaire de vidéos
+                                from video_manager import VideoManager
+                                video_manager = VideoManager(storage_manager)
+
+                                # Télécharger la vidéo
+                                video_data = video_manager.download_from_url(download_url)
+
+                                if video_data:
+                                    # Stocker le fichier vidéo
+                                    success = video_manager.store_video_file(key, video_data)
+
+                                    if success:
+                                        logger.info(
+                                            f"Vidéo {key} téléchargée et stockée avec succès lors de la migration")
+                                    else:
+                                        logger.error(f"Échec du stockage de la vidéo {key} lors de la migration")
+                                        storage_errors += 1
+                                else:
+                                    logger.warning(f"Impossible de télécharger la vidéo {key} lors de la migration")
+                                    download_errors += 1
+                            except Exception as video_error:
+                                logger.error(f"Erreur lors du téléchargement de la vidéo {key}: {str(video_error)}")
+                                download_errors += 1
+
+                    # Migrer le contenu
+                    logger.info(f"Migration de {key} (type: {content_type}) vers le stockage disque")
+                    success = storage_manager.migrate_to_disk(key, content_type)
+
                     if success:
                         migrated_count += 1
                         migrated_types[content_type] += 1
@@ -114,6 +157,9 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
                             f"{migrated_types['images']} images, "
                             f"{migrated_types['audio']} audio, "
                             f"{migrated_types['video']} vidéo.")
+
+                if download_errors > 0 or storage_errors > 0:
+                    logger.warning(f"Erreurs pendant la migration: {download_errors} erreurs de téléchargements, {storage_errors} erreurs de stockage")
             else:
                 logger.info("Aucun élément à migrer dans cette exécution.")
 
