@@ -48,6 +48,9 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
             # Audio
             keys.extend(storage_manager.redis.keys("audio:*"))
 
+            # Video
+            keys.extend(storage_manager.redis.keys("video:*"))
+
             logger.info(f"Trouvé {len(keys)} clés à analyser pour migration potentielle")
             now = datetime.now()
             migrated_count = 0
@@ -93,6 +96,13 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
                         migrated_count += 1
                         migrated_types[content_type] += 1
                         logger.debug(f"Migration réussie pour {key}")
+
+                        # Vérification post-migration
+                        verification_data = storage_manager.file_storage.retrieve_file(key, content_type)
+                        if verification_data:
+                            logger.debug(f"Vérification post-migration réussie pour {key}")
+                        else:
+                            logger.warning(f"Vérification post-migration échouée pour {key}")
                     else:
                         logger.warning(f"Échec de la migration pour {key}")
 

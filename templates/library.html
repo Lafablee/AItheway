@@ -903,26 +903,16 @@ document.addEventListener('DOMContentLoaded', function() {
                 </video>
             `;
         } else if (item.type === 'audio') {
-            if (!item.id || item.id === '') {
-                contentDisplay.innerHTML = `
-                    <div class="error-message">
-                        <p>Identifiant audio manquant</p>
-                    </div>
-                `;
-            } else {
-                contentDisplay.innerHTML = `
-                <audio controls class="detail_audio">
-                    <source src="/audio/${item.id}" type="audio/mpeg">
-                    Votre navigateur ne supporte pas la lecture audio.
-                </audio>
-                <div class="audio_visualization">
-                    <div class="waveform_large" id="detailWaveform"></div>
-                </div>
-            `;
-            }
-
-        }
-        
+        contentDisplay.innerHTML = `
+            <audio controls class="detail_audio">
+                <source src="${item.url}" type="audio/mpeg">
+                Votre navigateur ne supporte pas la lecture audio.
+            </audio>
+            <div class="audio_visualization">
+                <div class="waveform_large" id="detailWaveform"></div>
+            </div>
+        `;
+    }
         // Update description
         contentDescription.textContent = item.description || 'Aucune description disponible';
         

@@ -60,14 +60,44 @@ class FileStorage:
         return str(metadata_path)
 
     def retrieve_file(self, key, content_type):
-        """Lire des données binaires depuis un fichier"""
-        file_path = self.generate_path(key, content_type)
+        """Lire des données binaires depuis un fichier avec gestion des erreurs améliorée"""
+        try:
+            file_path = self.generate_path(key, content_type)
 
-        if not file_path.exists():
+            if not file_path.exists():
+                # Essayer avec différentes variations de la clé si nécessaire
+                # Par exemple, essayer avec/sans certains préfixes courants
+                alternative_keys = [key]
+
+                # Ajout de variantes de clés potentielles pour les cas particuliers
+                if ':' in key:
+                    # Essayer avec seulement la partie après le dernier ":"
+                    parts = key.split(':')
+                    if len(parts) > 2:
+                        alternative_keys.append(parts[-1])  # Juste l'identifiant
+                        alternative_keys.append(f"{parts[0]}:{parts[-1]}")  # Type + ID
+
+                # Essayer chaque variante
+                for alt_key in alternative_keys:
+                    if alt_key == key:
+                        continue  # Déjà essayé
+
+                    alt_path = self.generate_path(alt_key, content_type)
+                    if alt_path.exists():
+                        file_path = alt_path
+                        logger.info(f"Fichier trouvé avec clé alternative: {alt_key}")
+                        break
+
+                # Si toujours pas trouvé, retourner None
+                if not file_path.exists():
+                    return None
+
+            with open(file_path, 'rb') as f:
+                return f.read()
+
+        except Exception as e:
+            logger.error(f"Erreur lors de la récupération du fichier {key}: {str(e)}")
             return None
-
-        with open(file_path, 'rb') as f:
-            return f.read()
 
     def retrieve_metadata(self, key):
         """Lire les métadonnées depuis un fichier JSON"""
@@ -221,20 +251,74 @@ class StorageManager:
             logger.error(traceback.format_exc())
             return False
 
+    def exists(self, key, content_type='images'):
+        """Vérifie si une clé existe dans Redis ou dans le stockage fichier"""
+        # Vérifier dans Redis
+        if self.redis.exists(key):
+            return True
+
+        # Vérifier dans le stockage fichier
+        file_path = self.file_storage.generate_path(key, content_type)
+        return file_path.exists()
+
     def get(self, key, content_type='images'):
-        """Récupérer le contenu depuis Redis ou le système de fichiers"""
+        """Récupérer le contenu depuis Redis ou le système de fichiers de manière plus robuste"""
         # Essayer d'abord Redis
         data = self.redis.get(key)
 
-        # Si pas dans Redis, essayer le stockage fichier
+        # Si le contenu n'est pas dans Redis, essayer le stockage fichier
         if data is None:
             logger.info(f"Contenu {key} non trouvé dans Redis, vérification du stockage fichier")
+
+            # Essayer de récupérer directement
             data = self.file_storage.retrieve_file(key, content_type)
-            if data is not None:
-                logger.info(f"Contenu {key} trouvé dans le stockage fichier serveur")
-            else:
-                logger.warning(f"Contenu {key} introuvable (ni Redis, ni sur le disque)")
+
+            # Si toujours pas trouvé, essayer une recherche par métadonnées
+            if data is None:
+                # Récupérer les métadonnées pour ce type de contenu
+                metadata = self.get_metadata(key)
+
+                if metadata:
+                    logger.info(f"Métadonnées trouvées pour {key}, tentative de récupération via chemin alternatif")
+
+                    # Si c'est une vidéo avec une URL de téléchargement, essayer de la retélécharger
+                    if content_type == 'videos' and 'download_url' in metadata:
+                        try:
+                            from video_manager import VideoManager
+                            video_manager = VideoManager(self)
+                            data = video_manager.download_from_url(metadata['download_url'])
+
+                            if data:
+                                # Stocker pour usage futur
+                                self.file_storage.store_file(key, data, content_type)
+                                logger.info(f"Retéléchargement et stockage réussis de la vidéo {key}")
+                        except Exception as e:
+                            logger.error(f"Erreur lors du retéléchargement de la vidéo {key}: {str(e)}")
+
+                # Si toujours pas trouvé et que c'est une image ou un audio, essayer des variantes de clés
+                if data is None and content_type in ['images', 'audio']:
+                    # Essayer de trouver par le hash MD5 de la clé originale
+                    try:
+                        import hashlib
+                        key_hash = hashlib.md5(key.encode('utf-8')).hexdigest()
+
+                        # Chercher dans le répertoire approprié
+                        base_path = self.file_storage.base_path
+                        type_path = os.path.join(base_path, content_type)
+
+                        # Parcourir les sous-répertoires en fonction du hash
+                        for root, dirs, files in os.walk(type_path):
+                            if key_hash in files:
+                                file_path = os.path.join(root, key_hash)
+                                with open(file_path, 'rb') as f:
+                                    data = f.read()
+                                    logger.info(f"Fichier trouvé via hash MD5: {file_path}")
+                                    break
+                    except Exception as e:
+                        logger.error(f"Erreur lors de la recherche par hash: {str(e)}")
+
         elif data == b'':
+            # Si le contenu est une chaîne vide, considérer comme None
             data = None
 
         return data
@@ -256,11 +340,43 @@ class StorageManager:
         return self.file_storage.retrieve_metadata(key)
 
     def migrate_to_disk(self, key, content_type='images'):
-        """Migrer le contenu de Redis vers le stockage fichier"""
+        """Migrer le contenu de Redis vers le stockage fichier avec des vérifications améliorées"""
         # Récupérer les données et métadonnées depuis Redis
         data = self.redis.get(key)
         metadata_key = f"{key}:meta"
         redis_metadata = self.redis.hgetall(metadata_key)
+
+        if data is None and content_type == 'videos':
+            # Cas spécial pour les vidéos: elles peuvent avoir des métadonnées mais aucun contenu dans Redis
+            # car elles sont téléchargées à la demande depuis l'URL distante
+            if redis_metadata:
+                # Convertir le format de métadonnées Redis en dict
+                metadata = {
+                    k.decode('utf-8') if isinstance(k, bytes) else k:
+                        v.decode('utf-8') if isinstance(v, bytes) else v
+                    for k, v in redis_metadata.items()
+                } if redis_metadata else {}
+
+                # Ne migrer que les métadonnées
+                metadata['storage_migration_date'] = datetime.now().isoformat()
+                metadata['original_redis_key'] = key
+
+                # Extraire l'ID utilisateur si possible
+                try:
+                    parts = key.split(':')
+                    if len(parts) >= 3:
+                        metadata['user_id'] = parts[2]  # video:temp:user_id:timestamp
+                except Exception as e:
+                    logger.warning(f"Impossible d'extraire l'ID utilisateur de la clé {key}: {str(e)}")
+
+                # Stocker uniquement les métadonnées
+                metadata_path = self.file_storage.store_metadata(key, metadata)
+                logger.info(f"Migré métadonnées de {key} vers le disque: {metadata_path}")
+
+                # Supprimer métadonnées de Redis après migration réussie
+                self.redis.delete(metadata_key)
+
+                return True
 
         if data is None:
             logger.warning(f"Impossible de migrer {key}: non trouvé dans Redis")
@@ -269,7 +385,7 @@ class StorageManager:
         # Convertir le format de métadonnées Redis en dict
         metadata = {
             k.decode('utf-8') if isinstance(k, bytes) else k:
-                v.decode('utf-8') if isinstance(v, bytes) else v
+            v.decode('utf-8') if isinstance(v, bytes) else v
             for k, v in redis_metadata.items()
         } if redis_metadata else {}
 
@@ -279,20 +395,27 @@ class StorageManager:
 
         # Extraire l'ID utilisateur de la clé (pour une récupération plus facile)
         # Format attendu: "audio:user_id:timestamp" ou "img:temp:image:user_id:timestamp"
-        parts = key.split(':')
-        if len(parts) >= 2:
-            try:
-                # Essayer de trouver l'ID utilisateur dans la clé
-                if content_type == 'audio' and len(parts) >= 3:
-                    metadata['user_id'] = parts[1]  # audio:user_id:timestamp
-                elif content_type == 'images' and len(parts) >= 5:
-                    metadata['user_id'] = parts[3]  # img:temp:image:user_id:timestamp
-            except Exception as e:
-                logger.warning(f"Impossible d'extraire l'ID utilisateur de la clé {key}: {str(e)}")
+        try:
+            parts = key.split(':')
+            if content_type == 'audio' and len(parts) >= 2:
+                metadata['user_id'] = parts[1]  # audio:user_id:timestamp
+            elif content_type == 'images' and len(parts) >= 4:
+                metadata['user_id'] = parts[3]  # img:temp:image:user_id:timestamp
+            elif content_type == 'videos' and len(parts) >= 3:
+                metadata['user_id'] = parts[2]  # video:temp:user_id:timestamp
+        except Exception as e:
+            logger.warning(f"Impossible d'extraire l'ID utilisateur de la clé {key}: {str(e)}")
 
         # Stocker dans le système de fichiers
         file_path = self.file_storage.store_file(key, data, content_type)
         metadata_path = self.file_storage.store_metadata(key, metadata)
+
+        # Vérification post-stockage
+        verification_data = self.file_storage.retrieve_file(key, content_type)
+        if verification_data is None:
+            logger.error(
+                f"Échec de vérification post-migration pour {key}. Le fichier n'est pas accessible après stockage.")
+            return False
 
         logger.info(f"Migré {key} vers le disque: {file_path}")
 

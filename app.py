@@ -2490,6 +2490,55 @@ def generate_image(wp_user_id):
         app.logger.error(f"Unexpected error in generate_image: {str(e)}")
         return jsonify({"error": "Internal server error"}), 500
 
+
+#@app.route('/download-image/<image_key>')
+#@token_required
+#def download_image(wp_user_id, image_key):
+    #try:
+        #app.logger.info(f"Tentative de téléchargement de l'image: {image_key}")
+
+        # Récupérer l'image
+        #image_data = storage_manager.get(image_key, 'images')
+
+        #if not image_data:
+            #app.logger.error(f"Image non trouvée pour téléchargement: {image_key}")
+            #return "Image non trouvée", 404
+
+        # Récupérer les métadonnées pour un nom de fichier personnalisé
+        #metadata = storage_manager.get_metadata(image_key)
+        #prompt = ''
+
+        #if metadata:
+            #prompt_value = metadata.get('prompt', '')
+            #if prompt_value:
+                #prompt = prompt_value[:30].replace(' ', '_')
+
+        #timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+        # Déterminer l'extension basée sur le type de contenu
+        #extension = 'png'  # Par défaut
+        #try:
+            #import magic
+            #mime = magic.Magic(mime=True)
+            #content_type = mime.from_buffer(image_data)
+           # if content_type == 'image/jpeg':
+               # extension = 'jpg'
+            #elif content_type == 'image/gif':
+                #extension = 'gif'
+        #except ImportError:
+           # pass  # Utiliser l'extension par défaut
+
+        #return send_file(
+           # BytesIO(image_data),
+            #mimetype=f'image/{extension}',
+            #as_attachment=True,
+            #download_name=f"aitheway_image_{prompt}_{timestamp}.{extension}"
+        #)
+
+    #except Exception as e:
+        #app.logger.error(f"Erreur lors du téléchargement de l'image: {str(e)}")
+        #return "Erreur lors du téléchargement", 500
+
 @app.route('/download-image', methods=['POST'])
 def download_image():
     image_url = request.form['image_url']
@@ -2853,22 +2902,40 @@ def get_audio_history(wp_user_id):
 
 
 @app.route('/download-audio/<audio_key>')
-def download_audio(audio_key):
-    audio_data = audio_manager.get_audio(audio_key)
-    if not audio_data:
-        return "Audio not found", 404
+def download_audio(wp_user_id, audio_key):
+    try:
+        app.logger.info(f"Tentative de téléchargement de l'audio: {audio_key}")
 
-    # Récupérer les métadonnées pour un nom de fichier personnalisé
-    metadata = audio_manager.get_audio_metadata(audio_key)
-    voice = metadata.get(b'voice', b'audio').decode('utf-8')
-    timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+        # Récupérer l'audio
+        audio_data = storage_manager.get(audio_key, 'audio')
 
-    return send_file(
-        BytesIO(audio_data),
-        mimetype='audio/mpeg',
-        as_attachment=True,
-        download_name=f"aitheway_audio_{voice}_{timestamp}.mp3"
-    )
+        if not audio_data:
+            app.logger.error(f"Audio non trouvé pour téléchargement: {audio_key}")
+            return "Audio non trouvé", 404
+
+        # Récupérer les métadonnées pour un nom de fichier personnalisé
+        metadata = storage_manager.get_metadata(audio_key)
+        text = ''
+        voice = 'default'
+
+        if metadata:
+            if 'text' in metadata:
+                text = metadata['text'][:30].replace(' ', '_')
+            if 'voice' in metadata:
+                voice = metadata['voice']
+
+        timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+        return send_file(
+            BytesIO(audio_data),
+            mimetype='audio/mpeg',
+            as_attachment=True,
+            download_name=f"aitheway_audio_{voice}_{text}_{timestamp}.mp3"
+        )
+
+    except Exception as e:
+        app.logger.error(f"Erreur lors du téléchargement de l'audio: {str(e)}")
+        return "Erreur lors du téléchargement", 500
 
 # Initialize gallery handler
 gallery_manager = None
@@ -3182,39 +3249,71 @@ def delete_gallery_item(wp_user_id, gallery_item_id):
 # Routes de service mises à jour
 @app.route('/image/<image_key>')
 def serve_image(image_key):
+    app.logger.info(f"Tentative d'accès à l'image: {image_key}")
+
+    # Récupérer l'image
     image_data = storage_manager.get(image_key, 'images')
+
     if not image_data:
-        app.logger.error(f"Image not found: {image_key}")
-        return "Image not found", 404
-    app.logger.error(f"Serving image: {image_key}")
-    return send_file(
+        app.logger.error(f"Image non trouvée: {image_key}")
+        return "Image non trouvée", 404
+
+    app.logger.info(f"Image trouvée: {image_key}, taille: {len(image_data)} octets")
+
+    # Déterminer le type MIME de l'image
+    content_type = 'image/png'  # Type par défaut
+
+    # Tenter de déterminer le type à partir des premiers octets
+    if image_data[:2] == b'\xff\xd8':
+        content_type = 'image/jpeg'
+    elif image_data[:8] == b'\x89PNG\r\n\x1a\n':
+        content_type = 'image/png'
+    elif image_data[:6] in (b'GIF87a', b'GIF89a'):
+        content_type = 'image/gif'
+
+    # Servir l'image avec les bons en-têtes
+    response = send_file(
         BytesIO(image_data),
-        mimetype='image/png'
+        mimetype=content_type,
+        conditional=True,
+        etag=True
     )
+
+    # En-têtes pour optimisation du cache
+    response.headers['Cache-Control'] = 'public, max-age=86400'  # 24h
+
+    return response
 
 @app.route('/audio/<audio_key>')
 def serve_audio(audio_key):
-    app.logger.error(f"Tentative d'accès à l'audio: {audio_key}")
+    app.logger.info(f"Tentative d'accès à l'audio: {audio_key}")
 
-    # Vérifions d'abord si la clé existe dans le storage_manager
-    exists = storage_manager.exists(audio_key, 'audio')
-    app.logger.error(f"L'audio {audio_key} existe: {exists}")
+    # Récupérer les métadonnées
+    metadata = storage_manager.get_metadata(audio_key)
 
-    # Si la clé existe, récupérons les métadonnées pour le débogage
-    if exists:
-        metadata = storage_manager.get_metadata(audio_key)
-        app.logger.error(f"Métadonnées pour {audio_key}: {metadata}")
-
+    # Tentative de récupération du fichier audio
     audio_data = storage_manager.get(audio_key, 'audio')
+
     if not audio_data:
-        app.logger.error(f"Audio not found: {audio_key}")
-        return "Audio not found", 404
-    app.logger.error(f"Serving audio: {audio_key}")
-    return send_file(
+        app.logger.error(f"Audio non trouvé: {audio_key}")
+        return "Audio non trouvé", 404
+
+    app.logger.info(f"Audio trouvé: {audio_key}, taille: {len(audio_data)} octets")
+
+    # Servir l'audio avec les bons en-têtes
+    response = send_file(
         BytesIO(audio_data),
         mimetype='audio/mpeg',
+        conditional=True,
+        etag=True,
         as_attachment=False
     )
+
+    # En-têtes essentiels pour le streaming
+    response.headers['Accept-Ranges'] = 'bytes'
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+
+    return response
 
 # --- Video generation route ---
 
@@ -3410,54 +3509,83 @@ def serve_video(video_key):
     """
     Sert la vidéo pour lecture dans le navigateur
     """
-    try:
-        # Récupérer la vidéo
-        video_data = video_manager.get_video(video_key)
+    app.logger.info(f"Tentative d'accès à la vidéo: {video_key}")
 
-        # Si pas stockée localement, la télécharger
-        if not video_data:
-            metadata = storage_manager.get_metadata(video_key)
-            if not metadata or not metadata.get('download_url'):
-                return "Video not found", 404
+    # Récupérer les métadonnées en premier pour déterminer la stratégie
+    metadata = storage_manager.get_metadata(video_key)
 
-            download_url = metadata.get('download_url')
-            video_data = video_manager.download_from_url(download_url)
+    # Variables pour le suivi
+    video_data = None
+    source = None
 
-            # Stocker pour usage futur
-            if video_data:
-                video_manager.store_video_file(video_key, video_data)
-                metadata['file_stored'] = True
-                storage_manager.store_metadata(video_key, metadata)
+    # Tentative de récupération de la vidéo
+    video_data = storage_manager.get(video_key, 'videos')
 
-        # Servir la vidéo
-        return send_file(
-            BytesIO(video_data),
-            mimetype='video/mp4'
-        )
+    if video_data:
+        source = "storage"
+    # Si pas trouvé mais que nous avons des métadonnées avec une URL de téléchargement
+    elif metadata and 'download_url' in metadata:
+        app.logger.info(f"Tentative de récupération via URL de téléchargement pour {video_key}")
+        video_data = video_manager.download_from_url(metadata['download_url'])
 
-    except Exception as e:
-        app.logger.error(f"Error serving video: {str(e)}")
-        return "Error serving video", 500
+        if video_data:
+            # Stocker pour les prochaines requêtes
+            video_manager.store_video_file(video_key, video_data)
+            source = "remote_url"
 
+    if not video_data:
+        app.logger.error(f"Vidéo non trouvée: {video_key}")
+        return "Vidéo non trouvée", 404
 
+    app.logger.info(f"Vidéo trouvée ({source}): {video_key}, taille: {len(video_data)} octets")
+
+    # Servir la vidéo avec les bons en-têtes pour streaming
+    response = send_file(
+        BytesIO(video_data),
+        mimetype='video/mp4',
+        conditional=True,  # Support des requêtes Range
+        etag=True,  # Support du cache via ETag
+        as_attachment=False
+    )
+
+    # En-têtes essentiels pour le streaming
+    response.headers['Accept-Ranges'] = 'bytes'
+    response.headers['Cache-Control'] = 'public, max-age=3600'
+
+    return response
 @app.route('/download-video/<video_key>')
-def download_video(video_key):
-    """
-    Télécharge la vidéo (même logique que serve_video mais en tant que téléchargement)
-    """
+@token_required
+def download_video(wp_user_id, video_key):
+    """Télécharge la vidéo (même logique que serve_video mais en tant que téléchargement)"""
     try:
-        # Même logique que serve_video mais avec as_attachment=True
-        video_data = video_manager.get_video(video_key)
+        app.logger.info(f"Téléchargement de vidéo demandé: {video_key}")
+
+        # Récupérer les métadonnées d'abord
+        metadata = storage_manager.get_metadata(video_key)
+        video_data = None
+
+        # Tentative de récupération de la vidéo
+        video_data = storage_manager.get(video_key, 'videos')
+
+        # Si la vidéo n'est pas trouvée mais que nous avons une URL de téléchargement
+        if not video_data and metadata and 'download_url' in metadata:
+            app.logger.info(f"Tentative de téléchargement depuis: {metadata['download_url']}")
+            video_data = video_manager.download_from_url(metadata['download_url'])
+
+            if video_data:
+                # Stocker pour usage futur
+                video_manager.store_video_file(video_key, video_data)
+                app.logger.info(f"Vidéo retéléchargée et stockée: {video_key}")
 
         if not video_data:
-            # Récupération depuis l'URL distante si nécessaire
-            # Code similaire à serve_video
-            pass
+            app.logger.error(f"Vidéo non trouvée pour téléchargement: {video_key}")
+            return "Vidéo non trouvée", 404
 
-        # Créer un nom de fichier personnalisé
-        metadata = storage_manager.get_metadata(video_key)
+        # Préparer un nom de fichier approprié
         prompt = metadata.get('prompt', '').replace(' ', '_')[:30] if metadata else 'video'
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
+        app.logger.info(f"Envoi de la vidéo pour téléchargement: {video_key}")
 
         return send_file(
             BytesIO(video_data),
@@ -3467,10 +3595,8 @@ def download_video(video_key):
         )
 
     except Exception as e:
-        app.logger.error(f"Error downloading video: {str(e)}")
-        return "Error downloading video", 500
-
-
+        app.logger.error(f"Erreur lors du téléchargement de la vidéo: {str(e)}")
+        return "Erreur lors du téléchargement", 500
 @app.route('/api/video/history', methods=['GET'])
 @token_required
 def get_video_history(wp_user_id):
@@ -3515,10 +3641,6 @@ def serve_video_thumbnail(video_key):
     # Récupérer la vidéo
     video_data = storage_manager.get(video_key, 'videos')
 
-    if len(video_data) > MAX_VIDEO_SIZE_FOR_THUMBNAIL:
-        app.logger.warning(f"Video too large for thumbnail: {len(video_data)} bytes")
-        return redirect(url_for('static', filename='assets/img/large-video.png'))
-
     if not video_data:
         # Si vidéo non trouvée, servir une image par défaut
         app.logger.error(f"Video not found for thumbnail: {video_key}")
@@ -3530,6 +3652,10 @@ def serve_video_thumbnail(video_key):
                     mimetype='image/png'
                 )
         return "Video not found", 404
+
+    if len(video_data) > MAX_VIDEO_SIZE_FOR_THUMBNAIL:
+        app.logger.warning(f"Video too large for thumbnail: {len(video_data)} bytes")
+        return redirect(url_for('static', filename='assets/img/large-video.png'))
 
     try:
         # Créer des dossiers temporaires si nécessaires
