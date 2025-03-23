@@ -210,10 +210,62 @@ class VideoManager:
 
     def download_from_url(self, url):
         """
-        Télécharge une vidéo à partir d'une URL externe.
+        Télécharge une vidéo à partir d'une URL externe, avec gestion des erreurs 403.
         """
         try:
             response = requests.get(url, stream=True, timeout=60)
+
+            # Si l'URL est expirée (403 Forbidden), tenter de rafraîchir l'URL
+            if response.status_code == 403:
+                app.logger.warning(f"URL expirée (403): {url}")
+
+                # Extraire le task_id depuis l'URL ou les métadonnées
+                task_id = None
+
+                # Chercher les métadonnées qui correspondent à cette URL
+                for key in self.storage.redis.keys("video:temp:*:meta"):
+                    meta_key = key.decode('utf-8') if isinstance(key, bytes) else key
+                    video_key = meta_key.replace(':meta', '')
+                    metadata = self.storage.get_metadata(video_key)
+
+                    if metadata and metadata.get('download_url') == url and metadata.get('task_id'):
+                        task_id = metadata.get('task_id')
+                        app.logger.info(f"Trouvé task_id {task_id} pour l'URL expirée")
+                        break
+
+                # Si on a trouvé un task_id, tenter de rafraîchir l'URL via l'API
+                if task_id:
+                    app.logger.info(f"Tentative de rafraîchissement de l'URL pour task_id {task_id}")
+
+                    # Récupérer le générateur MiniMax depuis ai_manager
+                    from ai_models import create_ai_manager
+                    ai_manager = create_ai_manager()
+                    minimax_video_generator = ai_manager.generators.get("minimax-video")
+
+                    if minimax_video_generator:
+                        # Vérifier le statut pour obtenir le file_id
+                        status_response = minimax_video_generator.generator.check_generation_status(task_id)
+
+                        if status_response.get('success') and status_response.get('file_id'):
+                            file_id = status_response.get('file_id')
+
+                            # Obtenir une nouvelle URL de téléchargement
+                            new_url = minimax_video_generator.generator.get_download_url(file_id)
+
+                            if new_url:
+                                app.logger.info(f"URL rafraîchie avec succès: {new_url}")
+
+                                # Mettre à jour les métadonnées avec la nouvelle URL
+                                if video_key:
+                                    metadata['download_url'] = new_url
+                                    self.storage.store_metadata(video_key, metadata)
+
+                                # Tenter le téléchargement avec la nouvelle URL
+                                return self.download_from_url(new_url)
+
+                app.logger.error(f"Impossible de rafraîchir l'URL expirée: {url}")
+                return None
+
             response.raise_for_status()
 
             app.logger.info(f"Downloaded video from {url}, size: {len(response.content)} bytes")

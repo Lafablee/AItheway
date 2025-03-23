@@ -2902,9 +2902,10 @@ def get_audio_history(wp_user_id):
 
 
 @app.route('/download-audio/<audio_key>')
+@token_required
 def download_audio(wp_user_id, audio_key):
     try:
-        app.logger.info(f"Tentative de téléchargement de l'audio: {audio_key}")
+        app.logger.info(f"Tentative de téléchargement de l'audio: {audio_key} par l'utilisateur {wp_user_id}")
 
         # Récupérer l'audio
         audio_data = storage_manager.get(audio_key, 'audio')
@@ -3518,20 +3519,66 @@ def serve_video(video_key):
     video_data = None
     source = None
 
-    # Tentative de récupération de la vidéo
+    # 1. Tentative de récupération de la vidéo
     video_data = storage_manager.get(video_key, 'videos')
 
     if video_data:
         source = "storage"
-    # Si pas trouvé mais que nous avons des métadonnées avec une URL de téléchargement
+        app.logger.error(f"Vidéo trouvée dans le stockage: {video_key}")
+
+    # 2. Si pas trouvé mais que nous avons des métadonnées avec une URL de téléchargement
     elif metadata and 'download_url' in metadata:
-        app.logger.info(f"Tentative de récupération via URL de téléchargement pour {video_key}")
-        video_data = video_manager.download_from_url(metadata['download_url'])
+        download_url = metadata['download_url']
+        app.logger.info(f"Tentative de récupération via URL {download_url}")
+
+        # Utiliser la nouvelle version améliorée de download_from_url qui gère les URLs expirées
+        video_data = video_manager.download_from_url(download_url)
 
         if video_data:
             # Stocker pour les prochaines requêtes
             video_manager.store_video_file(video_key, video_data)
             source = "remote_url"
+            app.logger.error(f"Vidéo récupérée et stockée via URL: {video_key}")
+
+    # 3. Si toujours pas trouvée et que nous avons un task_id, essayer via l'API
+    elif metadata and 'task_id' in metadata:
+        task_id = metadata['task_id']
+        app.logger.info(f"Tentative de régénération d'URL via task_id: {task_id}")
+
+        try:
+            # Récupérer le générateur MiniMax
+            from ai_models import create_ai_manager
+            ai_manager = create_ai_manager()
+            minimax_generator = ai_manager.generators.get("minimax-video")
+
+            if minimax_generator:
+                # Vérifier le statut pour obtenir le file_id
+                status_response = minimax_generator.generator.check_generation_status(task_id)
+
+                if status_response.get('success') and status_response.get('file_id'):
+                    file_id = status_response.get('file_id')
+
+                    # Obtenir une nouvelle URL de téléchargement
+                    new_url = minimax_generator.generator.get_download_url(file_id)
+
+                    if new_url:
+                        app.logger.info(f"Nouvelle URL générée: {new_url}")
+
+                        # Mettre à jour les métadonnées
+                        metadata['download_url'] = new_url
+                        storage_manager.store_metadata(video_key, metadata)
+
+                        # Télécharger la vidéo
+                        video_data = video_manager.download_from_url(new_url)
+
+                        if video_data:
+                            # Stocker pour les prochaines requêtes
+                            video_manager.store_video_file(video_key, video_data)
+                            source = "regenerated_url"
+                            app.logger.info(f"Vidéo récupérée via nouvelle URL: {video_key}")
+
+        except Exception as e:
+            app.logger.error(f"Erreur lors de la régénération d'URL: {str(e)}")
 
     if not video_data:
         app.logger.error(f"Vidéo non trouvée: {video_key}")
@@ -4554,18 +4601,19 @@ def download_specific_audio(wp_user_id, audio_key):
         if not audio_data:
             return "Audio not found", 404
 
-        # Get metadata for a better filename
-        metadata = audio_manager.get_audio_metadata(audio_key)
+        # Get metadata for a custom filename
+        metadata = storage_manager.get_metadata(audio_key)
         text = ''
         voice = 'default'
 
         if metadata:
-            if b'text' in metadata:
-                text = metadata[b'text'].decode('utf-8', errors='ignore')[:30].replace(' ', '_')
-            if b'voice' in metadata:
-                voice = metadata[b'voice'].decode('utf-8', errors='ignore')
+            if 'text' in metadata:
+                text = metadata['text'][:30].replace(' ', '_')
+            if 'voice' in metadata:
+                voice = metadata['voice']
 
         timestamp = datetime.now().strftime("%Y%m%d%H%M%S")
+
         filename = f"aitheway_audio_{voice}_{text}_{timestamp}.mp3"
 
         return send_file(
