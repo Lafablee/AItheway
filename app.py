@@ -3671,7 +3671,7 @@ def get_video_history(wp_user_id):
 
 @app.route('/video-thumbnail/<video_key>')
 def serve_video_thumbnail(video_key):
-    """Génère et sert une vignette GIF animée pour une vidéo"""
+    """Génère et sert une vignette GIF animée pour une vidéo avec qualitée améliorée et transition fluide (palindrome)"""
 
     # Vérifier si une vignette GIF existe déjà
     thumbnail_key = f"{video_key}:thumbnail:gif"
@@ -3737,16 +3737,28 @@ def serve_video_thumbnail(video_key):
         video_duration = float(duration_info['format']['duration'])
 
         # Calculer les paramètres pour le GIF
-        gif_duration = min(4.0, video_duration)  # Maximum 4 secondes
-        fps = 5  # 5 frames par seconde pour le GIF
+        gif_duration = min(4.0, video_duration / 2)  # Maximum 4 secondes ou moitié de la vidéo
+        fps = 12  # 12 frames par seconde pour le GIF
+        width = 480 # Augmenttion de 320 à 480px la résolution
 
-        # Générer le GIF avec FFmpeg
+        # AMÉLIORÉ : Générateur de GIF avec boucle palindrome (joue puis rejoue en sens inverse)
+        # Et utilise une meilleure qualité ainsi qu'une palette optimisée
         gif_cmd = [
             'ffmpeg',
             '-i', temp_video_path,
             '-t', str(gif_duration),  # Durée du GIF
-            '-vf', f'fps={fps},scale=320:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse',
-            # Optimisation pour GIF
+            '-filter_complex',
+            # Complexe mais puissant :
+            # 1. Extrait les frames à haute qualité
+            # 2. Crée une séquence normale puis inversée
+            # 3. Génère une palette optimisée de 256 couleurs
+            # 4. Applique le dithering pour éviter les bandes
+            f'[0:v]fps={fps},scale={width}:-1:flags=lanczos,split[forward][temp];'
+            f'[temp]reverse[backward];'
+            f'[forward][backward]concat=n=2:v=1:a=0,split[s0][s1];'
+            f'[s0]palettegen=stats_mode=single[p];'
+            f'[s1][p]paletteuse=dither=sierra2_4a',
+            # Options GIF
             '-loop', '0',  # Boucle infinie
             '-y',  # Écraser fichier existant
             temp_gif_path
@@ -3763,7 +3775,10 @@ def serve_video_thumbnail(video_key):
             'type': 'thumbnail',
             'format': 'gif',
             'video_key': video_key,
-            'created_at': datetime.now().isoformat()
+            'created_at': datetime.now().isoformat(),
+            'width': width,
+            'fps': fps,
+            'duration': gif_duration * 2 # multiplie par 2 car palindrome
         }
         storage_manager.store(thumbnail_key, thumbnail_data, metadata, 'images')
 
@@ -4406,13 +4421,13 @@ def get_library_items(wp_user_id):
                 audio_files = audio_manager.get_user_history(wp_user_id)
 
                 for audio in audio_files:
-                    audio_key = audio.get('audio_key', '')
-                    app.logger.error(f"Clé audio trouvée: '{audio_key}', type: {type(audio_key)}")
+                    audio_key = audio.get('audio_key', '') or audio.get('key', '')
+                    app.logger.error(f"Audio trouvé: {audio}")
                     if audio_key:
                         item = {
-                            'id': audio.get('audio_key', ''),
+                            'id': audio_key,
                             'type': 'audio',
-                            'url': f"/audio/{audio.get('audio_key', '')}",
+                            'url': f"/audio/{audio_key}",
                             'thumbnail_url': None,  # Audio doesn't have thumbnails
                             'description': truncate_text(audio.get('text', ''), 100),
                             'timestamp': audio.get('timestamp', ''),
@@ -4592,7 +4607,6 @@ def download_specific_video(wp_user_id, video_key):
 
 
 @app.route('/download-audio/<audio_key>')
-@token_required
 def download_specific_audio(wp_user_id, audio_key):
     """Download a specific audio file by key"""
     try:
