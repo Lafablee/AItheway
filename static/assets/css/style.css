@@ -9497,3 +9497,273 @@ input:checked + .toggle-slider:before {
         max-height: 80px;
     }
 }
+
+/* CSS supp. pour library.html*/
+/* Ajoutez ces styles à votre fichier CSS existant
+   ou incluez-les dans une balise <style> dans library.html */
+
+/* 1. Effets de survol et zoom pour les miniatures */
+.item_thumbnail.hover_zoom {
+    transform: scale(1.1);
+    box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.item_inner {
+    overflow: hidden;
+    position: relative;
+}
+
+/* 2. Style des actions rapides */
+.quick_actions {
+    position: absolute;
+    bottom: 10px;
+    right: 10px;
+    display: flex;
+    gap: 8px;
+    opacity: 0;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+    z-index: 5;
+}
+
+.item_overlay.show_actions .quick_actions,
+.gallery_item:hover .quick_actions,
+.list_item:hover .quick_actions,
+.timeline_item:hover .quick_actions {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.quick_action_btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.9);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 0.2s ease, transform 0.2s ease;
+}
+
+.quick_action_btn:hover {
+    background-color: #ffffff;
+    transform: scale(1.1);
+}
+
+.quick_action_btn img {
+    width: 18px;
+    height: 18px;
+}
+
+/* 3. Transitions entre les modes d'affichage */
+.with_transitions .view_container {
+    transition: opacity 0.3s ease;
+}
+
+.view_container.fade_out {
+    opacity: 0;
+}
+
+.view_container.fade_in {
+    animation: fadeIn 0.3s ease forwards;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* 4. Style des filtres rapides */
+.quick_filter_bar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    padding: 0 15px;
+}
+
+.quick_filter_btn {
+    padding: 8px 16px;
+    border-radius: 20px;
+    border: 1px solid #e0e0e0;
+    background-color: white;
+    color: #666;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quick_filter_btn:hover {
+    background-color: #f5f5f5;
+}
+
+.quick_filter_btn.active {
+    background-color: #4a6cf7;
+    color: white;
+    border-color: #4a6cf7;
+}
+
+/* 5. Badges de type de média */
+.media_type_badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background-color: rgba(0, 0, 0, 0.6);
+    z-index: 3;
+}
+
+.media_type_badge img {
+    width: 16px;
+    height: 16px;
+    filter: invert(1);
+}
+
+.media_type_badge.video {
+    background-color: rgba(244, 67, 54, 0.8);
+}
+
+.media_type_badge.audio {
+    background-color: rgba(33, 150, 243, 0.8);
+}
+
+.media_type_badge.image {
+    background-color: rgba(76, 175, 80, 0.8);
+}
+
+/* 6. Support du mode plein écran */
+.fullscreen_button {
+    /* Styles similaires aux autres boutons de contrôle */
+}
+
+/* Animation lors de l'entrée/sortie du mode plein écran */
+.content_display:-webkit-full-screen {
+    width: 100%;
+    height: 100%;
+    background-color: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.content_display:-ms-fullscreen {
+    width: 100%;
+    height: 100%;
+    background-color: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.content_display:fullscreen {
+    width: 100%;
+    height: 100%;
+    background-color: black;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* 7. Styles pour le chargement paresseux des images */
+.item_thumbnail.lazy-load {
+    opacity: 0.5;
+    transition: opacity 0.3s ease;
+}
+
+.item_thumbnail.lazy-load.loaded {
+    opacity: 1;
+}
+
+/* 8. Amélioration des animations de chargement */
+.loading_pulse {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
+    animation: pulse-loading 1.5s infinite;
+    background-size: 200% 100%;
+}
+
+@keyframes pulse-loading {
+    0% { background-position: -100% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* 9. Styles d'overlay améliorés */
+.item_overlay {
+    background: linear-gradient(to bottom, rgba(0,0,0,0) 0%, rgba(0,0,0,0.6) 100%);
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.gallery_item:hover .item_overlay,
+.list_item:hover .item_overlay {
+    opacity: 1;
+}
+
+.item_info {
+    transition: transform 0.3s ease;
+}
+
+.gallery_item:hover .item_info {
+    transform: translateY(-5px);
+}
+
+/* 10. Effets de survol pour les éléments de liste */
+.list_item {
+    transition: background-color 0.2s ease;
+}
+
+.list_item:hover {
+    background-color: rgba(74, 108, 247, 0.05);
+}
+
+/* 11. Animation pour les actions de partage */
+.social_button {
+    transition: transform 0.2s ease;
+}
+
+.social_button:hover {
+    transform: translateY(-3px);
+}
+
+/* 12. Amélioration du modal de détail */
+.modal_container {
+    transition: transform 0.3s ease, opacity 0.3s ease;
+    transform: scale(0.98);
+    opacity: 0;
+}
+
+.detail_modal.active .modal_container {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* 13. Skeleton loader pour les items en cours de chargement */
+.skeleton-loader {
+    background: linear-gradient(90deg, #f0f0f0 25%, #e0e0e0 50%, #f0f0f0 75%);
+    background-size: 200% 100%;
+    animation: loading-wave 1.5s infinite;
+    border-radius: 4px;
+}
+
+@keyframes loading-wave {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+.gallery_item.loading .item_inner {
+    background: none;
+}
+
+.gallery_item.loading .item_thumbnail {
+    background-color: #f0f0f0;
+    min-height: 180px;
+}

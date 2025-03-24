@@ -253,6 +253,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const copyLinkButton = document.getElementById('copyLinkButton');
     const shareToGallery = document.getElementById('shareToGallery');
     const submitToGallery = document.getElementById('submitToGallery');
+    const oldInitLibrary = initLibrary;
     
     // Library state
     let currentPage = 1;
@@ -275,6 +276,23 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Initialize the library
     initLibrary();
+
+    // Remplacer la fonction d'initialisation
+    window.initLibrary = function() {
+        // Appeler l'original
+        oldInitLibrary();
+
+        // Ajouter nos améliorations
+        setTimeout(() => {
+            initHoverPreview();
+            addQuickActions();
+            addSmoothTransitions();
+            addQuickFilters();
+            enhanceMediaTypeIndicators();
+            addFullscreenSupport();
+            initLazyLoading();
+        }, 500);
+    };
     
     // View mode switching
     viewModeButtons.forEach(button => {
@@ -1264,5 +1282,376 @@ document.addEventListener('DOMContentLoaded', function() {
         };
     }
 });
+// 1. Aperçu agrandie au survol des éléments dans la galerie
+function initHoverPreview() {
+    const galleryItems = document.querySelectorAll('.gallery_item');
+
+    galleryItems.forEach(item => {
+        item.addEventListener('mouseenter', function(e) {
+            // Vérifier le type de média
+            const isVideo = this.classList.contains('video');
+            const isAudio = this.classList.contains('audio');
+
+            if (isVideo || isAudio) {
+                // Pour les vidéos et audios, jouer l'aperçu GIF ou afficher des ondes
+                const thumbnailElem = this.querySelector('.item_thumbnail');
+                if (thumbnailElem) {
+                    thumbnailElem.classList.add('hover_zoom');
+
+                    // Pour les vidéos, on peut remplacer l'image statique par le GIF
+                    if (isVideo && thumbnailElem.tagName === 'IMG') {
+                        const originalSrc = thumbnailElem.getAttribute('src');
+                        const gifSrc = originalSrc.replace('/image/', '/video-thumbnail/');
+                        thumbnailElem.setAttribute('data-original-src', originalSrc);
+                        thumbnailElem.setAttribute('src', gifSrc);
+                    }
+                }
+            } else {
+                // Pour les images, simplement agrandir avec un effet de zoom
+                const thumbnail = this.querySelector('.item_thumbnail');
+                if (thumbnail) {
+                    thumbnail.classList.add('hover_zoom');
+                }
+            }
+
+            // Afficher les actions rapides
+            const itemOverlay = this.querySelector('.item_overlay');
+            if (itemOverlay) {
+                itemOverlay.classList.add('show_actions');
+            }
+        });
+
+        item.addEventListener('mouseleave', function(e) {
+            // Restaurer l'état original
+            const thumbnail = this.querySelector('.item_thumbnail');
+            if (thumbnail) {
+                thumbnail.classList.remove('hover_zoom');
+
+                // Si c'est une vidéo, restaurer l'image statique
+                if (this.classList.contains('video') && thumbnail.hasAttribute('data-original-src')) {
+                    const originalSrc = thumbnail.getAttribute('data-original-src');
+                    thumbnail.setAttribute('src', originalSrc);
+                }
+            }
+
+            // Masquer les actions rapides
+            const itemOverlay = this.querySelector('.item_overlay');
+            if (itemOverlay) {
+                itemOverlay.classList.remove('show_actions');
+            }
+        });
+    });
+}
+
+// 2. Boutons d'action rapide (télécharger, partager)
+function addQuickActions() {
+    // Récupérer tous les éléments de la galerie
+    const galleryItems = document.querySelectorAll('.gallery_item, .list_item, .timeline_item');
+
+    galleryItems.forEach(item => {
+        // Créer la div des actions rapides
+        const actionButtons = document.createElement('div');
+        actionButtons.className = 'quick_actions';
+
+        // Récupérer l'ID de l'élément pour les liens
+        const itemId = item.getAttribute('data-id');
+
+        // Créer les boutons
+        const downloadBtn = document.createElement('button');
+        downloadBtn.className = 'quick_action_btn download_btn';
+        downloadBtn.innerHTML = '<img src="' + urlFor('static', 'assets/svg/download.svg') + '" alt="Download" class="fn__svg">';
+        downloadBtn.title = 'Télécharger';
+
+        const shareBtn = document.createElement('button');
+        shareBtn.className = 'quick_action_btn share_btn';
+        shareBtn.innerHTML = '<img src="' + urlFor('static', 'assets/svg/share.svg') + '" alt="Share" class="fn__svg">';
+        shareBtn.title = 'Partager';
+
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'quick_action_btn view_btn';
+        viewBtn.innerHTML = '<img src="' + urlFor('static', 'assets/svg/eye.svg') + '" alt="View" class="fn__svg">';
+        viewBtn.title = 'Voir';
+
+        // Ajouter les événements aux boutons
+        downloadBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Empêcher l'ouverture du modal détaillé
+            const type = item.classList.contains('video') ? 'video' :
+                         item.classList.contains('audio') ? 'audio' : 'image';
+            window.location.href = `/download-${type}/${itemId}`;
+        });
+
+        shareBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Empêcher l'ouverture du modal détaillé
+            openShareModal({id: itemId});
+        });
+
+        viewBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // On laisse l'événement se propager pour ouvrir le modal
+            // Peut être utilisé pour un préchargement ou une animation
+        });
+
+        // Ajouter les boutons à la div
+        actionButtons.appendChild(viewBtn);
+        actionButtons.appendChild(downloadBtn);
+        actionButtons.appendChild(shareBtn);
+
+        // Ajouter la div à l'élément
+        const overlay = item.querySelector('.item_overlay, .timeline_info');
+        if (overlay) {
+            overlay.appendChild(actionButtons);
+        } else {
+            item.appendChild(actionButtons);
+        }
+    });
+}
+
+// 3. Transitions fluides pour les changements de vue
+function addSmoothTransitions() {
+    // Ajouter une classe CSS sur le conteneur principal
+    const libraryContent = document.querySelector('.library_content');
+    if (libraryContent) {
+        libraryContent.classList.add('with_transitions');
+    }
+
+    // Modifier la fonction de changement de vue pour ajouter une transition
+    const originalSwitchViewMode = switchViewMode;
+    window.switchViewMode = function(mode) {
+        const currentView = document.querySelector('.view_container.active');
+        if (currentView) {
+            // Ajouter une classe de transition de sortie
+            currentView.classList.add('fade_out');
+
+            // Attendre la fin de la transition avant de changer de vue
+            setTimeout(() => {
+                originalSwitchViewMode(mode);
+
+                // Trouver la nouvelle vue et ajouter une classe de transition d'entrée
+                const newView = document.querySelector('.view_container.active');
+                if (newView) {
+                    newView.classList.add('fade_in');
+                    setTimeout(() => {
+                        newView.classList.remove('fade_in');
+                    }, 300);
+                }
+
+                currentView.classList.remove('fade_out');
+            }, 150);
+        } else {
+            originalSwitchViewMode(mode);
+        }
+    };
+}
+
+// 4. Filtres rapides pour les types de médias
+function addQuickFilters() {
+    // Créer la barre de filtres rapides
+    const quickFilterBar = document.createElement('div');
+    quickFilterBar.className = 'quick_filter_bar';
+
+    // Ajouter les boutons de filtre rapide
+    const allFilter = createFilterButton('all', 'Tous', true);
+    const imageFilter = createFilterButton('image', 'Images');
+    const videoFilter = createFilterButton('video', 'Vidéos');
+    const audioFilter = createFilterButton('audio', 'Audio');
+
+    // Ajouter les boutons à la barre
+    quickFilterBar.appendChild(allFilter);
+    quickFilterBar.appendChild(imageFilter);
+    quickFilterBar.appendChild(videoFilter);
+    quickFilterBar.appendChild(audioFilter);
+
+    // Ajouter la barre avant les contrôles de bibliothèque
+    const libraryControls = document.querySelector('.library_controls');
+    if (libraryControls && libraryControls.parentNode) {
+        libraryControls.parentNode.insertBefore(quickFilterBar, libraryControls);
+    }
+}
+
+// Fonction utilitaire pour créer un bouton de filtre
+function createFilterButton(type, label, isActive = false) {
+    const button = document.createElement('button');
+    button.className = 'quick_filter_btn' + (isActive ? ' active' : '');
+    button.setAttribute('data-type', type);
+    button.textContent = label;
+
+    // Ajouter l'événement de clic
+    button.addEventListener('click', function() {
+        // Mettre à jour l'état des boutons
+        document.querySelectorAll('.quick_filter_btn').forEach(btn => {
+            btn.classList.remove('active');
+        });
+        this.classList.add('active');
+
+        // Mettre à jour le filtre et rafraîchir la bibliothèque
+        contentTypeFilter.value = type;
+        activeFilters.type = type;
+        fetchLibraryItems();
+    });
+
+    return button;
+}
+
+// 5. Ajouter un indicateur de type de média plus visible
+function enhanceMediaTypeIndicators() {
+    // Pour chaque élément de la galerie
+    const galleryItems = document.querySelectorAll('.gallery_item');
+
+    galleryItems.forEach(item => {
+        // Déterminer le type de média
+        let mediaType = '';
+        if (item.classList.contains('video')) {
+            mediaType = 'video';
+        } else if (item.classList.contains('audio')) {
+            mediaType = 'audio';
+        } else {
+            mediaType = 'image';
+        }
+
+        // Créer un badge pour le type
+        const typeBadge = document.createElement('div');
+        typeBadge.className = 'media_type_badge ' + mediaType;
+
+        // Ajouter une icône
+        const iconSrc = urlFor('static', `assets/svg/${mediaType}.svg`);
+        typeBadge.innerHTML = `<img src="${iconSrc}" alt="${mediaType}" class="fn__svg type_icon">`;
+
+        // Ajouter le badge à l'élément
+        const itemInner = item.querySelector('.item_inner');
+        if (itemInner) {
+            itemInner.appendChild(typeBadge);
+        }
+    });
+}
+
+// Fonction utilitaire pour construire des URLs pour les ressources statiques
+function urlFor(type, path) {
+    // Simplifie la construction d'URL pour les ressources statiques
+    if (type === 'static') {
+        return '/' + type + '/' + path;
+    }
+    return '#';
+}
+
+// 6. Mode plein écran pour les médias
+function addFullscreenSupport() {
+    // Ajouter un bouton plein écran au modal de détail
+    const modalControls = document.querySelector('.modal_controls');
+
+    if (modalControls) {
+        const fullscreenButton = document.createElement('button');
+        fullscreenButton.className = 'control_button fullscreen_button';
+        fullscreenButton.id = 'fullscreenButton';
+        fullscreenButton.innerHTML = '<img src="' + urlFor('static', 'assets/svg/maximize.svg') + '" alt="Fullscreen" class="fn__svg">';
+
+        // Insérer avant le bouton de fermeture
+        const closeButton = document.getElementById('closeModal');
+        if (closeButton) {
+            modalControls.insertBefore(fullscreenButton, closeButton);
+        } else {
+            modalControls.appendChild(fullscreenButton);
+        }
+
+        // Ajouter l'événement de clic
+        fullscreenButton.addEventListener('click', toggleFullscreen);
+    }
+}
+
+// Fonction pour basculer en mode plein écran
+function toggleFullscreen() {
+    const contentDisplay = document.getElementById('contentDisplay');
+
+    if (!contentDisplay) return;
+
+    if (!document.fullscreenElement) {
+        // Passage en plein écran
+        if (contentDisplay.requestFullscreen) {
+            contentDisplay.requestFullscreen();
+        } else if (contentDisplay.mozRequestFullScreen) {
+            contentDisplay.mozRequestFullScreen();
+        } else if (contentDisplay.webkitRequestFullscreen) {
+            contentDisplay.webkitRequestFullscreen();
+        } else if (contentDisplay.msRequestFullscreen) {
+            contentDisplay.msRequestFullscreen();
+        }
+
+        // Changer l'icône
+        const icon = this.querySelector('img');
+        if (icon) {
+            icon.setAttribute('src', urlFor('static', 'assets/svg/minimize.svg'));
+        }
+    } else {
+        // Sortie du plein écran
+        if (document.exitFullscreen) {
+            document.exitFullscreen();
+        } else if (document.mozCancelFullScreen) {
+            document.mozCancelFullScreen();
+        } else if (document.webkitExitFullscreen) {
+            document.webkitExitFullscreen();
+        } else if (document.msExitFullscreen) {
+            document.msExitFullscreen();
+        }
+
+        // Restaurer l'icône
+        const icon = this.querySelector('img');
+        if (icon) {
+            icon.setAttribute('src', urlFor('static', 'assets/svg/maximize.svg'));
+        }
+    }
+}
+
+// Ajouter un gestionnaire d'événements pour les changements de plein écran
+document.addEventListener('fullscreenchange', handleFullscreenChange);
+document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
+document.addEventListener('mozfullscreenchange', handleFullscreenChange);
+document.addEventListener('MSFullscreenChange', handleFullscreenChange);
+
+function handleFullscreenChange() {
+    const fullscreenButton = document.getElementById('fullscreenButton');
+    if (!fullscreenButton) return;
+
+    const icon = fullscreenButton.querySelector('img');
+    if (!icon) return;
+
+    if (document.fullscreenElement) {
+        icon.setAttribute('src', urlFor('static', 'assets/svg/minimize.svg'));
+    } else {
+        icon.setAttribute('src', urlFor('static', 'assets/svg/maximize.svg'));
+    }
+}
+
+// 7. Fonction pour ajouter un préchargement des miniatures (lazy loading)
+function initLazyLoading() {
+    // Si l'API IntersectionObserver est disponible
+    if ('IntersectionObserver' in window) {
+        // Configuration de l'observateur
+        const options = {
+            root: null, // viewport
+            rootMargin: '200px', // charge un peu avant que l'élément soit visible
+            threshold: 0 // dès qu'un pixel de l'élément est visible
+        };
+
+        // Créer l'observateur
+        const observer = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const thumbnail = entry.target.querySelector('img.item_thumbnail');
+                    if (thumbnail && thumbnail.hasAttribute('data-src')) {
+                        const src = thumbnail.getAttribute('data-src');
+                        thumbnail.setAttribute('src', src);
+                        thumbnail.removeAttribute('data-src');
+                    }
+
+                    // Ne plus observer cet élément
+                    observer.unobserve(entry.target);
+                }
+            });
+        }, options);
+
+        // Observer tous les éléments de la galerie
+        document.querySelectorAll('.gallery_item, .list_item, .timeline_item').forEach(item => {
+            observer.observe(item);
+        });
+    }
+}
 </script>
 {% endblock %}
