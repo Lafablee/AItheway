@@ -3601,6 +3601,7 @@ def serve_video(video_key):
 
     return response
 @app.route('/download-video/<video_key>')
+@token_required
 def download_video(wp_user_id, video_key):
     """Télécharge la vidéo (même logique que serve_video mais en tant que téléchargement)"""
     try:
@@ -3671,7 +3672,8 @@ def get_video_history(wp_user_id):
 @app.route('/video-thumbnail/<video_key>')
 def serve_video_thumbnail(video_key):
     """Génère et sert une vignette GIF animée pour une vidéo avec qualitée améliorée et transition fluide (palindrome)"""
-    app.logger.info(f"Génération de vignette demandée pour: {video_key}")
+    app.logger.error(f"=== THUMBNAIL DEBUG ===")
+    app.logger.error(f"Génération de vignette demandée pour: {video_key}")
 
     # Forcer la régénération pour déboguer (à retirer en production)
     force_regenerate = request.args.get('force', '0') == '1'
@@ -3734,9 +3736,9 @@ def serve_video_thumbnail(video_key):
             temp_video_path
         ]
 
-        app.logger.info(f"Executing FFprobe command: {' '.join(probe_cmd)}")
+        app.logger.error(f"Executing FFprobe command: {' '.join(probe_cmd)}")
         probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
-        app.logger.info(f"FFprobe result: {probe_result.stdout}")
+        app.logger.error(f"FFprobe result: {probe_result.stdout}")
 
         if probe_result.returncode != 0:
             app.logger.error(f"FFprobe error: {probe_result.stderr}")
@@ -3762,7 +3764,7 @@ def serve_video_thumbnail(video_key):
         ]
 
         # Essayer d'abord la commande simplifiée
-        app.logger.info(f"Executing basic FFmpeg command: {' '.join(basic_gif_cmd)}")
+        app.logger.error(f"Executing basic FFmpeg command: {' '.join(basic_gif_cmd)}")
         basic_result = subprocess.run(basic_gif_cmd, capture_output=True, text=True)
 
         if basic_result.returncode != 0:
@@ -3787,7 +3789,7 @@ def serve_video_thumbnail(video_key):
             f"{temp_dir}/{unique_id}_advanced.gif"
         ]
 
-        app.logger.info(f"Executing advanced FFmpeg command: {' '.join(advanced_gif_cmd)}")
+        app.logger.error(f"Executing advanced FFmpeg command: {' '.join(advanced_gif_cmd)}")
         advanced_result = subprocess.run(advanced_gif_cmd, capture_output=True, text=True)
 
         # Utiliser le GIF avancé s'il a été généré avec succès, sinon utiliser le basique
@@ -3813,7 +3815,7 @@ def serve_video_thumbnail(video_key):
             'is_palindrome': advanced_result.returncode == 0
         }
         storage_manager.store(thumbnail_key, thumbnail_data, metadata, 'images')
-        app.logger.info(f"Thumbnail generated and stored with key: {thumbnail_key}")
+        app.logger.error(f"Thumbnail generated and stored with key: {thumbnail_key}")
 
         # Nettoyer
         for path in [temp_video_path, temp_gif_path, f"{temp_dir}/{unique_id}_advanced.gif"]:
