@@ -19,6 +19,7 @@ from datetime import datetime, timedelta
 from urllib.parse import quote
 import redis
 import json
+import subprocess
 
 from ai_models import create_ai_manager
 from audio_manager import AudioManager
@@ -3671,60 +3672,79 @@ def get_video_history(wp_user_id):
 
 @app.route('/video-thumbnail/<video_key>')
 def serve_video_thumbnail(video_key):
-    """Génère et sert une vignette GIF animée pour une vidéo avec qualitée améliorée et transition fluide (palindrome)"""
-    app.logger.error(f"=== THUMBNAIL DEBUG ===")
-    app.logger.error(f"Génération de vignette demandée pour: {video_key}")
-
-    # Forcer la régénération pour déboguer (à retirer en production)
-    force_regenerate = request.args.get('force', '0') == '1'
-
-    # Vérifier si une vignette GIF existe déjà
-    thumbnail_key = f"{video_key}:thumbnail:gif:v2"  # Version 2 pour forcer une nouvelle génération
-    thumbnail_data = None if force_regenerate else storage_manager.get(thumbnail_key, 'images')
-
-    if thumbnail_data and not force_regenerate:
-        app.logger.info(f"Serving existing GIF thumbnail for {video_key}")
-        return send_file(
-            BytesIO(thumbnail_data),
-            mimetype='image/gif'
-        )
-
-    # Récupérer la vidéo
-    video_data = storage_manager.get(video_key, 'videos')
-
-    if not video_data:
-        # Si vidéo non trouvée, servir une image par défaut
-        app.logger.error(f"Video not found for thumbnail: {video_key}")
-        default_path = os.path.join(app.static_folder, 'assets', 'img', 'video-placeholder.png')
-        if os.path.exists(default_path):
-            with open(default_path, 'rb') as f:
-                return send_file(
-                    BytesIO(f.read()),
-                    mimetype='image/png'
-                )
-        return "Video not found", 404
-
-    if len(video_data) > MAX_VIDEO_SIZE_FOR_THUMBNAIL:
-        app.logger.warning(f"Video too large for thumbnail: {len(video_data)} bytes")
-        return redirect(url_for('static', filename='assets/img/large-video.png'))
-
+    """Génère et sert une vignette GIF animée pour une vidéo avec qualité améliorée et transition fluide (palindrome)"""
     try:
+        app.logger.error(f"=== THUMBNAIL DEBUG ===")
+        app.logger.error(f"Génération de vignette demandée pour: {video_key}")
+
+        # Vérifier si FFmpeg est disponible
+        try:
+            ffmpeg_version = subprocess.check_output(["ffmpeg", "-version"], text=True)
+            app.logger.error(f"FFmpeg disponible: {ffmpeg_version.split()[2]}")
+        except Exception as e:
+            app.logger.error(f"Erreur lors de la vérification de FFmpeg: {str(e)}")
+
+        # Forcer la régénération pour déboguer (à retirer en production)
+        force_regenerate = request.args.get('force', '0') == '1'
+        app.logger.error(f"Force regenerate: {force_regenerate}")
+
+        # Vérifier si une vignette GIF existe déjà
+        thumbnail_key = f"{video_key}:thumbnail:gif:v2"  # Version 2 pour forcer une nouvelle génération
+        app.logger.error(f"Recherche vignette avec clé: {thumbnail_key}")
+        thumbnail_data = None if force_regenerate else storage_manager.get(thumbnail_key, 'images')
+        app.logger.error(f"Vignette existante trouvée: {thumbnail_data is not None}")
+
+        if thumbnail_data and not force_regenerate:
+            app.logger.error(f"Utilisation de la vignette existante pour {video_key}")
+            return send_file(
+                BytesIO(thumbnail_data),
+                mimetype='image/gif'
+            )
+
+        # Récupérer la vidéo
+        app.logger.error(f"Récupération de la vidéo depuis le stockage")
+        video_data = storage_manager.get(video_key, 'videos')
+
+        if video_data:
+            app.logger.error(f"Vidéo récupérée, taille: {len(video_data)} octets")
+        else:
+            app.logger.error(f"Vidéo non trouvée dans le stockage: {video_key}")
+
+        if not video_data:
+            # Si vidéo non trouvée, servir une image par défaut
+            app.logger.error(f"Video not found for thumbnail: {video_key}")
+            default_path = os.path.join(app.static_folder, 'assets', 'img', 'video-placeholder.png')
+            if os.path.exists(default_path):
+                app.logger.error(f"Utilisation de l'image placeholder par défaut")
+                with open(default_path, 'rb') as f:
+                    return send_file(
+                        BytesIO(f.read()),
+                        mimetype='image/png'
+                    )
+            return "Video not found", 404
+
+        if len(video_data) > MAX_VIDEO_SIZE_FOR_THUMBNAIL:
+            app.logger.error(f"Video too large for thumbnail: {len(video_data)} bytes")
+            return redirect(url_for('static', filename='assets/img/large-video.png'))
+
         # Créer des dossiers temporaires si nécessaires
         temp_dir = "/tmp/video_thumbnails"
         os.makedirs(temp_dir, exist_ok=True)
+        app.logger.error(f"Dossier temporaire créé: {temp_dir}")
 
         # Générer des noms de fichiers uniques
         import uuid
         unique_id = str(uuid.uuid4())
         temp_video_path = f"{temp_dir}/{unique_id}.mp4"
         temp_gif_path = f"{temp_dir}/{unique_id}.gif"
+        app.logger.error(f"Fichiers temporaires: video={temp_video_path}, gif={temp_gif_path}")
 
         # Écrire temporairement la vidéo
         with open(temp_video_path, 'wb') as f:
             f.write(video_data)
+        app.logger.error(f"Vidéo écrite sur disque: {temp_video_path}")
 
         # Obtenir des informations sur la vidéo
-        import subprocess
         import json
 
         # Obtenir la durée de la vidéo
@@ -3738,7 +3758,9 @@ def serve_video_thumbnail(video_key):
 
         app.logger.error(f"Executing FFprobe command: {' '.join(probe_cmd)}")
         probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
-        app.logger.error(f"FFprobe result: {probe_result.stdout}")
+        app.logger.error(f"FFprobe result stdout: {probe_result.stdout}")
+        app.logger.error(f"FFprobe result stderr: {probe_result.stderr}")
+        app.logger.error(f"FFprobe return code: {probe_result.returncode}")
 
         if probe_result.returncode != 0:
             app.logger.error(f"FFprobe error: {probe_result.stderr}")
@@ -3746,11 +3768,13 @@ def serve_video_thumbnail(video_key):
 
         duration_info = json.loads(probe_result.stdout)
         video_duration = float(duration_info['format']['duration'])
+        app.logger.error(f"Durée vidéo détectée: {video_duration} secondes")
 
         # Calculer les paramètres pour le GIF
         gif_duration = min(4.0, video_duration / 2)  # Maximum 4 secondes ou moitié de la vidéo
         fps = 12  # 12 frames par seconde pour le GIF
         width = 480  # Augmentation de 320 à 480px la résolution
+        app.logger.error(f"Paramètres GIF: durée={gif_duration}s, fps={fps}, width={width}px")
 
         # Version simplifiée pour déboguer
         basic_gif_cmd = [
@@ -3766,14 +3790,20 @@ def serve_video_thumbnail(video_key):
         # Essayer d'abord la commande simplifiée
         app.logger.error(f"Executing basic FFmpeg command: {' '.join(basic_gif_cmd)}")
         basic_result = subprocess.run(basic_gif_cmd, capture_output=True, text=True)
+        app.logger.error(f"Basic FFmpeg return code: {basic_result.returncode}")
+
+        if basic_result.stderr:
+            app.logger.error(f"Basic FFmpeg stderr: {basic_result.stderr}")
 
         if basic_result.returncode != 0:
             app.logger.error(f"Basic FFmpeg error: {basic_result.stderr}")
-
             # Si la commande de base échoue, on sait que c'est un problème fondamental avec FFmpeg
             raise Exception(f"Basic FFmpeg command failed: {basic_result.stderr}")
+        else:
+            app.logger.error(f"Basic GIF généré avec succès: {temp_gif_path}")
 
         # Si la commande de base fonctionne, essayer la commande avancée avec palindrome
+        advanced_gif_path = f"{temp_dir}/{unique_id}_advanced.gif"
         advanced_gif_cmd = [
             'ffmpeg',
             '-i', temp_video_path,
@@ -3786,22 +3816,31 @@ def serve_video_thumbnail(video_key):
             f'[s1][p]paletteuse=dither=sierra2_4a',
             '-loop', '0',
             '-y',
-            f"{temp_dir}/{unique_id}_advanced.gif"
+            advanced_gif_path
         ]
 
         app.logger.error(f"Executing advanced FFmpeg command: {' '.join(advanced_gif_cmd)}")
         advanced_result = subprocess.run(advanced_gif_cmd, capture_output=True, text=True)
+        app.logger.error(f"Advanced FFmpeg return code: {advanced_result.returncode}")
+
+        if advanced_result.stderr:
+            app.logger.error(f"Advanced FFmpeg stderr: {advanced_result.stderr}")
 
         # Utiliser le GIF avancé s'il a été généré avec succès, sinon utiliser le basique
-        final_gif_path = f"{temp_dir}/{unique_id}_advanced.gif" if advanced_result.returncode == 0 else temp_gif_path
+        final_gif_path = advanced_gif_path if advanced_result.returncode == 0 else temp_gif_path
+        is_palindrome = advanced_result.returncode == 0
 
         if advanced_result.returncode != 0:
-            app.logger.warning(
+            app.logger.error(
                 f"Advanced FFmpeg command failed, using basic GIF instead. Error: {advanced_result.stderr}")
+        else:
+            app.logger.error(f"Advanced GIF (palindrome) généré avec succès: {advanced_gif_path}")
 
         # Lire le GIF généré
+        app.logger.error(f"Lecture du GIF final: {final_gif_path}")
         with open(final_gif_path, 'rb') as f:
             thumbnail_data = f.read()
+        app.logger.error(f"GIF chargé en mémoire, taille: {len(thumbnail_data)} octets")
 
         # Stocker pour les futures demandes
         metadata = {
@@ -3811,26 +3850,31 @@ def serve_video_thumbnail(video_key):
             'created_at': datetime.now().isoformat(),
             'width': width,
             'fps': fps,
-            'duration': gif_duration * 2 if advanced_result.returncode == 0 else gif_duration,
-            'is_palindrome': advanced_result.returncode == 0
+            'duration': gif_duration * 2 if is_palindrome else gif_duration,
+            'is_palindrome': is_palindrome
         }
+        app.logger.error(f"Stockage du GIF avec métadonnées: {metadata}")
         storage_manager.store(thumbnail_key, thumbnail_data, metadata, 'images')
-        app.logger.error(f"Thumbnail generated and stored with key: {thumbnail_key}")
+        app.logger.error(f"Thumbnail générée et stockée avec clé: {thumbnail_key}")
 
         # Nettoyer
-        for path in [temp_video_path, temp_gif_path, f"{temp_dir}/{unique_id}_advanced.gif"]:
+        app.logger.error("Nettoyage des fichiers temporaires")
+        for path in [temp_video_path, temp_gif_path, advanced_gif_path]:
             if os.path.exists(path):
                 os.remove(path)
+                app.logger.error(f"Fichier supprimé: {path}")
 
         # Servir
+        app.logger.error(f"Envoi du GIF au client, taille: {len(thumbnail_data)} octets")
         return send_file(
             BytesIO(thumbnail_data),
             mimetype='image/gif'
         )
 
     except Exception as e:
-        app.logger.error(f"Erreur lors de la génération du GIF: {str(e)}")
-        app.logger.exception(e)  # Afficher la pile d'appels complète
+        error_trace = traceback.format_exc()
+        app.logger.error(f"ERREUR CRITIQUE lors de la génération du GIF: {str(e)}")
+        app.logger.error(f"Traceback complet: {error_trace}")
         # En cas d'erreur, rediriger vers une image par défaut
         return redirect(url_for('static', filename='assets/img/video-placeholder.png'))
 @app.route('/save-image', methods=['POST'])
