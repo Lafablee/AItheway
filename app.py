@@ -3674,25 +3674,26 @@ def get_video_history(wp_user_id):
 def serve_video_thumbnail(video_key):
     """Génère et sert une vignette GIF animée pour une vidéo avec qualité améliorée et transition fluide (palindrome)"""
     try:
-        app.logger.error(f"=== THUMBNAIL DEBUG ===")
-        app.logger.error(f"Génération de vignette demandée pour: {video_key}")
+        request_id = str(uuid.uuid4())[:8]  # Identifiant unique pour cette requête
+        app.logger.error(f"[REQ-{request_id}] === THUMBNAIL DEBUG ===")
+        app.logger.error(f"[REQ-{request_id}] Génération de vignette demandée pour: {video_key}")
 
-        # Vérifier si FFmpeg est disponible
         try:
             ffmpeg_version = subprocess.check_output(["ffmpeg", "-version"], text=True)
-            app.logger.error(f"FFmpeg disponible: {ffmpeg_version.split()[2]}")
+            app.logger.error(f"[REQ-{request_id}] FFmpeg disponible: {ffmpeg_version.split()[2]}")
         except Exception as e:
-            app.logger.error(f"Erreur lors de la vérification de FFmpeg: {str(e)}")
+            app.logger.error(f"[REQ-{request_id}] Erreur lors de la vérification de FFmpeg: {str(e)}")
 
         # Forcer la régénération pour déboguer (à retirer en production)
-        force_regenerate = request.args.get('force', '0') == '1'
-        app.logger.error(f"Force regenerate: {force_regenerate}")
+        force_regenerate = True  # TEMPORAIREMENT FORCÉ À TRUE
+        # force_regenerate = request.args.get('force', '0') == '1'
+        app.logger.error(f"[REQ-{request_id}] Force regenerate: {force_regenerate}")
 
-        # Vérifier si une vignette GIF existe déjà
-        thumbnail_key = f"{video_key}:thumbnail:gif:v2"  # Version 2 pour forcer une nouvelle génération
-        app.logger.error(f"Recherche vignette avec clé: {thumbnail_key}")
+        # Vérifier si une vignette GIF existe déjà - ATTENTION : UTILISEZ LA BONNE CLÉ !
+        thumbnail_key = f"{video_key}:thumbnail:gif:v3"  # Version 3 pour forcer une nouvelle génération
+        app.logger.error(f"[REQ-{request_id}] Recherche vignette avec clé: {thumbnail_key}")
         thumbnail_data = None if force_regenerate else storage_manager.get(thumbnail_key, 'images')
-        app.logger.error(f"Vignette existante trouvée: {thumbnail_data is not None}")
+        app.logger.error(f"[REQ-{request_id}] Vignette existante trouvée: {thumbnail_data is not None}")
 
         if thumbnail_data and not force_regenerate:
             app.logger.error(f"Utilisation de la vignette existante pour {video_key}")
@@ -3733,7 +3734,6 @@ def serve_video_thumbnail(video_key):
         app.logger.error(f"Dossier temporaire créé: {temp_dir}")
 
         # Générer des noms de fichiers uniques
-        import uuid
         unique_id = str(uuid.uuid4())
         temp_video_path = f"{temp_dir}/{unique_id}.mp4"
         temp_gif_path = f"{temp_dir}/{unique_id}.gif"
