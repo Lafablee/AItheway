@@ -3601,7 +3601,6 @@ def serve_video(video_key):
 
     return response
 @app.route('/download-video/<video_key>')
-@token_required
 def download_video(wp_user_id, video_key):
     """Télécharge la vidéo (même logique que serve_video mais en tant que téléchargement)"""
     try:
@@ -3672,13 +3671,16 @@ def get_video_history(wp_user_id):
 @app.route('/video-thumbnail/<video_key>')
 def serve_video_thumbnail(video_key):
     """Génère et sert une vignette GIF animée pour une vidéo avec qualitée améliorée et transition fluide (palindrome)"""
+    app.logger.info(f"Génération de vignette demandée pour: {video_key}")
+
+    # Forcer la régénération pour déboguer (à retirer en production)
+    force_regenerate = request.args.get('force', '0') == '1'
 
     # Vérifier si une vignette GIF existe déjà
-    thumbnail_key = f"{video_key}:thumbnail:gif"
-    thumbnail_data = storage_manager.get(thumbnail_key, 'images')
+    thumbnail_key = f"{video_key}:thumbnail:gif:v2"  # Version 2 pour forcer une nouvelle génération
+    thumbnail_data = None if force_regenerate else storage_manager.get(thumbnail_key, 'images')
 
-    if thumbnail_data:
-        # Servir la vignette GIF existante
+    if thumbnail_data and not force_regenerate:
         app.logger.info(f"Serving existing GIF thumbnail for {video_key}")
         return send_file(
             BytesIO(thumbnail_data),
@@ -3732,42 +3734,71 @@ def serve_video_thumbnail(video_key):
             temp_video_path
         ]
 
+        app.logger.info(f"Executing FFprobe command: {' '.join(probe_cmd)}")
         probe_result = subprocess.run(probe_cmd, capture_output=True, text=True)
+        app.logger.info(f"FFprobe result: {probe_result.stdout}")
+
+        if probe_result.returncode != 0:
+            app.logger.error(f"FFprobe error: {probe_result.stderr}")
+            raise Exception(f"FFprobe failed: {probe_result.stderr}")
+
         duration_info = json.loads(probe_result.stdout)
         video_duration = float(duration_info['format']['duration'])
 
         # Calculer les paramètres pour le GIF
         gif_duration = min(4.0, video_duration / 2)  # Maximum 4 secondes ou moitié de la vidéo
         fps = 12  # 12 frames par seconde pour le GIF
-        width = 480 # Augmenttion de 320 à 480px la résolution
+        width = 480  # Augmentation de 320 à 480px la résolution
 
-        # AMÉLIORÉ : Générateur de GIF avec boucle palindrome (joue puis rejoue en sens inverse)
-        # Et utilise une meilleure qualité ainsi qu'une palette optimisée
-        gif_cmd = [
+        # Version simplifiée pour déboguer
+        basic_gif_cmd = [
             'ffmpeg',
             '-i', temp_video_path,
-            '-t', str(gif_duration),  # Durée du GIF
+            '-t', str(gif_duration),
+            '-vf', f'fps={fps},scale={width}:-1:flags=lanczos',
+            '-loop', '0',
+            '-y',
+            temp_gif_path
+        ]
+
+        # Essayer d'abord la commande simplifiée
+        app.logger.info(f"Executing basic FFmpeg command: {' '.join(basic_gif_cmd)}")
+        basic_result = subprocess.run(basic_gif_cmd, capture_output=True, text=True)
+
+        if basic_result.returncode != 0:
+            app.logger.error(f"Basic FFmpeg error: {basic_result.stderr}")
+
+            # Si la commande de base échoue, on sait que c'est un problème fondamental avec FFmpeg
+            raise Exception(f"Basic FFmpeg command failed: {basic_result.stderr}")
+
+        # Si la commande de base fonctionne, essayer la commande avancée avec palindrome
+        advanced_gif_cmd = [
+            'ffmpeg',
+            '-i', temp_video_path,
+            '-t', str(gif_duration),
             '-filter_complex',
-            # Complexe mais puissant :
-            # 1. Extrait les frames à haute qualité
-            # 2. Crée une séquence normale puis inversée
-            # 3. Génère une palette optimisée de 256 couleurs
-            # 4. Applique le dithering pour éviter les bandes
             f'[0:v]fps={fps},scale={width}:-1:flags=lanczos,split[forward][temp];'
             f'[temp]reverse[backward];'
             f'[forward][backward]concat=n=2:v=1:a=0,split[s0][s1];'
             f'[s0]palettegen=stats_mode=single[p];'
             f'[s1][p]paletteuse=dither=sierra2_4a',
-            # Options GIF
-            '-loop', '0',  # Boucle infinie
-            '-y',  # Écraser fichier existant
-            temp_gif_path
+            '-loop', '0',
+            '-y',
+            f"{temp_dir}/{unique_id}_advanced.gif"
         ]
 
-        subprocess.run(gif_cmd, check=True, timeout=FFMPEG_TIMEOUT)
+        app.logger.info(f"Executing advanced FFmpeg command: {' '.join(advanced_gif_cmd)}")
+        advanced_result = subprocess.run(advanced_gif_cmd, capture_output=True, text=True)
+
+        # Utiliser le GIF avancé s'il a été généré avec succès, sinon utiliser le basique
+        final_gif_path = f"{temp_dir}/{unique_id}_advanced.gif" if advanced_result.returncode == 0 else temp_gif_path
+
+        if advanced_result.returncode != 0:
+            app.logger.warning(
+                f"Advanced FFmpeg command failed, using basic GIF instead. Error: {advanced_result.stderr}")
 
         # Lire le GIF généré
-        with open(temp_gif_path, 'rb') as f:
+        with open(final_gif_path, 'rb') as f:
             thumbnail_data = f.read()
 
         # Stocker pour les futures demandes
@@ -3778,13 +3809,16 @@ def serve_video_thumbnail(video_key):
             'created_at': datetime.now().isoformat(),
             'width': width,
             'fps': fps,
-            'duration': gif_duration * 2 # multiplie par 2 car palindrome
+            'duration': gif_duration * 2 if advanced_result.returncode == 0 else gif_duration,
+            'is_palindrome': advanced_result.returncode == 0
         }
         storage_manager.store(thumbnail_key, thumbnail_data, metadata, 'images')
+        app.logger.info(f"Thumbnail generated and stored with key: {thumbnail_key}")
 
         # Nettoyer
-        os.remove(temp_video_path)
-        os.remove(temp_gif_path)
+        for path in [temp_video_path, temp_gif_path, f"{temp_dir}/{unique_id}_advanced.gif"]:
+            if os.path.exists(path):
+                os.remove(path)
 
         # Servir
         return send_file(
@@ -3794,6 +3828,7 @@ def serve_video_thumbnail(video_key):
 
     except Exception as e:
         app.logger.error(f"Erreur lors de la génération du GIF: {str(e)}")
+        app.logger.exception(e)  # Afficher la pile d'appels complète
         # En cas d'erreur, rediriger vers une image par défaut
         return redirect(url_for('static', filename='assets/img/video-placeholder.png'))
 @app.route('/save-image', methods=['POST'])
