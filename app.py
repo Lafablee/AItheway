@@ -3685,12 +3685,11 @@ def serve_video_thumbnail(video_key):
             app.logger.error(f"[REQ-{request_id}] Erreur lors de la vérification de FFmpeg: {str(e)}")
 
         # Forcer la régénération pour déboguer (à retirer en production)
-        force_regenerate = True  # TEMPORAIREMENT FORCÉ À TRUE
-        # force_regenerate = request.args.get('force', '0') == '1'
+        force_regenerate = request.args.get('force', '0') == '1'
         app.logger.error(f"[REQ-{request_id}] Force regenerate: {force_regenerate}")
 
         # Vérifier si une vignette GIF existe déjà - ATTENTION : UTILISEZ LA BONNE CLÉ !
-        thumbnail_key = f"{video_key}:thumbnail:gif:v3"  # Version 3 pour forcer une nouvelle génération
+        thumbnail_key = f"{video_key}:thumbnail:gif:v4"  # Version 4 pour forcer une nouvelle génération
         app.logger.error(f"[REQ-{request_id}] Recherche vignette avec clé: {thumbnail_key}")
         thumbnail_data = None if force_regenerate else storage_manager.get(thumbnail_key, 'images')
         app.logger.error(f"[REQ-{request_id}] Vignette existante trouvée: {thumbnail_data is not None}")
@@ -3737,15 +3736,18 @@ def serve_video_thumbnail(video_key):
         unique_id = str(uuid.uuid4())
         temp_video_path = f"{temp_dir}/{unique_id}.mp4"
         temp_gif_path = f"{temp_dir}/{unique_id}.gif"
-        app.logger.error(f"Fichiers temporaires: video={temp_video_path}, gif={temp_gif_path}")
+        advanced_gif_path = f"{temp_dir}/{unique_id}_advanced.gif"
+        app.logger.error(
+            f"Fichiers temporaires: video={temp_video_path}, gif={temp_gif_path}, advanced={advanced_gif_path}")
 
         # Écrire temporairement la vidéo
         with open(temp_video_path, 'wb') as f:
             f.write(video_data)
         app.logger.error(f"Vidéo écrite sur disque: {temp_video_path}")
 
-        # Obtenir des informations sur la vidéo
-        import json
+        # Paramètres améliorés pour le GIF
+        width = 640  # Augmenté pour meilleure qualité
+        fps = 10  # Légèrement réduit pour meilleur encodage
 
         # Obtenir la durée de la vidéo
         probe_cmd = [
@@ -3772,48 +3774,18 @@ def serve_video_thumbnail(video_key):
 
         # Calculer les paramètres pour le GIF
         gif_duration = min(4.0, video_duration / 2)  # Maximum 4 secondes ou moitié de la vidéo
-        fps = 12  # 12 frames par seconde pour le GIF
-        width = 480  # Augmentation de 320 à 480px la résolution
-        app.logger.error(f"Paramètres GIF: durée={gif_duration}s, fps={fps}, width={width}px")
 
-        # Version simplifiée pour déboguer
-        basic_gif_cmd = [
-            'ffmpeg',
-            '-i', temp_video_path,
-            '-t', str(gif_duration),
-            '-vf', f'fps={fps},scale={width}:-1:flags=lanczos',
-            '-loop', '0',
-            '-y',
-            temp_gif_path
-        ]
-
-        # Essayer d'abord la commande simplifiée
-        app.logger.error(f"Executing basic FFmpeg command: {' '.join(basic_gif_cmd)}")
-        basic_result = subprocess.run(basic_gif_cmd, capture_output=True, text=True)
-        app.logger.error(f"Basic FFmpeg return code: {basic_result.returncode}")
-
-        if basic_result.stderr:
-            app.logger.error(f"Basic FFmpeg stderr: {basic_result.stderr}")
-
-        if basic_result.returncode != 0:
-            app.logger.error(f"Basic FFmpeg error: {basic_result.stderr}")
-            # Si la commande de base échoue, on sait que c'est un problème fondamental avec FFmpeg
-            raise Exception(f"Basic FFmpeg command failed: {basic_result.stderr}")
-        else:
-            app.logger.error(f"Basic GIF généré avec succès: {temp_gif_path}")
-
-        # Si la commande de base fonctionne, essayer la commande avancée avec palindrome
-        advanced_gif_path = f"{temp_dir}/{unique_id}_advanced.gif"
+        # Commande FFmpeg améliorée pour la qualité
         advanced_gif_cmd = [
             'ffmpeg',
             '-i', temp_video_path,
             '-t', str(gif_duration),
             '-filter_complex',
-            f'[0:v]fps={fps},scale={width}:-1:flags=lanczos,split[forward][temp];'
+            f'[0:v]fps={fps},scale={width}:-1:flags=lanczos:sws_dither=none,split[forward][temp];'
             f'[temp]reverse[backward];'
             f'[forward][backward]concat=n=2:v=1:a=0,split[s0][s1];'
-            f'[s0]palettegen=stats_mode=single[p];'
-            f'[s1][p]paletteuse=dither=sierra2_4a',
+            f'[s0]palettegen=stats_mode=diff:max_colors=256[p];'
+            f'[s1][p]paletteuse=dither=floyd_steinberg:bayer_scale=5:diff_mode=rectangle',
             '-loop', '0',
             '-y',
             advanced_gif_path
@@ -3826,14 +3798,32 @@ def serve_video_thumbnail(video_key):
         if advanced_result.stderr:
             app.logger.error(f"Advanced FFmpeg stderr: {advanced_result.stderr}")
 
-        # Utiliser le GIF avancé s'il a été généré avec succès, sinon utiliser le basique
-        final_gif_path = advanced_gif_path if advanced_result.returncode == 0 else temp_gif_path
-        is_palindrome = advanced_result.returncode == 0
-
+        # Si la commande avancée échoue, essayer la commande de base comme fallback
         if advanced_result.returncode != 0:
-            app.logger.error(
-                f"Advanced FFmpeg command failed, using basic GIF instead. Error: {advanced_result.stderr}")
+            app.logger.error(f"Advanced FFmpeg command failed, trying basic command as fallback")
+            basic_gif_cmd = [
+                'ffmpeg',
+                '-i', temp_video_path,
+                '-t', str(gif_duration),
+                '-vf', f'fps={fps},scale={width}:-1:flags=lanczos',
+                '-loop', '0',
+                '-y',
+                temp_gif_path
+            ]
+
+            app.logger.error(f"Executing basic FFmpeg command: {' '.join(basic_gif_cmd)}")
+            basic_result = subprocess.run(basic_gif_cmd, capture_output=True, text=True)
+            app.logger.error(f"Basic FFmpeg return code: {basic_result.returncode}")
+
+            if basic_result.returncode != 0:
+                app.logger.error(f"Basic FFmpeg error: {basic_result.stderr}")
+                raise Exception(f"All FFmpeg commands failed")
+
+            final_gif_path = temp_gif_path
+            is_palindrome = False
         else:
+            final_gif_path = advanced_gif_path
+            is_palindrome = True
             app.logger.error(f"Advanced GIF (palindrome) généré avec succès: {advanced_gif_path}")
 
         # Lire le GIF généré
@@ -3876,7 +3866,7 @@ def serve_video_thumbnail(video_key):
         app.logger.error(f"ERREUR CRITIQUE lors de la génération du GIF: {str(e)}")
         app.logger.error(f"Traceback complet: {error_trace}")
         # En cas d'erreur, rediriger vers une image par défaut
-        return redirect(url_for('static', filename='assets/img/video-placeholder.png'))
+        return redirect(url_for('static', filename='assets/svg/video.svg'))
 @app.route('/save-image', methods=['POST'])
 @token_required
 def save_image(wp_user_id):

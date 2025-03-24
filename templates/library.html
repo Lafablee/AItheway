@@ -1286,25 +1286,76 @@ document.addEventListener('DOMContentLoaded', function() {
 function initHoverPreview() {
     const galleryItems = document.querySelectorAll('.gallery_item');
 
+    // Préchargement des vignettes GIF pour les vidéos
+    function preloadVideoThumbnails() {
+        const videoItems = document.querySelectorAll('.gallery_item.video');
+        videoItems.forEach(item => {
+            const thumbnail = item.querySelector('.item_thumbnail');
+            if (thumbnail && thumbnail.tagName === 'IMG') {
+                const originalSrc = thumbnail.getAttribute('src');
+                // Création de l'URL pour la vignette animée
+                const gifSrc = originalSrc.replace('/image/', '/video-thumbnail/');
+
+                // Précharger l'image
+                const preloader = new Image();
+                preloader.src = gifSrc;
+
+                // Stocker l'URL dans un attribut data pour un accès rapide
+                thumbnail.setAttribute('data-gif-src', gifSrc);
+            }
+        });
+    }
+
+    // Appeler le préchargement après un court délai
+    setTimeout(preloadVideoThumbnails, 500);
+
     galleryItems.forEach(item => {
+        // Variables pour gérer les délais
+        let leaveTimeout = null;
+        let isHovering = false;
+
         item.addEventListener('mouseenter', function(e) {
+            isHovering= true;
+
+            // Annuler tout délai de sortie en cours
+            if (leaveTimeout) {
+                clearTimeout(leaveTimeout);
+                leaveTimeout = null;
+            }
             // Vérifier le type de média
             const isVideo = this.classList.contains('video');
             const isAudio = this.classList.contains('audio');
 
-            if (isVideo || isAudio) {
-                // Pour les vidéos et audios, jouer l'aperçu GIF ou afficher des ondes
+            if (isVideo) {
+                // Pour les vidéos, remplacer par GIF animé
                 const thumbnailElem = this.querySelector('.item_thumbnail');
-                if (thumbnailElem) {
+                if (thumbnailElem && thumbnailElem.tagName === 'IMG') {
                     thumbnailElem.classList.add('hover_zoom');
 
-                    // Pour les vidéos, on peut remplacer l'image statique par le GIF
-                    if (isVideo && thumbnailElem.tagName === 'IMG') {
-                        const originalSrc = thumbnailElem.getAttribute('src');
-                        const gifSrc = originalSrc.replace('/image/', '/video-thumbnail/');
-                        thumbnailElem.setAttribute('data-original-src', originalSrc);
-                        thumbnailElem.setAttribute('src', gifSrc);
+                    // Récupérer l'URL du GIF précalculée ou la construire
+                    const gifSrc = thumbnailElem.getAttribute('data-gif-src') ||
+                                   thumbnailElem.getAttribute('src').replace('/image/', '/video-thumbnail/');
+
+                    // Sauvegarder l'URL originale si pas déjà fait
+                    if (!thumbnailElem.hasAttribute('data-original-src')) {
+                        thumbnailElem.setAttribute('data-original-src', thumbnailElem.getAttribute('src'));
                     }
+
+                    // Appliquer le GIF animé
+                    thumbnailElem.setAttribute('src', gifSrc);
+                    thumbnailElem.setAttribute('data-animated', 'true');
+                }
+            } else if (isAudio) {
+                // Pour l'audio, animer la forme d'onde
+                const audioWaveform = this.querySelector('.audio_waveform');
+                if (audioWaveform) {
+                    audioWaveform.classList.add('animated');
+                }
+
+                // Zoom sur la vignette
+                const thumbnail = this.querySelector('.item_thumbnail');
+                if (thumbnail) {
+                    thumbnail.classList.add('hover_zoom');
                 }
             } else {
                 // Pour les images, simplement agrandir avec un effet de zoom
@@ -1322,15 +1373,37 @@ function initHoverPreview() {
         });
 
         item.addEventListener('mouseleave', function(e) {
-            // Restaurer l'état original
-            const thumbnail = this.querySelector('.item_thumbnail');
-            if (thumbnail) {
-                thumbnail.classList.remove('hover_zoom');
+            isHovering = false;
 
-                // Si c'est une vidéo, restaurer l'image statique
-                if (this.classList.contains('video') && thumbnail.hasAttribute('data-original-src')) {
-                    const originalSrc = thumbnail.getAttribute('data-original-src');
-                    thumbnail.setAttribute('src', originalSrc);
+            // Pour les vidéos, attendre que l'animation se termine
+            const isVideo = this.classList.contains('video');
+            const thumbnail = this.querySelector('.item_thumbnail');
+
+            if (isVideo && thumbnail && thumbnail.hasAttribute('data-animated')) {
+                // Durée de l'animation (en millisecondes) - basée sur les métadonnées GIF
+                // Une valeur plus élevée pour assurer la fin du cycle palindrome
+                const animationDuration = 5000; // 5 secondes
+
+                // Utiliser un délai pour permettre à l'animation de se terminer
+                leaveTimeout = setTimeout(() => {
+                    // Ne restaurer que si l'utilisateur n'est pas revenu sur l'élément
+                    if (!isHovering && thumbnail.hasAttribute('data-original-src')) {
+                        const originalSrc = thumbnail.getAttribute('data-original-src');
+                        thumbnail.setAttribute('src', originalSrc);
+                        thumbnail.removeAttribute('data-animated');
+                        thumbnail.classList.remove('hover_zoom');
+                    }
+                }, animationDuration);
+            } else {
+                // Pour les autres types, restaurer immédiatement
+                if (thumbnail) {
+                    thumbnail.classList.remove('hover_zoom');
+                }
+
+                // Arrêter l'animation des formes d'onde audio
+                const audioWaveform = this.querySelector('.audio_waveform');
+                if (audioWaveform) {
+                    audioWaveform.classList.remove('animated');
                 }
             }
 
@@ -1349,14 +1422,36 @@ function addQuickActions() {
     const galleryItems = document.querySelectorAll('.gallery_item, .list_item, .timeline_item');
 
     galleryItems.forEach(item => {
+        // Vérifier si les actions rapides existent déjà
+        if (item.querySelector('.quick_actions')) {
+            return; // Éviter les doublons
+        }
+
         // Créer la div des actions rapides
         const actionButtons = document.createElement('div');
         actionButtons.className = 'quick_actions';
 
         // Récupérer l'ID de l'élément pour les liens
         const itemId = item.getAttribute('data-id');
+        if (!itemId) {
+            console.error("Element sans identifiant trouvé, impossbile d'ajoiter les actions rapides");
+            return;
+        }
+
+        // Déterminer le type de média
+        const isVideo = item.classList.contains('video');
+        const isAudio = item.classList.contains('audio');
+        const isImage = !isVideo && !isAudio;
+
+        // Type pour les URL de téléchargement
+        const mediaType = isVideo ? 'video' : (isAudio ? 'audio' : 'image');
 
         // Créer les boutons
+        const viewBtn = document.createElement('button');
+        viewBtn.className = 'quick_action_btn view_btn';
+        viewBtn.innerHTML = '<img src="' + urlFor('static', 'assets/svg/eye.svg') + '" alt="View" class="fn__svg">';
+        viewBtn.title = 'Voir';
+
         const downloadBtn = document.createElement('button');
         downloadBtn.className = 'quick_action_btn download_btn';
         downloadBtn.innerHTML = '<img src="' + urlFor('static', 'assets/svg/download.svg') + '" alt="Download" class="fn__svg">';
@@ -1367,27 +1462,47 @@ function addQuickActions() {
         shareBtn.innerHTML = '<img src="' + urlFor('static', 'assets/svg/share.svg') + '" alt="Share" class="fn__svg">';
         shareBtn.title = 'Partager';
 
-        const viewBtn = document.createElement('button');
-        viewBtn.className = 'quick_action_btn view_btn';
-        viewBtn.innerHTML = '<img src="' + urlFor('static', 'assets/svg/eye.svg') + '" alt="View" class="fn__svg">';
-        viewBtn.title = 'Voir';
-
         // Ajouter les événements aux boutons
+        viewBtn.addEventListener('click', function(e) {
+            e.stopPropagation(); // Pour éviter le comportement par défaut
+
+            // Trouver l'élément à visualiser dans le libraryItems global
+            const itemData = libraryItems.find(libItem => libItem.id === itemId);
+            if (itemData) {
+                openDetailModal(itemData);
+            } else {
+                console.error("Élément non trouvé dans la bibliothèque:", itemId);
+            }
+        });
+
         downloadBtn.addEventListener('click', function(e) {
             e.stopPropagation(); // Empêcher l'ouverture du modal détaillé
-            const type = item.classList.contains('video') ? 'video' :
-                         item.classList.contains('audio') ? 'audio' : 'image';
-            window.location.href = `/download-${type}/${itemId}`;
+
+            // Construire l'URL de téléchargement
+            let downloadUrl = `/download-${mediaType}/${itemId}`;
+
+            // Ajouter le token si présent
+            const urlParams = new URLSearchParams(window.location.search);
+            const token = urlParams.get('token');
+            if (token) {
+                downloadUrl += `?token=${encodeURIComponent(token)}`;
+            }
+
+            // Déclencher le téléchargement
+            window.location.href = downloadUrl;
         });
 
         shareBtn.addEventListener('click', function(e) {
             e.stopPropagation(); // Empêcher l'ouverture du modal détaillé
-            openShareModal({id: itemId});
-        });
 
-        viewBtn.addEventListener('click', function(e) {
-            e.stopPropagation(); // On laisse l'événement se propager pour ouvrir le modal
-            // Peut être utilisé pour un préchargement ou une animation
+            // Trouver l'élément à partager
+            const itemData = libraryItems.find(libItem => libItem.id === itemId);
+            if (itemData) {
+                openShareModal(itemData);
+            } else {
+                // Créer un objet minimal pour le partage si l'élément n'est pas trouvé
+                openShareModal({id: itemId, type: mediaType});
+            }
         });
 
         // Ajouter les boutons à la div
@@ -1396,7 +1511,8 @@ function addQuickActions() {
         actionButtons.appendChild(shareBtn);
 
         // Ajouter la div à l'élément
-        const overlay = item.querySelector('.item_overlay, .timeline_info');
+        const overlay = item.querySelector('.item_overlay') ||
+                        item.querySelector('.timeline_info');
         if (overlay) {
             overlay.appendChild(actionButtons);
         } else {
@@ -1404,7 +1520,131 @@ function addQuickActions() {
         }
     });
 }
+// Create a gallery item element
+function createGalleryItem(item) {
+    const itemDiv = document.createElement('div');
+    itemDiv.className = `gallery_item ${item.type}`;
+    itemDiv.setAttribute('data-id', item.id);
 
+    // Déterminer si c'est une vidéo qui doit utiliser une vignette GIF
+    const useGifThumbnail = item.type === 'video';
+
+    // Générer thumbnail HTML based on content type
+    let thumbnailHTML = '';
+
+    if (item.type === 'image') {
+        thumbnailHTML = `<img src="${item.thumbnail_url || item.url}" alt="${item.description || 'Image'}" class="item_thumbnail">`;
+    } else if (item.type === 'video') {
+        // Pour les vidéos, préparer à la fois la vignette statique et l'URL du GIF
+        const staticUrl = item.thumbnail_url || item.url;
+        // L'URL du GIF sera chargée via JavaScript au survol
+        thumbnailHTML = `
+            <div class="video_thumbnail">
+                <img src="${staticUrl}"
+                     alt="${item.description || 'Vidéo'}"
+                     class="item_thumbnail"
+                     data-gif-src="/video-thumbnail/${item.id}">
+                <div class="play_overlay">
+                    <img src="${urlFor('static', 'assets/svg/play.svg')}" alt="Play" class="fn__svg play_icon">
+                </div>
+            </div>
+        `;
+    } else if (item.type === 'audio') {
+        thumbnailHTML = `
+            <div class="audio_thumbnail">
+                <div class="audio_waveform"></div>
+                <div class="play_overlay">
+                    <img src="${urlFor('static', 'assets/svg/headphones.svg')}" alt="Play Audio" class="fn__svg play_icon">
+                </div>
+            </div>
+        `;
+    }
+
+    // Add type icon and date
+    const date = new Date(item.timestamp);
+    const formattedDate = date.toLocaleDateString();
+
+    itemDiv.innerHTML = `
+        <div class="item_inner">
+            ${thumbnailHTML}
+            <div class="item_overlay">
+                <div class="item_info">
+                    <div class="item_type">
+                        <img src="${urlFor('static', `assets/svg/${item.type}.svg`)}" alt="${item.type}" class="fn__svg type_icon">
+                    </div>
+                    <div class="item_date">${formattedDate}</div>
+                </div>
+            </div>
+        </div>
+    `;
+
+    // Ajout d'un badge de type de média
+    const mediaTypeBadge = document.createElement('div');
+    mediaTypeBadge.className = `media_type_badge ${item.type}`;
+
+    // Texte du badge selon le type
+    const typeLabels = {
+        'image': 'Image',
+        'video': 'Vidéo',
+        'audio': 'Audio'
+    };
+
+    mediaTypeBadge.innerHTML = `
+        <img src="${urlFor('static', `assets/svg/${item.type}.svg`)}" alt="${item.type}" class="fn__svg type_icon">
+        <span>${typeLabels[item.type] || item.type}</span>
+    `;
+
+    // Ajouter le badge à l'élément
+    const itemInner = itemDiv.querySelector('.item_inner');
+    if (itemInner) {
+        itemInner.appendChild(mediaTypeBadge);
+    }
+
+    // Add click event to open detail modal
+    itemDiv.addEventListener('click', function() {
+        openDetailModal(item);
+    });
+
+    return itemDiv;
+}
+// Fonction d'initialisation complète
+function initializeLibraryModule() {
+    // Vérifier si les vignettes GIF sont supportées
+    const gifSupport = {
+        check: function() {
+            const testImg = document.createElement('img');
+            testImg.onload = function() {
+                gifSupport.supported = true;
+                console.log("Animation GIF supportée par le navigateur");
+            };
+            testImg.onerror = function() {
+                gifSupport.supported = false;
+                console.warn("Animation GIF non supportée, utilisation du mode fallback");
+            };
+            testImg.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
+            return gifSupport.supported !== false;
+        },
+        supported: null
+    };
+
+    // Vérifier le support des GIF
+    gifSupport.check();
+
+    // Initialiser dans l'ordre approprié
+    initMasonryLayout();
+    initHoverPreview();
+    addQuickActions();
+    addSmoothTransitions();
+    addQuickFilters();
+    enhanceMediaTypeIndicators();
+    addFullscreenSupport();
+    initLazyLoading();
+
+    console.log("Module de bibliothèque initialisé avec succès");
+}
+
+// Appeler l'initialisation
+setTimeout(initializeLibraryModule, 500);
 // 3. Transitions fluides pour les changements de vue
 function addSmoothTransitions() {
     // Ajouter une classe CSS sur le conteneur principal
