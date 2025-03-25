@@ -86,8 +86,27 @@ class MiniMaxVideoGenerator(ABC):
                     app.logger.error(f"Failed to parse additional_params JSON: {additional_params}")
                     additional_params = {}
 
+            # Traitement spécial pour l'image de référence
+            if "first_frame_image" in additional_params:
+                image_path = additional_params["first_frame_image"]
+                if os.path.exists(image_path):
+                    try:
+                        # Encoder l'image en base64
+                        with open(image_path, "rb") as img_file:
+                            import base64
+                            encoded_image = base64.b64encode(img_file.read()).decode('utf-8')
+                            payload["first_frame_image"] = encoded_image
+
+                            # Le paramètre subject_reference doit être converti en booléen
+                            if "subject_reference" in additional_params:
+                                payload["subject_reference"] = bool(additional_params["subject_reference"])
+                    except Exception as e:
+                        app.logger.error(f"Error encoding reference image: {str(e)}")
+                else:
+                    app.logger.error(f"Reference image not found at: {image_path}")
+
             # Ajouter les paramètres supportés par l'API
-            supported_params = ["prompt_optimizer", "first_frame_image", "subject_reference", "callback_url"]
+            supported_params = ["prompt_optimizer", "callback_url"]
             for param in supported_params:
                 if param in additional_params:
                     payload[param] = additional_params[param]

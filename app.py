@@ -16,6 +16,7 @@ from jwt import InvalidTokenError
 from functools import wraps
 import psycopg2
 from datetime import datetime, timedelta
+import time
 from urllib.parse import quote
 import redis
 import json
@@ -3360,8 +3361,25 @@ def generate_video(wp_user_id):
 
         # Préparer les paramètres additionnels
         additional_params = {
-            "prompt_optimizer": False,
+            "prompt_optimizer": request.form.get('prompt_optimizer', 'false').lower() == 'true'
         }
+
+        # Traitement de l'image de référence si présente
+        if 'reference_image' in request.files:
+            file = request.files['reference_image']
+            if file and allowed_file(file.filename):
+                # Stockage temporaire de l'image
+                image_data = file.read()
+                image_key = f"temp_ref_image_{wp_user_id}_{int(time.time())}"
+
+                # Stocker l'image temporairement
+                with open(f"{app.config['UPLOAD_FOLDER']}/{image_key}.jpg", "wb") as f:
+                    f.write(image_data)
+
+                # Ajouter le chemin de l'image aux paramètres
+                additional_params["first_frame_image"] = f"{app.config['UPLOAD_FOLDER']}/{image_key}.jpg"
+                additional_params["subject_reference"] = True
+
         # Options disponibles: mouvements de caméra, optimisation...
         camera_movement = request.form.get('camera_movement')
         if camera_movement and camera_movement != 'none':
@@ -3411,7 +3429,8 @@ def check_video_status(wp_user_id, task_id=None):
     app.logger.error(f"Task ID: {task_id}")
 
     if not task_id:
-        return jsonify({"success": False,
+        return jsonify({
+            "success": False,
             "status": "error",
             "error": "No task_id provided"
         }), 400
@@ -3420,36 +3439,20 @@ def check_video_status(wp_user_id, task_id=None):
         # Récupérer l'état actuel
         video_info = video_manager.get_video_by_task_id(task_id)
 
-        # Si aucune information locale n'est trouvée, essayons quand même de vérifier auprès de MiniMax
+        # Si aucune information n'est disponible, créer une entrée minimale
         if not video_info:
-            app.logger.error(f"No local information found for task_id: {task_id}, checking directly with MiniMax API")
+            app.logger.error(f"No local information for task {task_id}, creating temporary record")
+            video_key = video_manager.store_video_metadata(
+                wp_user_id,
+                task_id,
+                "Untitled video",
+                "T2V-01-Director"
+            )
+            video_info = video_manager.get_video_by_task_id(task_id)
+            if not video_info:
+                video_info = {'status': 'processing', 'video_key': video_key}
 
-            # Vérifier auprès de MiniMax directement
-            generator = ai_manager.generators.get("minimax-video")
-            if not generator:
-                return jsonify({
-                    "success": False,
-                    "error": "Video generator not available"
-                }), 500
-
-            status_response = generator.generator.check_generation_status(task_id)
-
-            if status_response.get('success'):
-                return jsonify({
-                    "success": True,
-                    "data": {
-                        "task_id": task_id,
-                        "status": status_response.get('status', 'unknown'),
-                        "direct_check": True  # Indique que c'est une vérification directe
-                    }
-                })
-            else:
-                return jsonify({
-                    "success": False,
-                    "error": "Failed to check task status"
-                }), 404
-
-        # Si complète, retourner les informations
+        # Si complète et le fichier est stocké, retourner les informations
         if video_info.get('status') == 'completed' and video_info.get('file_stored'):
             return jsonify({
                 "success": True,
@@ -3464,47 +3467,95 @@ def check_video_status(wp_user_id, task_id=None):
 
         # Sinon, vérifier auprès de l'API MiniMax
         generator = ai_manager.generators.get("minimax-video")
-        status_response = generator.generator.check_generation_status(task_id)
-
-        generator = ai_manager.generators.get("minimax-video")
         if not generator:
             return jsonify({
                 'success': False,
                 'error': "Video generator not available"
             }), 500
-        status_response = generator.generator.check_generation_status(task_id)
 
+        status_response = generator.generator.check_generation_status(task_id)
 
         # Traiter la réponse
         if status_response.get('success'):
-            status = status_response.get('status', '')
+            remote_status = status_response.get('status', '')
             file_id = status_response.get('file_id', '')
 
             # Si terminée, récupérer l'URL et mettre à jour
-            if status == "Success" and file_id:
+            if remote_status == "Success" and file_id:
                 download_url = generator.generator.get_download_url(file_id)
-                video_manager.update_video_status(task_id, 'completed', file_id, download_url)
-                return jsonify({
-                    "success": True,
-                    "data": {
-                        "status": "completed",
-                        "video_key": video_info.get('video_key'),
-                        "video_url": f"/video/{video_info.get('video_key')}"
-                    }
-                })
+
+                if download_url:
+                    video_manager.update_video_status(task_id, 'completed', file_id, download_url)
+
+                    # Tenter de télécharger immédiatement la vidéo
+                    video_data = video_manager.download_from_url(download_url)
+                    if video_data and video_info.get('video_key'):
+                        video_manager.store_video_file(video_info.get('video_key'), video_data)
+
+                    return jsonify({
+                        "success": True,
+                        "data": {
+                            "status": "completed",
+                            "video_key": video_info.get('video_key'),
+                            "video_url": f"/video/{video_info.get('video_key')}"
+                        }
+                    })
+                else:
+                    return jsonify({
+                        "success": True,
+                        "data": {
+                            "status": "url_error",
+                            "message": "Video processing complete but download URL not available"
+                        }
+                    })
 
             # Sinon, mettre à jour le statut
-            video_manager.update_video_status(task_id, status)
+            status_mapping = {
+                "Processing": "processing",
+                "Pending": "pending",
+                "Running": "processing",
+                "Fail": "failed",
+                "Error": "failed"
+            }
+
+            local_status = status_mapping.get(remote_status, remote_status)
+            video_manager.update_video_status(task_id, local_status)
+
             return jsonify({
                 "success": True,
-                "data": {"status": status}
+                "data": {
+                    "task_id": task_id,
+                    "status": local_status,
+                    "remote_status": remote_status,
+                    "video_key": video_info.get('video_key'),
+                    "progress": status_response.get('progress', 0)
+                }
             })
+        else:
+            # Erreur dans la récupération du statut depuis l'API
+            return jsonify({
+                "success": False,
+                "error": status_response.get('error', 'Failed to check task status'),
+                "data": {
+                    "status": "error",
+                    "video_key": video_info.get('video_key')
+                }
+            })
+
     except Exception as e:
         app.logger.error(f"Error checking video status: {e}")
         app.logger.error(traceback.format_exc())
 
-        return jsonify({"success": False, "error": str(e)}), 500
-
+        # Retourner une réponse d'erreur avec le plus d'informations possible
+        return jsonify({
+            "success": False,
+            "error": str(e),
+            "task_id": task_id,
+            "data": {
+                "status": "error",
+                "message": "An unexpected error occurred while checking video status"
+            }
+        }), 500
 
 @app.route('/video/<video_key>')
 def serve_video(video_key):
@@ -3830,7 +3881,13 @@ def serve_video_thumbnail(video_key):
                 'ffmpeg',
                 '-i', temp_video_path,
                 '-t', str(gif_duration),
-                '-vf', f'fps={fps},scale={width}:-1:flags=lanczos',
+                '-filter_complex',
+                # Configuration simplifiée qui préserve mieux les couleurs
+                f'fps={fps},scale={width}:-1:flags=bilinear,split[forward][temp];'
+                f'[temp]reverse[backward];'
+                f'[forward][backward]concat=n=2:v=1:a=0,split[s0][s1];'
+                f'[s0]palettegen=max_colors=256:stats_mode=diff[p];'  # Mode diff au lieu de single
+                f'[s1][p]paletteuse=dither=none',  # Pas de dithering pour éviter le grain
                 '-loop', '0',
                 '-y',
                 temp_gif_path
