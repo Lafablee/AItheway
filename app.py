@@ -3582,8 +3582,33 @@ def serve_video(video_key):
             app.logger.error(f"Erreur lors de la régénération d'URL: {str(e)}")
 
     if not video_data:
-        app.logger.error(f"Vidéo non trouvée: {video_key}")
-        return "Vidéo non trouvée", 404
+        # Si la vidéo n'est pas trouvée mais les métadonnées existent
+        metadata = storage_manager.get_metadata(video_key)
+        if metadata and 'download_url' in metadata:
+            # Tentative explicite de téléchargement
+            download_url = metadata['download_url']
+            video_data = video_manager.download_from_url(download_url)
+
+            if video_data:
+                # Stocker immédiatement
+                video_manager.store_video_file(video_key, video_data)
+                app.logger.info(f"Video {video_key} téléchargée et stockée à la demande")
+            else:
+                # Si l'URL est expirée, chercher par task_id
+                task_id = metadata.get('task_id')
+                if task_id:
+                    # Essayer de régénérer l'URL via l'API
+                    from ai_models import create_ai_manager
+                    ai_manager = create_ai_manager()
+                    generator = ai_manager.generators.get("minimax-video")
+                    if generator:
+                        status = generator.generator.check_generation_status(task_id)
+                        if status.get('file_id'):
+                            new_url = generator.generator.get_download_url(status.get('file_id'))
+                            if new_url:
+                                video_data = video_manager.download_from_url(new_url)
+                                if video_data:
+                                    video_manager.store_video_file(video_key, video_data)
 
     app.logger.info(f"Vidéo trouvée ({source}): {video_key}, taille: {len(video_data)} octets")
 

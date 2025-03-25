@@ -132,12 +132,18 @@ class VideoManager:
             app.logger.info(f"Updated video status for task {task_id} to {status}")
 
             # NOUVEAU: Si la vidéo est complétée et qu'une URL est disponible, télécharger immédiatement
-            if status == "completed" or status == "Success":
-                if download_url:
-                    # Lancement d'un thread séparé pour le téléchargement
-                    self._start_download_thread(video_key, download_url, task_id)
+            if status == "completed" or status == "Success" and download_url:
+                # Forcer le téléchargement synchrone au lieu d'un thread asynchrone
+                video_data = self.download_from_url(download_url)
+                if video_data:
+                    self.store_video_file(video_key, video_data)
+                    # Mettre à jour les métadonnées pour indiquer que le fichier a été téléchargé
+                    metadata['file_stored'] = True
+                    metadata['file_size'] = len(video_data)
+                    self.storage.store_metadata(video_key, metadata)
+                    app.logger.info(f"Video for task {task_id} downloaded and stored successfully")
                 else:
-                    app.logger.warning(f"Video {task_id} is complete but no download URL provided")
+                    app.logger.error(f"Failed to download video for task {task_id}")
 
             return True
 

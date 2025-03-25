@@ -98,38 +98,19 @@ async def migrate_old_redis_content(storage_manager, age_threshold=None):
 
                     # NOUVEAU: Traitement spécial pour les vidéos
                     if content_type == 'video':
-                        # Vérifier si la vidéo est déjà stockée localement
-                        video_data = storage_manager.get(key, content_type='videos')
-
-                        if not video_data and metadata and 'download_url' in metadata:
-                            # La vidéo n'est pas stockée localement mais une URL est disponible
-                            download_url = metadata['download_url']
-                            logger.info(f"Tentative de téléchargement de la vidéo {key} depuis {download_url}")
-
+                        metadata = storage_manager.get_metadata(key)
+                        if metadata and 'download_url' in metadata and not storage_manager.get(key,
+                                                                                               content_type='videos'):
                             try:
-                                # Importer le gestionnaire de vidéos
+                                # Forcer le téléchargement explicite avant l'expiration des URLs
                                 from video_manager import VideoManager
                                 video_manager = VideoManager(storage_manager)
-
-                                # Télécharger la vidéo
-                                video_data = video_manager.download_from_url(download_url)
-
+                                video_data = video_manager.download_from_url(metadata['download_url'])
                                 if video_data:
-                                    # Stocker le fichier vidéo
-                                    success = video_manager.store_video_file(key, video_data)
-
-                                    if success:
-                                        logger.info(
-                                            f"Vidéo {key} téléchargée et stockée avec succès lors de la migration")
-                                    else:
-                                        logger.error(f"Échec du stockage de la vidéo {key} lors de la migration")
-                                        storage_errors += 1
-                                else:
-                                    logger.warning(f"Impossible de télécharger la vidéo {key} lors de la migration")
-                                    download_errors += 1
-                            except Exception as video_error:
-                                logger.error(f"Erreur lors du téléchargement de la vidéo {key}: {str(video_error)}")
-                                download_errors += 1
+                                    video_manager.store_video_file(key, video_data)
+                                    logger.info(f"Force-downloaded video {key} during migration")
+                            except Exception as e:
+                                logger.error(f"Error downloading video {key} during migration: {str(e)}")
 
                     # Migrer le contenu
                     logger.info(f"Migration de {key} (type: {content_type}) vers le stockage disque")
