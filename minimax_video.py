@@ -86,32 +86,55 @@ class MiniMaxVideoGenerator(ABC):
                     app.logger.error(f"Failed to parse additional_params JSON: {additional_params}")
                     additional_params = {}
 
-            # Traitement spécial pour l'image de référence
+            # Gestion de l'image de référence
             if "first_frame_image" in additional_params:
-                image_path = additional_params["first_frame_image"]
-                if os.path.exists(image_path):
-                    try:
-                        # Encoder l'image en base64
-                        with open(image_path, "rb") as img_file:
-                            import base64
-                            encoded_image = base64.b64encode(img_file.read()).decode('utf-8')
-                            payload["first_frame_image"] = encoded_image
-
-                            # Le paramètre subject_reference doit être converti en booléen
-                            if "subject_reference" in additional_params:
-                                payload["subject_reference"] = bool(additional_params["subject_reference"])
-                    except Exception as e:
-                        app.logger.error(f"Error encoding reference image: {str(e)}")
+                # Si c'est déjà une chaîne base64, l'utiliser directement
+                if isinstance(additional_params["first_frame_image"], str) and len(
+                        additional_params["first_frame_image"]) > 100:
+                    # L'image est déjà encodée en base64
+                    payload["first_frame_image"] = additional_params["first_frame_image"]
+                    app.logger.error(
+                        f"Using pre-encoded base64 image, length: {len(additional_params['first_frame_image'])}")
                 else:
-                    app.logger.error(f"Reference image not found at: {image_path}")
+                    # C'est un chemin de fichier
+                    image_path = additional_params["first_frame_image"]
+                    if os.path.exists(image_path):
+                        try:
+                            # Encoder l'image en base64
+                            with open(image_path, "rb") as img_file:
+                                import base64
+                                encoded_image = base64.b64encode(img_file.read()).decode('utf-8')
+                                payload["first_frame_image"] = encoded_image
+                                app.logger.error(f"Image encoded from file, length: {len(encoded_image)}")
+                        except Exception as e:
+                            app.logger.error(f"Error encoding reference image: {str(e)}")
+                    else:
+                        app.logger.error(f"Reference image not found at: {image_path}")
 
-            # Ajouter les paramètres supportés par l'API
+            # Gérer le paramètre subject_reference (doit être un booléen)
+            if "subject_reference" in additional_params:
+                if isinstance(additional_params["subject_reference"], str):
+                    payload["subject_reference"] = additional_params["subject_reference"].lower() == 'true'
+                else:
+                    payload["subject_reference"] = bool(additional_params["subject_reference"])
+
+            # Ajouter les autres paramètres supportés par l'API
             supported_params = ["prompt_optimizer", "callback_url"]
             for param in supported_params:
                 if param in additional_params:
-                    payload[param] = additional_params[param]
+                    if param == "prompt_optimizer" and isinstance(additional_params[param], str):
+                        # Convertir les chaînes 'true'/'false' en booléens
+                        payload[param] = additional_params[param].lower() == 'true'
+                    else:
+                        payload[param] = additional_params[param]
 
-        app.logger.info(f"Creating MiniMax video generation task with payload: {payload}")
+        app.logger.info(f"Creating MiniMax video generation task with payload keys: {list(payload.keys())}")
+        # Ne pas logger le contenu complet car l'image encodée peut être très volumineuse
+        safe_payload = payload.copy()
+        if "first_frame_image" in safe_payload:
+            safe_payload[
+                "first_frame_image"] = f"[BASE64_ENCODED_IMAGE - {len(safe_payload['first_frame_image'])} chars]"
+        app.logger.info(f"Payload content (sanitized): {safe_payload}")
 
         try:
             response = requests.post(

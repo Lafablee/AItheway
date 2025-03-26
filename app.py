@@ -3330,6 +3330,7 @@ def generate_video(wp_user_id):
     """
     app.logger.error(f"=== Generate Video Request ===")
     app.logger.error(f"Form data: {request.form}")
+    app.logger.error(f"Files: {request.files}")
 
     client = get_client_by_wp_user_id(wp_user_id)
     app.logger.error(f"Client: {client}")
@@ -3346,6 +3347,11 @@ def generate_video(wp_user_id):
         prompt = request.form.get('prompt')
         model = request.form.get('model', 'T2V-01-Director')
 
+        # Si une image a été sélectionnée, changer le modèle pour Image-to-Video
+        if 'reference_image' in request.files and request.files['reference_image'].filename:
+            app.logger.error(f"Image detected, switching to I2V model")
+            model = 'I2V-01-Director'
+
         # Vérifier permissions et tokens
         if not client or not check_client_permission(client["id"], "generate_video"):
             return jsonify({"error": "Permission denied"}), 403
@@ -3361,29 +3367,45 @@ def generate_video(wp_user_id):
 
         # Préparer les paramètres additionnels
         additional_params = {
-            "prompt_optimizer": request.form.get('prompt_optimizer', 'false').lower() == 'true'
+            "prompt_optimizer": request.form.get('prompt_optimizer', 'false').lower() == 'true',
         }
 
         # Traitement de l'image de référence si présente
-        if 'reference_image' in request.files:
+        if 'reference_image' in request.files and request.files['reference_image'].filename:
             file = request.files['reference_image']
             if file and allowed_file(file.filename):
-                # Stockage temporaire de l'image
-                image_data = file.read()
-                image_key = f"temp_ref_image_{wp_user_id}_{int(time.time())}"
+                try:
+                    # Lire l'image
+                    image_data = file.read()
 
-                # Stocker l'image temporairement
-                with open(f"{app.config['UPLOAD_FOLDER']}/{image_key}.jpg", "wb") as f:
-                    f.write(image_data)
+                    # Enregistrer temporairement l'image
+                    image_filename = f"ref_img_{wp_user_id}_{int(time.time())}.jpg"
+                    image_path = os.path.join(app.config['UPLOAD_FOLDER'], image_filename)
 
-                # Ajouter le chemin de l'image aux paramètres
-                additional_params["first_frame_image"] = f"{app.config['UPLOAD_FOLDER']}/{image_key}.jpg"
-                additional_params["subject_reference"] = True
+                    app.logger.error(f"Saving reference image to {image_path}")
+                    with open(image_path, 'wb') as f:
+                        f.write(image_data)
+
+                    # Encoder l'image en Base64 pour l'API
+                    import base64
+                    encoded_image = base64.b64encode(image_data).decode('utf-8')
+
+                    # Ajouter aux paramètres
+                    additional_params["first_frame_image"] = encoded_image
+                    additional_params["subject_reference"] = True
+
+                    app.logger.error(f"Image encoded successfully, size: {len(encoded_image)} chars")
+                except Exception as e:
+                    app.logger.error(f"Error processing reference image: {str(e)}")
+                    app.logger.error(traceback.format_exc())
+                    return jsonify({'error': f"Error processing image: {str(e)}"}), 500
 
         # Options disponibles: mouvements de caméra, optimisation...
         camera_movement = request.form.get('camera_movement')
         if camera_movement and camera_movement != 'none':
             prompt = f"{prompt} [{camera_movement}]"
+
+        app.logger.error(f"Final parameters: model={model}, prompt='{prompt}', additional_params={additional_params}")
 
         # Envoyer la demande via l'AI Manager
         result = ai_manager.generate_image_sync("minimax-video", prompt, additional_params)
@@ -3398,7 +3420,8 @@ def generate_video(wp_user_id):
 
             app.logger.error(f"Got task_id from MiniMax: {task_id}")
 
-            app.logger.error(f"About to store video metadata -user_id: {wp_user_id}, task_id: {task_id}, additional_params: {additional_params}")
+            app.logger.error(
+                f"About to store video metadata -user_id: {wp_user_id}, task_id: {task_id}, additional_params: {additional_params}")
 
             video_key = video_manager.store_video_metadata(wp_user_id, task_id, prompt, model, additional_params)
 
@@ -3416,7 +3439,6 @@ def generate_video(wp_user_id):
         else:
             refund_tokens(wp_user_id, token_cost)
             return jsonify({'error': result.get('error')}), 500
-
 
 @app.route('/check_video_status/<task_id>')
 @token_required
