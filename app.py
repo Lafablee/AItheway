@@ -3381,9 +3381,42 @@ def generate_video(wp_user_id):
                     image_data = file.read()
                     app.logger.error(f"Image data read, size: {len(image_data)} bytes")
 
-                    # Encoder l'image en Base64 pour l'API
+                    # Traiter et optimiser l'image pour Minimax
                     import base64
-                    encoded_image = base64.b64encode(image_data).decode('utf-8')
+                    # Ouvrir l'image avec PIL
+                    img = Image.open(BytesIO(image_data))
+
+                    # Redimensionner l'image si nécessaire
+                    # D'après la documentation MiniMax:
+                    # - aspect ratio doit être entre 2:5 et 5:2
+                    # - le côté le plus court doit être > 300 pixels
+                    # - taille fichier < 20MB
+                    w, h = img.size
+                    ratio = w / h
+
+                    if ratio < 0.4 or ratio > 2.5:  # 2:5 = 0.4, 5:2 = 2.5
+                        app.logger.error(f"Adjusting image aspect ratio from {ratio} to fit MiniMax requirements")
+                        if ratio < 0.4:
+                            new_w = int(h * 0.4)
+                            img = img.resize((new_w, h), Image.LANCZOS)
+                        else:
+                            new_h = int(w / 2.5)
+                            img = img.resize((w, new_h), Image.LANCZOS)
+
+                    # S'assurer que le côté le plus court est > 300 pixels
+                    w, h = img.size
+                    min_side = min(w, h)
+                    if min_side < 300:
+                        scale = 300 / min_side
+                        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+
+                    # Convertir en PNG
+                    output = BytesIO()
+                    img.save(output, format="PNG", optimize=True)
+                    output.seek(0)
+
+                    # Encoder en base64
+                    encoded_image = base64.b64encode(output.getvalue()).decode('utf-8')
 
                     # Ajouter aux paramètres
                     additional_params["first_frame_image"] = encoded_image

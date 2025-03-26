@@ -56,12 +56,20 @@ class MiniMaxVideoGenerator(ABC):
     def generate_async(self, prompt, model=None, additional_params=None):
         """Crée une tâche asynchrone et retourne immédiatement le task_id"""
         try:
+            # Si first_frame_image est présent, utiliser le modèle I2V par défaut
+            if additional_params and "first_frame_image" in additional_params:
+                model = model or "T2V-01-Director"
+            else:
+                model = model or self.default_model
+            app.logger.error(f"Using model {model} for video generation")
+
             task_id = self.create_generation_task(prompt, model, additional_params)
             if task_id:
                 return {"success": True, "task_id": task_id, "status": "processing"}
             return {"success": False, "error": "Failed to create generation task"}
         except Exception as e:
             app.logger.error(f"Error in MiniMaxVideoGenerator.generate_async: {str(e)}")
+            app.logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
 
     def create_generation_task(self, prompt, model=None, additional_params=None):
@@ -95,21 +103,13 @@ class MiniMaxVideoGenerator(ABC):
 
                 # Vérifier si l'image a déjà le préfixe requis
                 if not base64_image.startswith("data:image"):
-                    # Déterminer le type MIME en fonction des premiers octets de l'image décodée
-                    import base64
                     try:
-                        # Récupérer quelques octets pour déterminer le type
-                        image_bytes = base64.b64decode(base64_image[:24])
-                        mime_type = "image/jpeg"  # Par défaut
+                        # Nettoyer d'abord la chaîne base64
+                        clean_base64 = base64_image.strip().replace('\n', '').replace('\r', '')
 
-                        # Vérifier la signature des fichiers courants
-                        if image_bytes.startswith(b'\x89PNG'):
-                            mime_type = "image/png"
-                        elif image_bytes.startswith(b'\xff\xd8'):
-                            mime_type = "image/jpeg"
-
-                        # Ajouter le préfixe MIME
-                        base64_image = f"data:{mime_type};base64,{base64_image}"
+                        # Préfixe par défaut pour PNG
+                        mime_type = "image/png"
+                        base64_image = f"data:{mime_type};base64,{clean_base64}"
                         app.logger.error(f"Added MIME prefix to base64 image: {base64_image[:50]}...")
                     except Exception as e:
                         app.logger.error(f"Error formatting base64 image: {str(e)}")
