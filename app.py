@@ -3383,40 +3383,39 @@ def generate_video(wp_user_id):
 
                     # Traiter et optimiser l'image pour Minimax
                     import base64
-                    # Ouvrir l'image avec PIL
-                    img = Image.open(BytesIO(image_data))
+                    # Définir la fonction de traitement d'image ici
+                    def process_image_for_minimax(image_data):
+                        try:
+                            img = Image.open(BytesIO(image_data))
 
-                    # Redimensionner l'image si nécessaire
-                    # D'après la documentation MiniMax:
-                    # - aspect ratio doit être entre 2:5 et 5:2
-                    # - le côté le plus court doit être > 300 pixels
-                    # - taille fichier < 20MB
-                    w, h = img.size
-                    ratio = w / h
+                            # Redimensionner pour avoir au moins 512x512
+                            width, height = img.size
+                            if width < 512 or height < 512:
+                                # Déterminer le facteur d'échelle pour atteindre au moins 512px
+                                scale = max(512 / width, 512 / height)
+                                new_width = int(width * scale)
+                                new_height = int(height * scale)
+                                img = img.resize((new_width, new_height), Image.LANCZOS)
+                                app.logger.error(f"Image resized from {width}x{height} to {new_width}x{new_height}")
 
-                    if ratio < 0.4 or ratio > 2.5:  # 2:5 = 0.4, 5:2 = 2.5
-                        app.logger.error(f"Adjusting image aspect ratio from {ratio} to fit MiniMax requirements")
-                        if ratio < 0.4:
-                            new_w = int(h * 0.4)
-                            img = img.resize((new_w, h), Image.LANCZOS)
-                        else:
-                            new_h = int(w / 2.5)
-                            img = img.resize((w, new_h), Image.LANCZOS)
+                            # Enregistrer en PNG haute qualité
+                            output = BytesIO()
+                            img.save(output, format="PNG", optimize=True, quality=95)
+                            output.seek(0)
 
-                    # S'assurer que le côté le plus court est > 300 pixels
-                    w, h = img.size
-                    min_side = min(w, h)
-                    if min_side < 300:
-                        scale = 300 / min_side
-                        img = img.resize((int(w * scale), int(h * scale)), Image.LANCZOS)
+                            # Encoder en base64
+                            encoded = base64.b64encode(output.getvalue()).decode('utf-8')
 
-                    # Convertir en PNG
-                    output = BytesIO()
-                    img.save(output, format="PNG", optimize=True)
-                    output.seek(0)
+                            return encoded
+                        except Exception as e:
+                            app.logger.error(f"Image processing error: {str(e)}")
+                            return None
 
-                    # Encoder en base64
-                    encoded_image = base64.b64encode(output.getvalue()).decode('utf-8')
+                    # Appeler la fonction pour traiter l'image
+                    encoded_image = process_image_for_minimax(image_data)
+
+                    if not encoded_image:
+                        return jsonify({'error': 'Failed to process image'}), 500
 
                     # Ajouter aux paramètres
                     additional_params["first_frame_image"] = encoded_image

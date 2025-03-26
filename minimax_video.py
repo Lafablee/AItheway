@@ -79,7 +79,11 @@ class MiniMaxVideoGenerator(ABC):
             'Content-Type': 'application/json'
         }
 
-        model = model or self.default_model
+        if additional_params and "first_frame_image" in additional_params:
+            model = "I2V-01-Director" #forcer le modèle I2V
+        else:
+            model = model or self.default_model
+        app.logger.error(f"Creating task with: {model}")
 
         payload = {
             "model": model,
