@@ -9,6 +9,91 @@ from flask import current_app as app
 from abc import ABC
 
 
+def process_image_for_minimax(image_data, max_size_mb=5):
+    """
+    Optimise l'image pour l'API MiniMax en réduisant sa taille si nécessaire
+
+    Args:
+        image_data: Données binaires de l'image
+        max_size_mb: Taille maximale en MB pour l'image encodée en base64
+
+    Returns:
+        String base64 encodée avec préfixe MIME
+    """
+    try:
+        from PIL import Image
+        import base64
+        from io import BytesIO
+
+        # Charger l'image
+        img = Image.open(BytesIO(image_data))
+        width, height = img.size
+
+        # Vérifier le ratio (doit être entre 2:5 et 5:2)
+        ratio = width / height
+        if ratio < 0.4 or ratio > 2.5:
+            app.logger.error(f"Image ratio {ratio} is outside allowed range (0.4-2.5)")
+
+        # Réduire progressivement jusqu'à obtenir une taille acceptable
+        quality = 90
+        max_size = max_size_mb * 1024 * 1024  # Convertir en bytes
+        output = BytesIO()
+
+        # Essayer avec PNG d'abord
+        img.save(output, format="PNG", optimize=True)
+        output.seek(0)
+
+        if len(output.getvalue()) > max_size:
+            # Passer à JPEG avec qualité progressive
+            for quality in [95, 85, 75, 65]:
+                output = BytesIO()
+                if img.mode == 'RGBA':
+                    # Convertir RGBA en RGB pour JPEG
+                    rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                    rgb_img.paste(img, mask=img.split()[3])
+                    rgb_img.save(output, format="JPEG", quality=quality, optimize=True)
+                else:
+                    img.save(output, format="JPEG", quality=quality, optimize=True)
+
+                output.seek(0)
+                if len(output.getvalue()) <= max_size:
+                    break
+
+            # Si toujours trop grand, redimensionner
+            if len(output.getvalue()) > max_size:
+                scale_factor = 0.8
+                while len(output.getvalue()) > max_size:
+                    new_width = int(width * scale_factor)
+                    new_height = int(height * scale_factor)
+
+                    # S'assurer que le côté le plus court reste > 300px
+                    if min(new_width, new_height) <= 300:
+                        break
+
+                    resized = img.resize((new_width, new_height), Image.LANCZOS)
+                    output = BytesIO()
+                    resized.save(output, format="JPEG", quality=quality, optimize=True)
+                    output.seek(0)
+
+                    if len(output.getvalue()) <= max_size:
+                        break
+
+                    scale_factor *= 0.8
+
+        # Encoder en base64
+        encoded_image = base64.b64encode(output.getvalue()).decode('utf-8')
+        app.logger.error(
+            f"Image processed: original {len(image_data) / 1024 / 1024:.2f}MB, encoded {len(encoded_image) / 1024 / 1024:.2f}MB")
+
+        # Déterminer le type MIME
+        mime_type = "image/jpeg" if quality < 100 else "image/png"
+        return f"data:{mime_type};base64,{encoded_image}"
+
+    except Exception as e:
+        app.logger.error(f"Error processing image: {str(e)}")
+        traceback.print_exc()
+        return None
+
 class MiniMaxVideoGenerator(ABC):
     """
     Classe pour gérer la génération de vidéos via l'API MiniMax.
@@ -76,130 +161,6 @@ class MiniMaxVideoGenerator(ABC):
             app.logger.error(f"Error in MiniMaxVideoGenerator.generate_async: {str(e)}")
             app.logger.error(traceback.format_exc())
             return {"success": False, "error": str(e)}
-
-    def process_image_for_minimax(image_data, max_size_mb=3):
-        """
-        Process an image to ensure it's suitable for MiniMax API:
-        1. Resize if too large
-        2. Convert to appropriate format
-        3. Encode to base64 with proper MIME type
-
-        Args:
-            image_data: Raw image bytes
-            max_size_mb: Maximum size in MB for the base64 encoded result
-
-        Returns:
-            Base64 encoded image string with MIME prefix
-        """
-        try:
-            from PIL import Image
-            import base64
-            from io import BytesIO
-            import math
-
-            # Load the image
-            img = BytesIO(image_data)
-            image = Image.open(img)
-
-            # Get original dimensions and format
-            width, height = image.size
-            original_format = image.format or "PNG"
-
-            # Calculate target size (aim for 75% of max to be safe)
-            target_size_bytes = int(max_size_mb * 0.75 * 1024 * 1024)
-
-            # Start with original size
-            new_width, new_height = width, height
-            output_quality = 90
-
-            # Try different compression levels if needed
-            for attempt in range(3):
-                # Create output buffer
-                output = BytesIO()
-
-                # Save with current parameters
-                if original_format == "PNG":
-                    # For PNGs, use optimize and reduce colors if needed
-                    if attempt == 0:
-                        image.save(output, format="PNG", optimize=True)
-                    elif attempt == 1:
-                        # Convert to RGB if it's RGBA
-                        if image.mode == 'RGBA':
-                            rgb_img = Image.new('RGB', image.size, (255, 255, 255))
-                            rgb_img.paste(image, mask=image.split()[3])
-                            rgb_img.save(output, format="JPEG", quality=output_quality, optimize=True)
-                        else:
-                            image.save(output, format="JPEG", quality=output_quality, optimize=True)
-                    else:
-                        # Resize to 75% dimensions (about 56% of original area)
-                        resize_factor = 0.75
-                        new_width = int(width * resize_factor)
-                        new_height = int(height * resize_factor)
-                        resized_img = image.resize((new_width, new_height), Image.LANCZOS)
-                        resized_img.save(output, format="JPEG", quality=output_quality, optimize=True)
-                else:
-                    # For JPEGs, just adjust quality
-                    if attempt == 0:
-                        image.save(output, format="JPEG", quality=output_quality, optimize=True)
-                    elif attempt == 1:
-                        output_quality = 70
-                        image.save(output, format="JPEG", quality=output_quality, optimize=True)
-                    else:
-                        # Resize to 75% dimensions
-                        resize_factor = 0.75
-                        new_width = int(width * resize_factor)
-                        new_height = int(height * resize_factor)
-                        resized_img = image.resize((new_width, new_height), Image.LANCZOS)
-                        resized_img.save(output, format="JPEG", quality=output_quality, optimize=True)
-
-                # Check if we've achieved target size
-                output.seek(0)
-                data = output.getvalue()
-                encoded = base64.b64encode(data).decode('utf-8')
-
-                app.logger.error(
-                    f"Processed image attempt {attempt + 1}: format={'JPEG' if attempt > 0 else original_format}, "
-                    f"quality={output_quality if attempt > 0 else 'default'}, "
-                    f"size={len(encoded) / 1024 / 1024:.2f}MB, "
-                    f"dimensions={new_width}x{new_height}")
-
-                if len(encoded) <= target_size_bytes:
-                    # Success - return with proper MIME type
-                    mime_type = "image/jpeg" if attempt > 0 else f"image/{original_format.lower()}"
-                    return f"data:{mime_type};base64,{encoded}"
-
-                # If still too large on final attempt, make drastic reduction
-                if attempt == 2:
-                    # Calculate how much we need to reduce
-                    size_ratio = math.sqrt(target_size_bytes / len(encoded))
-                    final_width = int(new_width * size_ratio)
-                    final_height = int(new_height * size_ratio)
-
-                    # Ensure minimum dimensions (MiniMax might require at least 512x512)
-                    final_width = max(512, final_width)
-                    final_height = max(512, final_height)
-
-                    output = BytesIO()
-                    final_img = image.resize((final_width, final_height), Image.LANCZOS)
-                    final_img.save(output, format="JPEG", quality=60, optimize=True)
-                    output.seek(0)
-                    data = output.getvalue()
-                    encoded = base64.b64encode(data).decode('utf-8')
-
-                    app.logger.error(f"Final resize: dimensions={final_width}x{final_height}, "
-                                     f"size={len(encoded) / 1024 / 1024:.2f}MB")
-
-                    return f"data:image/jpeg;base64,{encoded}"
-
-            # Shouldn't reach here due to final resize above
-            return f"data:image/jpeg;base64,{encoded}"
-
-        except Exception as e:
-            app.logger.error(f"Error processing image: {str(e)}")
-            # Return original image data with default MIME type as fallback
-            import base64
-            encoded = base64.b64encode(image_data).decode('utf-8')
-            return f"data:image/png;base64,{encoded}"
 
     def create_generation_task(self, prompt, model=None, additional_params=None):
         """Creates a video generation task and returns the task_id with improved error handling"""
