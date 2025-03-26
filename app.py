@@ -3349,7 +3349,7 @@ def generate_video(wp_user_id):
 
         # Si une image a été sélectionnée, changer le modèle pour Image-to-Video
         if 'first_frame_image' in request.files and request.files['first_frame_image'].filename:
-            app.logger.error(f"Image detected, switching to I2V model")
+            app.logger.error(f"Image detected, using for reference")
             model = 'I2V-01-Director'
 
         # Vérifier permissions et tokens
@@ -3377,50 +3377,24 @@ def generate_video(wp_user_id):
 
             if file and allowed_file(file.filename):
                 try:
-                    # Lire l'image
+                    # Read the image
                     image_data = file.read()
                     app.logger.error(f"Image data read, size: {len(image_data)} bytes")
 
-                    # Traiter et optimiser l'image pour Minimax
-                    import base64
-                    # Définir la fonction de traitement d'image ici
-                    def process_image_for_minimax(image_data):
-                        try:
-                            img = Image.open(BytesIO(image_data))
+                    # Process and optimize the image for Minimax
+                    from minimax_video import process_image_for_minimax
 
-                            # Redimensionner pour avoir au moins 512x512
-                            width, height = img.size
-                            if width < 512 or height < 512:
-                                # Déterminer le facteur d'échelle pour atteindre au moins 512px
-                                scale = max(512 / width, 512 / height)
-                                new_width = int(width * scale)
-                                new_height = int(height * scale)
-                                img = img.resize((new_width, new_height), Image.LANCZOS)
-                                app.logger.error(f"Image resized from {width}x{height} to {new_width}x{new_height}")
-
-                            # Enregistrer en PNG haute qualité
-                            output = BytesIO()
-                            img.save(output, format="PNG", optimize=True, quality=95)
-                            output.seek(0)
-
-                            # Encoder en base64
-                            encoded = base64.b64encode(output.getvalue()).decode('utf-8')
-
-                            return encoded
-                        except Exception as e:
-                            app.logger.error(f"Image processing error: {str(e)}")
-                            return None
-
-                    # Appeler la fonction pour traiter l'image
-                    encoded_image = process_image_for_minimax(image_data)
+                    # Use the improved image processing function
+                    encoded_image = process_image_for_minimax(image_data, max_size_mb=5)
 
                     if not encoded_image:
                         return jsonify({'error': 'Failed to process image'}), 500
 
-                    # Ajouter aux paramètres
+                    # Add to parameters
                     additional_params["first_frame_image"] = encoded_image
                     additional_params["subject_reference"] = True
 
+                    # Log the size of the encoded image
                     app.logger.error(f"Image encoded successfully, size: {len(encoded_image)} chars")
                 except Exception as e:
                     app.logger.error(f"Error processing reference image: {str(e)}")
