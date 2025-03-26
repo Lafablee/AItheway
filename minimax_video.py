@@ -3,6 +3,7 @@ import json
 import time
 import os
 import logging
+import traceback
 from datetime import datetime
 from flask import current_app as app
 from abc import ABC
@@ -88,10 +89,33 @@ class MiniMaxVideoGenerator(ABC):
 
             # Gestion de l'image de référence
             if "first_frame_image" in additional_params:
-                # Transférer directement l'image encodée en base64
-                payload["first_frame_image"] = additional_params["first_frame_image"]
-                app.logger.error(
-                    f"Adding base64 image to payload, length: {len(additional_params['first_frame_image'])}")
+                # L'API MiniMax peut exiger un format particulier pour l'image base64
+                # Par exemple, elle peut nécessiter un préfixe comme "data:image/png;base64,"
+                base64_image = additional_params["first_frame_image"]
+
+                # Vérifier si l'image a déjà le préfixe requis
+                if not base64_image.startswith("data:image"):
+                    # Déterminer le type MIME en fonction des premiers octets de l'image décodée
+                    import base64
+                    try:
+                        # Récupérer quelques octets pour déterminer le type
+                        image_bytes = base64.b64decode(base64_image[:24])
+                        mime_type = "image/jpeg"  # Par défaut
+
+                        # Vérifier la signature des fichiers courants
+                        if image_bytes.startswith(b'\x89PNG'):
+                            mime_type = "image/png"
+                        elif image_bytes.startswith(b'\xff\xd8'):
+                            mime_type = "image/jpeg"
+
+                        # Ajouter le préfixe MIME
+                        base64_image = f"data:{mime_type};base64,{base64_image}"
+                        app.logger.error(f"Added MIME prefix to base64 image: {base64_image[:50]}...")
+                    except Exception as e:
+                        app.logger.error(f"Error formatting base64 image: {str(e)}")
+
+                payload["first_frame_image"] = base64_image
+                app.logger.error(f"Adding base64 image to payload, length: {len(base64_image)}")
 
             # Gérer le paramètre subject_reference (doit être un booléen)
             if "subject_reference" in additional_params:
@@ -115,10 +139,17 @@ class MiniMaxVideoGenerator(ABC):
         app.logger.info(f"Creating MiniMax video generation task with payload keys: {list(payload.keys())}")
 
         try:
+            # Pour déboguer, affichez les 100 premiers caractères de l'image base64 si présente
+            if "first_frame_image" in payload:
+                app.logger.error(f"First 100 chars of image: {payload['first_frame_image'][:100]}")
+
+            # Utiliser json.dumps avec ensure_ascii=False pour préserver les caractères non-ASCII
+            json_payload = json.dumps(payload, ensure_ascii=False)
+
             response = requests.post(
                 f"{self.base_url}/video_generation",
                 headers=headers,
-                json=payload  # Utiliser json au lieu de data pour gérer automatiquement la sérialisation
+                data=json_payload
             )
 
             response_data = response.json()
@@ -132,6 +163,7 @@ class MiniMaxVideoGenerator(ABC):
 
         except Exception as e:
             app.logger.error(f"Exception in create_generation_task: {str(e)}")
+            app.logger.error(traceback.format_exc())
             return None
 
     def check_generation_status(self, task_id):
