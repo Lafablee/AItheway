@@ -3792,23 +3792,23 @@ def get_video_history(wp_user_id):
     """
     Retourne l'historique des vidéos générées par l'utilisateur
     """
-    page = request.args.get('page', 1, type=int)
-    per_page = min(50, request.args.get('per_page', 30, type=int))
+    try:
+        offset = request.args.get('offset', 0, type=int)
+        limit = request.args.get('limit', 10, type=int)
 
-    history = video_manager.get_user_video_history(wp_user_id, page, per_page)
+        history = video_manager.get_user_video_history(wp_user_id, offset, limit)
 
-    return jsonify({
-        'success': True,
-        'data': {
-            'items': history,
-            'pagination': {
-                'current_page': page,
-                'per_page': per_page,
-                'total_items': len(history),
-                'has_more': len(history) >= per_page
-            }
-        }
-    })
+        return jsonify({
+            'success': True,
+            'data': history
+        })
+    except Exception as e:
+        app.logger.error(f"Error in video history API: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 
 
 @app.route('/video-thumbnail/<video_key>')

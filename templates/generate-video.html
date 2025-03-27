@@ -23,6 +23,11 @@
                                     </div>
                                     <p>Vos créations vidéo apparaîtront ici</p>
                                 </div>
+                                <div id="loadMoreContainer" style="display: none; text-align: center; margin-top: 15px;">
+                                    <button id="loadMoreVideos" class="neltar_fn_button secondary">
+                                        <span>see more</span>
+                                    </button>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -245,6 +250,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusText = document.getElementById('statusText');
     const progressFill = document.querySelector('.progress_fill');
     const resultPrompt = document.getElementById('resultPrompt');
+    const loadMoreButton = document.getElementById('loadMoreVideos');
 
     // Options avancées
     const advancedToggle = document.getElementById('advancedToggle');
@@ -278,6 +284,11 @@ document.addEventListener('DOMContentLoaded', function() {
     let statusCheckInterval = null;
     let videoKey = null;
 
+    // Variables pour gérer la pagination
+    let currentPage = 1;
+    const itemsPerPage = 10;
+    let hasMoreVideos = false;
+
     {% if task_id %}
       statusContainer.style.display = 'block';
 
@@ -290,8 +301,8 @@ document.addEventListener('DOMContentLoaded', function() {
       });
 
       // Masquer le formulaire pendant la génération
-      if (form) {
-        form.style.display = 'none';
+      if (videoForm) {
+        videoForm.style.display = 'none';
       }
     {% endif %}
 
@@ -597,10 +608,10 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     // Fonction pour charger l'historique des vidéos
-    function loadVideoHistory() {
+    function loadVideoHistory(page = 1, append = false) {
         const urlParams = new URLSearchParams(window.location.search);
         const token = urlParams.get('token');
-        let url = '/api/video/history?page=1&per_page=10';
+        let url = `/api/video/history?page=${page}&per_page=${itemsPerPage}`;
 
         if (token) {
             url += `&token=${token}`;
@@ -611,6 +622,16 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(data => {
                 if (data.success && data.data && data.data.items) {
                     displayVideoHistory(data.data.items);
+
+                    // Mettre à jour l'état de pagination
+                    hasMoreVideos = data.data.pagination && data.data.pagination.has_more;
+                    currentPage = page;
+
+                    // Afficher ou masquer le bouton "Charger plus"
+                    const loadMoreContainer = document.getElementById('loadMoreContainer');
+                    if (loadMoreContainer) {
+                        loadMoreContainer.style.display = hasMoreVideos ? 'block' : 'none';
+                    }
                 } else {
                     console.error('Error loading video history:', data.error);
                 }
@@ -621,8 +642,9 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Fonction pour afficher l'historique des vidéos
-    function displayVideoHistory(items) {
+    function displayVideoHistory(items, append = false) {
         const historyContainer = document.getElementById('videoHistory');
+        const loadMoreContainer = document.getElementById('loadMoreContainer');
 
         // Supprimez l'état vide si des éléments sont présents
         if (items.length > 0) {
@@ -694,8 +716,23 @@ document.addEventListener('DOMContentLoaded', function() {
             fragment.appendChild(historyItem);
         });
 
-        // Insérer au début de l'historique
-        historyContainer.insertBefore(fragment, historyContainer.firstChild);
+        // Si c'est un chargement initial (non-append), vider le conteneur sauf le bouton "Charger plus"
+        if (!append) {
+            // Conserver uniquement le bouton "Charger plus" s'il existe
+            while (historyContainer.firstChild) {
+                if (historyContainer.firstChild === loadMoreContainer) {
+                    break;
+                }
+                historyContainer.removeChild(historyContainer.firstChild);
+            }
+        }
+
+        // Insérer au début de l'historique (avant le bouton "Charger plus")
+        if (loadMoreContainer) {
+            historyContainer.insertBefore(fragment, loadMoreContainer);
+        } else {
+            historyContainer.appendChild(fragment);
+        }
     }
 
     // Fonction utilitaire pour tronquer le texte
@@ -703,6 +740,14 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!text) return '';
         if (text.length <= maxLength) return text;
         return text.substring(0, maxLength) + '...';
+    }
+    // Événement pour le bouton "Charger plus"
+    if (loadMoreButton) {
+        loadMoreButton.addEventListener('click', function() {
+            if (hasMoreVideos) {
+                loadVideoHistory(currentPage + 1, true);
+            }
+        });
     }
 
     // Chargement initial de l'historique
