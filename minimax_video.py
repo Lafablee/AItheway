@@ -324,11 +324,11 @@ class MiniMaxVideoGenerator(ABC):
                 payload["first_frame_image"] = base64_image
 
             # Nettoyage et validation des autres paramètres
-            supported_params = ["prompt_optimizer", "subject_reference", "callback_url"]
+            supported_params = ["prompt_optimizer", "callback_url"]
             for param in supported_params:
                 if param in additional_params:
                     # Conversion en booléen pour les paramètres qui le nécessitent
-                    if param in ["prompt_optimizer", "subject_reference"]:
+                    if param in ["prompt_optimizer",]:
                         if isinstance(additional_params[param], str):
                             payload[param] = additional_params[param].lower() == 'true'
                         else:
@@ -342,7 +342,7 @@ class MiniMaxVideoGenerator(ABC):
         json_str = json.dumps(payload, ensure_ascii=False)
         payload_size = len(json_str) / 1024 / 1024
         app.logger.error(f"Final payload size: {payload_size:.2f} MB")
-        app.logger.error(f"Payload parameters: {str(payload)[:100]}")
+        app.logger.error(f"Payload parameters: {str(payload)[:200]}")
         try:
             # Envoi de la requête à l'API
             app.logger.error(f"Sending request to MiniMax API")
