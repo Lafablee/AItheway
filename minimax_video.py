@@ -11,197 +11,279 @@ from abc import ABC
 
 def process_image_for_minimax(image_data, max_size_mb=5):
     """
-    Optimise l'image pour l'API MiniMax en s'assurant qu'elle respecte tous les critères:
-    - Format: JPG, JPEG ou PNG
-    - Ratio d'aspect: entre 2:5 et 5:2 (donc entre 0.4 et 2.5)
-    - Dimensions minimales: côté le plus court > 300 pixels
-    - Taille du fichier: < 20MB
+    Traite et valide une image pour l'API MiniMax avec des messages d'erreur clairs pour le frontend.
+
+    Vérifie:
+    - Format: uniquement JPG, JPEG ou PNG (rejet strict des autres formats)
+    - Ratio d'aspect: entre 2:5 et 5:2 (0.4 à 2.5)
+    - Dimensions minimales: côté le plus court >= 300 pixels
+    - Taille maximale: < max_size_mb (limité à 20MB par l'API)
 
     Args:
         image_data: Données binaires de l'image
         max_size_mb: Taille maximale en MB pour l'image encodée en base64
 
     Returns:
-        String base64 encodée avec préfixe MIME
+        Un dictionnaire avec:
+        - "success": bool - True si le traitement a réussi
+        - "image": str - Image encodée en base64 avec préfixe MIME (si success=True)
+        - "error_code": str - Code d'erreur standardisé (si success=False)
+        - "error_message": str - Message d'erreur détaillé (si success=False)
+        - "corrections": list - Liste des corrections appliquées (si success=True)
     """
     try:
         from PIL import Image
         import base64
         from io import BytesIO
+        import imghdr  # Pour la détection du type d'image
         import math
 
-        # Charger l'image
-        img_buffer = BytesIO(image_data)
-        img = Image.open(img_buffer)
+        corrections = []
 
-        # 1. Vérifier et ajuster le format
-        original_format = img.format
-        app.logger.error(f"Original image format: {original_format}")
+        # Détecter le format réel de l'image (indépendamment de l'extension)
+        image_format = imghdr.what(None, h=image_data)
 
-        if original_format not in ['JPEG', 'JPG', 'PNG']:
-            app.logger.error(f"Converting {original_format} to PNG")
-            # On va convertir en PNG par défaut
-            if img.mode == 'RGBA':
-                # Garder le canal alpha pour PNG
-                new_format = 'PNG'
+        # Liste des formats autorisés par MiniMax
+        allowed_formats = {'jpeg', 'jpg', 'png'}
+
+        # 1. VALIDATION DU FORMAT
+        if image_format is None:
+            return {
+                "success": False,
+                "error_code": "INVALID_FORMAT",
+                "error_message": "Format d'image non reconnu. Seuls les formats JPG, JPEG et PNG sont acceptés."
+            }
+
+        if image_format.lower() not in allowed_formats:
+            return {
+                "success": False,
+                "error_code": "UNSUPPORTED_FORMAT",
+                "error_message": f"Format {image_format} non supporté. Seuls les formats JPG, JPEG et PNG sont acceptés."
+            }
+
+        # Charger l'image avec PIL
+        try:
+            img_buffer = BytesIO(image_data)
+            img = Image.open(img_buffer)
+            original_format = img.format
+            app.logger.error(f"Image format: {original_format}, Detected: {image_format}")
+        except Exception as e:
+            return {
+                "success": False,
+                "error_code": "CORRUPT_IMAGE",
+                "error_message": f"Impossible de traiter l'image. L'image semble corrompue: {str(e)}"
+            }
+
+        # 2. VALIDATION DES DIMENSIONS
+        width, height = img.size
+        min_side = min(width, height)
+
+        if min_side < 300:
+            return {
+                "success": False,
+                "error_code": "IMAGE_TOO_SMALL",
+                "error_message": f"L'image est trop petite. La dimension la plus petite est de {min_side}px, mais doit être d'au moins 300px."
+            }
+
+        # 3. VALIDATION DU RATIO D'ASPECT
+        ratio = width / height
+        min_ratio = 0.4  # 2:5
+        max_ratio = 2.5  # 5:2
+
+        if ratio < min_ratio or ratio > max_ratio:
+            # Calculer le ratio idéal le plus proche pour aider l'utilisateur
+            if ratio < min_ratio:
+                ideal_height = int(width / min_ratio)
+                suggestion = f"Essayez de recadrer la hauteur à {ideal_height}px (actuellement {height}px)"
             else:
-                # Sinon JPEG est plus petit
-                new_format = 'JPEG'
+                ideal_width = int(height * max_ratio)
+                suggestion = f"Essayez de recadrer la largeur à {ideal_width}px (actuellement {width}px)"
+
+            return {
+                "success": False,
+                "error_code": "INVALID_ASPECT_RATIO",
+                "error_message": f"Le ratio d'aspect {ratio:.2f} est en dehors des limites autorisées (entre 0.4 et 2.5). {suggestion}",
+                "current_ratio": round(ratio, 2),
+                "allowed_min_ratio": min_ratio,
+                "allowed_max_ratio": max_ratio
+            }
+
+        # 4. CONVERSION SI NÉCESSAIRE POUR ASSURER LA COMPATIBILITÉ
+        if original_format not in ['JPEG', 'JPG', 'PNG']:
+            new_format = 'PNG' if img.mode == 'RGBA' else 'JPEG'
+            corrections.append(f"Format converti de {original_format} à {new_format}")
         else:
             new_format = original_format
+            if new_format == 'JPG':
+                new_format = 'JPEG'  # Normaliser JPG à JPEG
 
-        # 2. Vérifier et ajuster le ratio d'aspect (entre 0.4 et 2.5)
-        width, height = img.size
-        app.logger.error(f"Original dimensions: {width}x{height}")
-
-        ratio = width / height
-        app.logger.error(f"Original aspect ratio: {ratio:.2f}")
-
-        if ratio < 0.4 or ratio > 2.5:
-            app.logger.error(f"Aspect ratio {ratio:.2f} is outside allowed range (0.4-2.5), adjusting...")
-
-            # Recadrer l'image pour obtenir un ratio acceptable
-            if ratio < 0.4:  # trop étroit
-                new_height = int(width / 0.4)
-                top = (height - new_height) // 2
-                img = img.crop((0, top, width, top + new_height))
-            elif ratio > 2.5:  # trop large
-                new_width = int(height * 2.5)
-                left = (width - new_width) // 2
-                img = img.crop((left, 0, left + new_width, height))
-
-            # Mettre à jour les dimensions après recadrage
-            width, height = img.size
-            ratio = width / height
-            app.logger.error(f"Adjusted dimensions: {width}x{height}, new ratio: {ratio:.2f}")
-
-        # 3. Vérifier les dimensions minimales (côté le plus court > 300px)
-        min_side = min(width, height)
-        if min_side < 300:
-            app.logger.error(f"Minimum dimension {min_side}px is below 300px, resizing...")
-
-            # Redimensionner tout en préservant le ratio
-            scale_factor = 300 / min_side
-            new_width = int(width * scale_factor)
-            new_height = int(height * scale_factor)
-            img = img.resize((new_width, new_height), Image.LANCZOS)
-
-            # Mettre à jour les dimensions après redimensionnement
-            width, height = img.size
-            app.logger.error(f"Resized to: {width}x{height}")
-
-        # 4. Ajuster la qualité pour respecter la limite de taille
-        max_size_bytes = int(max_size_mb * 0.75 * 1024 * 1024)  # 75% de la limite pour être sûr
-
-        # Essayer d'abord avec qualité élevée
+        # 5. OPTIMISATION DE LA TAILLE
+        max_size_bytes = int(max_size_mb * 1024 * 1024)
         quality = 95
+
+        # Premier essai à haute qualité
         output = BytesIO()
 
         if new_format == 'PNG':
-            # Options d'optimisation pour PNG
-            img.save(output, format="PNG", optimize=True, compress_level=9)
+            img.save(output, format="PNG", optimize=True)
         else:
-            # Pour JPEG, utiliser la compression par qualité
+            # Pour JPEG, gérer la conversion RGBA -> RGB si nécessaire
             if img.mode == 'RGBA':
-                # Convertir RGBA en RGB pour JPEG
                 rgb_img = Image.new('RGB', img.size, (255, 255, 255))
                 rgb_img.paste(img, mask=img.split()[3])
                 rgb_img.save(output, format="JPEG", quality=quality, optimize=True)
+                corrections.append("Canal alpha supprimé (converti de RGBA à RGB)")
             else:
                 img.save(output, format="JPEG", quality=quality, optimize=True)
 
         output.seek(0)
         data = output.getvalue()
 
-        # Si l'image est trop grande, réessayer avec différentes qualités et tailles
+        # Vérifier si l'image est trop grande et optimiser si nécessaire
         if len(data) > max_size_bytes:
             app.logger.error(f"Image is too large: {len(data) / 1024 / 1024:.2f}MB, optimizing...")
 
-            # Essayer d'abord de réduire la qualité (pour JPEG)
+            # Pour JPEG, essayer de réduire la qualité d'abord
             if new_format == 'JPEG':
                 for q in [85, 75, 65]:
                     output = BytesIO()
-                    img.save(output, format="JPEG", quality=q, optimize=True)
+
+                    if img.mode == 'RGBA':
+                        rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                        rgb_img.paste(img, mask=img.split()[3])
+                        rgb_img.save(output, format="JPEG", quality=q, optimize=True)
+                    else:
+                        img.save(output, format="JPEG", quality=q, optimize=True)
+
                     output.seek(0)
                     data = output.getvalue()
 
                     if len(data) <= max_size_bytes:
-                        app.logger.error(f"Reduced quality to {q}, new size: {len(data) / 1024 / 1024:.2f}MB")
+                        corrections.append(f"Qualité d'image réduite à {q}%")
                         break
 
-            # Si toujours trop grand, réduire les dimensions
+            # Si toujours trop grande, réduire les dimensions
             if len(data) > max_size_bytes:
-                app.logger.error("Still too large, reducing dimensions...")
-                scale = 0.9  # Réduire par étapes de 10%
+                scale = 0.9
+                original_width, original_height = width, height
 
-                while len(data) > max_size_bytes and scale > 0.1:
-                    new_width = int(width * scale)
-                    new_height = int(height * scale)
+                while len(data) > max_size_bytes and scale > 0.3:  # Limite à 30% de la taille originale
+                    new_width = int(original_width * scale)
+                    new_height = int(original_height * scale)
 
-                    # S'assurer que les dimensions minimales sont respectées
+                    # S'assurer qu'on ne descend pas sous 300px
                     if min(new_width, new_height) < 300:
+                        scale = 300 / min(original_width, original_height)
+                        new_width = int(original_width * scale)
+                        new_height = int(original_height * scale)
                         break
 
                     # Redimensionner
                     resized = img.resize((new_width, new_height), Image.LANCZOS)
 
-                    # Enregistrer avec la qualité actuelle
                     output = BytesIO()
                     if new_format == 'PNG':
-                        resized.save(output, format="PNG", optimize=True, compress_level=9)
+                        resized.save(output, format="PNG", optimize=True)
                     else:
-                        resized.save(output, format="JPEG", quality=quality, optimize=True)
+                        if resized.mode == 'RGBA':
+                            rgb_img = Image.new('RGB', resized.size, (255, 255, 255))
+                            rgb_img.paste(resized, mask=resized.split()[3])
+                            rgb_img.save(output, format="JPEG", quality=quality, optimize=True)
+                        else:
+                            resized.save(output, format="JPEG", quality=quality, optimize=True)
 
                     output.seek(0)
                     data = output.getvalue()
 
-                    app.logger.error(f"Resized to {new_width}x{new_height}, new size: {len(data) / 1024 / 1024:.2f}MB")
-
                     if len(data) <= max_size_bytes:
+                        corrections.append(
+                            f"Image redimensionnée de {original_width}x{original_height} à {new_width}x{new_height}")
                         break
 
-                    scale *= 0.9
+                    scale -= 0.1
 
-                # Si toujours trop grand après toutes les optimisations
-                if len(data) > max_size_bytes:
-                    app.logger.error("WARNING: Still exceeding size limit after optimizations")
-                    # Forcer la conversion en JPEG avec qualité minimale acceptable
-                    if new_format != 'JPEG':
-                        if img.mode == 'RGBA':
-                            # Convertir RGBA en RGB
-                            rgb_img = Image.new('RGB', img.size, (255, 255, 255))
-                            rgb_img.paste(img, mask=img.split()[3])
-                            img = rgb_img
+            # Si toujours trop grande, forcer une forte compression
+            if len(data) > max_size_bytes:
+                if new_format == 'PNG':
+                    # Convertir PNG en JPEG comme dernier recours
+                    new_format = 'JPEG'
+                    output = BytesIO()
 
-                        new_format = 'JPEG'
-                        quality = 60
+                    if img.mode == 'RGBA':
+                        rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                        rgb_img.paste(img, mask=img.split()[3])
+                        rgb_img.save(output, format="JPEG", quality=60, optimize=True)
+                    else:
+                        img.save(output, format="JPEG", quality=60, optimize=True)
 
-                        output = BytesIO()
-                        img.save(output, format="JPEG", quality=quality, optimize=True)
-                        output.seek(0)
-                        data = output.getvalue()
-                        app.logger.error(f"Forced conversion to JPEG, quality 60: {len(data) / 1024 / 1024:.2f}MB")
+                    output.seek(0)
+                    data = output.getvalue()
+                    corrections.append("Converti de PNG à JPEG pour réduire la taille")
+                else:
+                    # Déjà en JPEG, réduire encore plus la qualité
+                    output = BytesIO()
+
+                    if img.mode == 'RGBA':
+                        rgb_img = Image.new('RGB', img.size, (255, 255, 255))
+                        rgb_img.paste(img, mask=img.split()[3])
+                        rgb_img.save(output, format="JPEG", quality=50, optimize=True)
+                    else:
+                        img.save(output, format="JPEG", quality=50, optimize=True)
+
+                    output.seek(0)
+                    data = output.getvalue()
+                    corrections.append("Qualité d'image fortement réduite pour respecter la limite de taille")
+
+        # Si toujours trop grande après toutes les optimisations
+        if len(data) > max_size_bytes:
+            return {
+                "success": False,
+                "error_code": "IMAGE_TOO_LARGE",
+                "error_message": f"Impossible d'optimiser l'image en dessous de {max_size_mb}MB. L'image est actuellement de {len(data) / 1024 / 1024:.2f}MB après optimisation."
+            }
 
         # Encoder en base64
         encoded = base64.b64encode(data).decode('utf-8')
+        encoded_size_mb = len(encoded) / 1024 / 1024
 
-        # Log des informations finales
+        # Log final
         app.logger.error(
-            f"Final image: format={new_format}, dimensions={img.size}, size={len(data) / 1024 / 1024:.2f}MB, encoded={len(encoded) / 1024 / 1024:.2f}MB")
+            f"Final image: format={new_format}, size={len(data) / 1024 / 1024:.2f}MB, encoded={encoded_size_mb:.2f}MB")
 
-        # Ajouter le préfixe MIME approprié
-        if new_format == 'JPEG':
-            mime_type = "image/jpeg"
-        else:
-            mime_type = "image/png"
+        # Préfixe MIME
+        mime_type = "image/jpeg" if new_format == 'JPEG' else "image/png"
+        base64_image = f"data:{mime_type};base64,{encoded}"
 
-        return f"data:{mime_type};base64,{encoded}"
+        # Vérifications finales
+        if encoded_size_mb > 20:  # Limite absolue de MiniMax
+            return {
+                "success": False,
+                "error_code": "ENCODED_SIZE_LIMIT",
+                "error_message": f"L'image encodée dépasse la limite de 20MB imposée par le service. Taille actuelle: {encoded_size_mb:.2f}MB."
+            }
+
+        # Succès
+        return {
+            "success": True,
+            "image": base64_image,
+            "format": new_format,
+            "dimensions": f"{img.size[0]}x{img.size[1]}",
+            "ratio": round(img.size[0] / img.size[1], 2),
+            "size_mb": round(len(data) / 1024 / 1024, 2),
+            "encoded_size_mb": round(encoded_size_mb, 2),
+            "corrections": corrections if corrections else ["Aucune correction nécessaire"]
+        }
 
     except Exception as e:
-        app.logger.error(f"Error processing image: {str(e)}")
         import traceback
+        app.logger.error(f"Error processing image: {str(e)}")
         app.logger.error(traceback.format_exc())
-        return None
+
+        return {
+            "success": False,
+            "error_code": "PROCESSING_ERROR",
+            "error_message": f"Erreur lors du traitement de l'image: {str(e)}"
+        }
 
 class MiniMaxVideoGenerator(ABC):
     """

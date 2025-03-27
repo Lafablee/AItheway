@@ -3370,36 +3370,74 @@ def generate_video(wp_user_id):
             "prompt_optimizer": request.form.get('prompt_optimizer', 'false').lower() == 'true',
         }
 
-        # Traitement de l'image de référence si présente
+        # Dans la section de traitement d'image de votre route /generate_video:
         if 'first_frame_image' in request.files and request.files['first_frame_image'].filename:
             file = request.files['first_frame_image']
             app.logger.error(f"Processing image file: {file.filename}")
 
             if file and allowed_file(file.filename):
                 try:
-                    # Read the image
+                    # Lire l'image
                     image_data = file.read()
                     app.logger.error(f"Image data read, size: {len(image_data)} bytes")
 
-                    # Process and optimize the image for Minimax
+                    # Traiter l'image avec la fonction améliorée
                     from minimax_video import process_image_for_minimax
+                    result = process_image_for_minimax(image_data, max_size_mb=5)
 
-                    # Use the improved image processing function
-                    encoded_image = process_image_for_minimax(image_data, max_size_mb=5)
+                    if not result["success"]:
+                        # Rembourser les tokens à l'utilisateur en cas d'erreur
+                        refund_tokens(wp_user_id, token_cost)
 
-                    if not encoded_image:
-                        return jsonify({'error': 'Failed to process image'}), 500
+                        app.logger.error(f"Image processing error: {result['error_code']} - {result['error_message']}")
 
-                    # Add to parameters
+                        # Renvoyer une réponse d'erreur structurée au frontend
+                        return jsonify({
+                            'error': result['error_message'],
+                            'error_code': result['error_code'],
+                            'success': False,
+                            'tokens_refunded': token_cost
+                        }), 400
+
+                    # Image traitée avec succès
+                    encoded_image = result["image"]
+
+                    # Ajouter aux paramètres
                     additional_params["first_frame_image"] = encoded_image
                     additional_params["subject_reference"] = True
 
-                    # Log the size of the encoded image
-                    app.logger.error(f"Image encoded successfully, size: {len(encoded_image)} chars")
+                    # Informations sur les corrections appliquées
+                    if result.get("corrections") and result["corrections"] != ["Aucune correction nécessaire"]:
+                        app.logger.error(f"Image corrections applied: {result['corrections']}")
+
+                    app.logger.error(
+                        f"Image encoded successfully: format={result['format']}, dimensions={result['dimensions']}, "
+                        f"ratio={result['ratio']}, size={result['size_mb']}MB, encoded={result['encoded_size_mb']}MB")
+
                 except Exception as e:
+                    # Rembourser les tokens en cas d'erreur
+                    refund_tokens(wp_user_id, token_cost)
+
                     app.logger.error(f"Error processing reference image: {str(e)}")
                     app.logger.error(traceback.format_exc())
-                    return jsonify({'error': f"Error processing image: {str(e)}"}), 500
+
+                    return jsonify({
+                        'error': f"Erreur lors du traitement de l'image: {str(e)}",
+                        'error_code': 'PROCESSING_ERROR',
+                        'success': False,
+                        'tokens_refunded': token_cost
+                    }), 500
+            else:
+                # Rembourser les tokens si le format du fichier n'est pas autorisé
+                refund_tokens(wp_user_id, token_cost)
+
+                allowed_extensions = ", ".join(app.config['ALLOWED_EXTENSIONS'])
+                return jsonify({
+                    'error': f"Format de fichier non autorisé. Formats acceptés: {allowed_extensions}",
+                    'error_code': 'INVALID_FILE_FORMAT',
+                    'success': False,
+                    'tokens_refunded': token_cost
+                }), 400
 
         # Options de mouvement de caméra
         camera_movement = request.form.get('camera_movement')
