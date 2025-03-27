@@ -342,7 +342,7 @@ class MiniMaxVideoGenerator(ABC):
         json_str = json.dumps(payload, ensure_ascii=False)
         payload_size = len(json_str) / 1024 / 1024
         app.logger.error(f"Final payload size: {payload_size:.2f} MB")
-        app.logger.info(f"Payload parameters: {str(payload)[:100]}")
+        app.logger.error(f"Payload parameters: {str(payload)[:100]}")
         try:
             # Envoi de la requête à l'API
             app.logger.error(f"Sending request to MiniMax API")
