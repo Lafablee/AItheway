@@ -391,51 +391,95 @@ class VideoManager:
             app.logger.error(f"Error downloading video from URL {url}: {str(e)}")
             return None
 
-    def get_user_video_history(self, user_id, page=1, per_page=30):
-        """
-        Récupère l'historique des vidéos d'un utilisateur.
-        Inclut des informations sur le statut de téléchargement.
-        """
+    def get_user_video_history(self, user_id, page=1, per_page=10):
         try:
-            # Récupère les clés des vidéos de l'utilisateur
+            # Liste pour stocker toutes les références de vidéos
+            all_video_keys = []
+
+            # 1. Récupérer les références depuis Redis
             user_index_key = f"user:{user_id}:videos"
+            redis_keys = self.storage.redis.lrange(user_index_key, 0, -1)  # Récupérer TOUTES les clés
+
+            # Convertir en strings si nécessaire
+            redis_keys = [k.decode('utf-8') if isinstance(k, bytes) else k for k in redis_keys]
+            all_video_keys.extend(redis_keys)
+
+            # 2. Vérifier également le système de fichiers pour les vidéos migrées
+            metadata_dir = os.path.join(self.storage.file_storage.base_path, 'metadata')
+            if os.path.exists(metadata_dir):
+                for root, dirs, files in os.walk(metadata_dir):
+                    for file in files:
+                        try:
+                            with open(os.path.join(root, file), 'r') as f:
+                                metadata = json.load(f)
+
+                            # Vérifier si c'est une vidéo de cet utilisateur
+                            if (metadata.get('type') == 'video' and
+                                    metadata.get('user_id') == str(user_id)):
+
+                                # Récupérer la clé originale
+                                video_key = metadata.get('original_redis_key', file)
+
+                                # Vérifier si elle n'est pas déjà dans la liste
+                                if video_key not in all_video_keys:
+                                    all_video_keys.append(video_key)
+                        except Exception as e:
+                            app.logger.error(f"Error reading metadata file {file}: {str(e)}")
+
+            # 3. Trier les clés par timestamp (plus récent en premier)
+            def get_timestamp(key):
+                parts = key.split(':')
+                if len(parts) >= 4:
+                    try:
+                        return float(parts[-1])  # Le timestamp est la dernière partie
+                    except:
+                        return 0
+                return 0
+
+            all_video_keys.sort(key=get_timestamp, reverse=True)
+
+            # 4. Appliquer la pagination
+            total_items = len(all_video_keys)
             start_idx = (page - 1) * per_page
-            end_idx = start_idx + per_page - 1
+            end_idx = min(start_idx + per_page, total_items)
 
-            # Récupère les clés avec pagination
-            video_keys = self.storage.redis.lrange(user_index_key, start_idx, end_idx)
+            # Vérifier les limites de pagination
+            if start_idx >= total_items:
+                if total_items > 0:  # S'il y a des éléments mais page trop élevée
+                    # Revenir à la dernière page valide
+                    page = (total_items + per_page - 1) // per_page
+                    start_idx = (page - 1) * per_page
+                    end_idx = min(start_idx + per_page, total_items)
+                else:
+                    # Aucun élément, rester à page 1
+                    start_idx = 0
+                    end_idx = 0
 
-            if not video_keys:
-                return []
+            # Extraire les clés pour cette page
+            paged_keys = all_video_keys[start_idx:end_idx]
 
-            # Pour chaque clé, récupère les métadonnées
+            # 5. Récupérer les métadonnées pour chaque clé
             videos = []
-            for key_bytes in video_keys:
-                key = key_bytes.decode('utf-8') if isinstance(key_bytes, bytes) else key_bytes
+            for key in paged_keys:
                 metadata = self.storage.get_metadata(key)
 
                 if metadata:
-                    # Ajoute la clé vidéo aux métadonnées
+                    # Ajouter la clé et l'URL
                     metadata['video_key'] = key
-
-                    # Ajoute l'URL de la vidéo
                     metadata['video_url'] = f"/video/{key}"
-
-                    # Vérifie si le fichier vidéo est disponible localement
-                    has_local_file = self.storage.get(key, content_type='videos') is not None
-                    metadata['has_local_file'] = has_local_file
-
-                    # Si le statut n'existe pas, le définir en fonction de la disponibilité
-                    if 'download_status' not in metadata:
-                        metadata['download_status'] = 'complete' if has_local_file else 'pending'
-
                     videos.append(metadata)
 
-            # Trie par date (les plus récentes d'abord)
-            videos.sort(key=lambda v: v.get('timestamp', ''), reverse=True)
-
-            return videos
-
+            # 6. Retourner avec des informations de pagination complètes
+            return {
+                'items': videos,
+                'pagination': {
+                    'current_page': page,
+                    'per_page': per_page,
+                    'total_items': total_items,
+                    'total_pages': max(1, (total_items + per_page - 1) // per_page),
+                    'has_more': end_idx < total_items
+                }
+            }
         except Exception as e:
             app.logger.error(f"Error getting user video history: {str(e)}")
             return []
