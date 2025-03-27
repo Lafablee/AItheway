@@ -620,8 +620,9 @@ document.addEventListener('DOMContentLoaded', function() {
         fetch(url)
             .then(response => response.json())
             .then(data => {
+                console.log('API response', data)
                 if (data.success && data.data && data.data.items) {
-                    displayVideoHistory(data.data.items);
+                    displayVideoHistory(data.data.items, append);
 
                     // Mettre à jour l'état de pagination
                     hasMoreVideos = data.data.pagination && data.data.pagination.has_more;
@@ -633,7 +634,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         loadMoreContainer.style.display = hasMoreVideos ? 'block' : 'none';
                     }
                 } else {
-                    console.error('Error loading video history:', data.error);
+                    console.error('Error loading video history:', data.error || 'No data returned');
                 }
             })
             .catch(error => {
