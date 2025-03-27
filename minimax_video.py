@@ -190,7 +190,11 @@ def process_image_for_minimax(image_data, max_size_mb=5):
             f"Final image: format={new_format}, dimensions={img.size}, size={len(data) / 1024 / 1024:.2f}MB, encoded={len(encoded) / 1024 / 1024:.2f}MB")
 
         # Ajouter le préfixe MIME approprié
-        mime_type = "image/jpeg" if new_format == 'JPEG' else "image/png"
+        if new_format == 'JPEG':
+            mime_type = "image/jpeg"
+        else:
+            mime_type = "image/png"
+
         return f"data:{mime_type};base64,{encoded}"
 
     except Exception as e:
@@ -269,10 +273,16 @@ class MiniMaxVideoGenerator(ABC):
 
     def create_generation_task(self, prompt, model=None, additional_params=None):
         """Crée une tâche de génération et retourne le task_id avec traitement d'erreur amélioré"""
+
+        """TEMP"""
         headers = {
             'authorization': f'Bearer {self.api_key}',
             'Content-Type': 'application/json'
         }
+
+
+        """/TEMP"""
+
 
         # Assurer que le modèle est correctement choisi
         if additional_params and "first_frame_image" in additional_params:
@@ -305,7 +315,7 @@ class MiniMaxVideoGenerator(ABC):
                 # Vérifier si l'image est correctement formatée
                 if not base64_image.startswith("data:image/"):
                     app.logger.error("Image missing MIME prefix, adding it")
-                    base64_image = f"data:image/png;base64,{base64_image}"
+                    base64_image = f"data:image/jpeg;base64,{base64_image}"
 
                 # Vérifier la taille de l'image encodée
                 image_size_mb = len(base64_image) / 1024 / 1024
@@ -332,7 +342,7 @@ class MiniMaxVideoGenerator(ABC):
         json_str = json.dumps(payload, ensure_ascii=False)
         payload_size = len(json_str) / 1024 / 1024
         app.logger.error(f"Final payload size: {payload_size:.2f} MB")
-
+        app.logger.error(f"parameters: {payload.keys()}")
         try:
             # Envoi de la requête à l'API
             app.logger.error(f"Sending request to MiniMax API")
@@ -370,7 +380,7 @@ class MiniMaxVideoGenerator(ABC):
 
                 # Messages d'erreur spécifiques
                 if status_code == 2013:  # invalid params
-                    # Vérifier quelle partie du payload pose problème
+                    # Vérifier quelle partie du èpad pose problème
                     if model != "I2V-01-Director" and "first_frame_image" in payload:
                         app.logger.error(f"Image was provided but model {model} doesn't support images!")
                     elif "first_frame_image" in payload:
