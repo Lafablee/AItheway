@@ -3793,7 +3793,7 @@ def get_video_history(wp_user_id):
     Retourne l'historique des vidéos générées par l'utilisateur
     """
     page = request.args.get('page', 1, type=int)
-    per_page = min(50, request.args.get('per_page', 10, type=int))
+    per_page = min(50, request.args.get('per_page', 30, type=int))
 
     history = video_manager.get_user_video_history(wp_user_id, page, per_page)
 

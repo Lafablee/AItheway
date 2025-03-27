@@ -391,7 +391,7 @@ class VideoManager:
             app.logger.error(f"Error downloading video from URL {url}: {str(e)}")
             return None
 
-    def get_user_video_history(self, user_id, page=1, per_page=10):
+    def get_user_video_history(self, user_id, page=1, per_page=30):
         """
         Récupère l'historique des vidéos d'un utilisateur.
         Inclut des informations sur le statut de téléchargement.
