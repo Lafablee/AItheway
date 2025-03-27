@@ -621,25 +621,37 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 console.log('API response', data)
+                // Si la réponse est dans le nouveau format (avec data.data.items)
                 if (data.success && data.data && data.data.items) {
                     displayVideoHistory(data.data.items, append);
 
-                    // Mettre à jour l'état de pagination
+                    // Mettre à jour l'état de pagination s'il existe
                     hasMoreVideos = data.data.pagination && data.data.pagination.has_more;
                     currentPage = page;
+                }
+                // Si la réponse est dans l'ancien format (liste directe)
+                else if (data.success && Array.isArray(data.data)) {
+                    displayVideoHistory(data.data, append);
 
-                    // Afficher ou masquer le bouton "Charger plus"
-                    const loadMoreContainer = document.getElementById('loadMoreContainer');
-                    if (loadMoreContainer) {
-                        loadMoreContainer.style.display = hasMoreVideos ? 'block' : 'none';
-                    }
-                } else {
+                    // On suppose qu'il y a plus d'éléments si la liste n'est pas vide
+                    // Cela n'est pas idéal mais c'est une solution temporaire
+                    hasMoreVideos = data.data.length >= itemsPerPage;
+                    currentPage = page;
+                }
+                // En cas d'erreur
+                else {
                     console.error('Error loading video history:', data.error || 'No data returned');
                 }
-            })
-            .catch(error => {
-                console.error('Error fetching video history:', error);
-            });
+
+                // Afficher ou masquer le bouton "Charger plus"
+                const loadMoreContainer = document.getElementById('loadMoreContainer');
+                if (loadMoreContainer) {
+                    loadMoreContainer.style.display = hasMoreVideos ? 'block' : 'none';
+                }
+        })
+        .catch(error => {
+            console.error('Error fetching video history:', error);
+        });
     }
 
     // Fonction pour afficher l'historique des vidéos
