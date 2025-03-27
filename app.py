@@ -3793,7 +3793,7 @@ def get_video_history(wp_user_id):
     Retourne l'historique des vidéos générées par l'utilisateur
     """
     page = request.args.get('page', 1, type=int)
-    per_page = min(50, request.args.get('per_page', 10, type=int))
+    per_page = min(50, request.args.get('per_page', 30, type=int))
 
     history = video_manager.get_user_video_history(wp_user_id, page, per_page)
 
@@ -4615,42 +4615,23 @@ def get_library_items(wp_user_id):
         # 2. Fetch videos if requested
         if content_type in ['all', 'video']:
             try:
-                videos_response = video_manager.get_user_video_history(wp_user_id)
-
-                # Vérifier si c'est un dictionnaire avec 'items' ou directement une liste
-                if isinstance(videos_response, dict) and 'items' in videos_response:
-                    videos = videos_response['items']
-                else:
-                    videos = videos_response  # Supposer que c'est directement la liste
+                videos = video_manager.get_user_video_history(wp_user_id)
 
                 for video in videos:
-                    if isinstance(video, dict) and video.get('status') == 'completed':
-                        # Traiter la vidéo comme un dictionnaire
+                    if video.get('status') == 'completed':
                         item = {
                             'id': video.get('video_key', ''),
-                            # ...autres champs...
+                            'type': 'video',
+                            'url': f"/video/{video.get('video_key', '')}",
+                            'thumbnail_url': f"/video-thumbnail/{video.get('video_key', '')}",  # Anim thumbnail
+                            'description': video.get('prompt', ''),
+                            'timestamp': video.get('timestamp', ''),
+                            'model': video.get('model', 'default'),
+                            'duration': video.get('duration', 0)
                         }
                         all_items.append(item)
-                    elif isinstance(video, str):
-                        # Si c'est une chaîne, c'est probablement juste la clé
-                        app.logger.warning(f"Received string instead of dict for video: {video}")
-                        # Tenter de récupérer les métadonnées manuellement
-                        metadata = storage_manager.get_metadata(video)
-                        if metadata and metadata.get('status') == 'completed':
-                            item = {
-                                'id': video,
-                                'type': 'video',
-                                'url': f"/video/{video}",
-                                'thumbnail_url': f"/video-thumbnail/{video}",
-                                'description': metadata.get('prompt', ''),
-                                'timestamp': metadata.get('timestamp', ''),
-                                'model': metadata.get('model', 'default')
-                            }
-                            all_items.append(item)
             except Exception as e:
                 app.logger.error(f"Error fetching videos: {str(e)}")
-                app.logger.error(traceback.format_exc())
-
         # 3. Fetch audio if requested
         if content_type in ['all', 'audio']:
             try:
